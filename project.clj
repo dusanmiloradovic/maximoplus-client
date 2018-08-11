@@ -1,4 +1,4 @@
-(defproject maximoplus "1.0.0-SNAPSHOT"
+(defproject maximoplus-client "1.0.0-SNAPSHOT"
   :description "core maximoplus client - clojurescript library"
   :dependencies [
                  [org.clojure/clojurescript  "1.10.339"]
