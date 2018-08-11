@@ -1,0 +1,14 @@
+{
+   "name": "maximoplus-core",
+   "version": "2.1.18",
+   "description": "MaximoPlus core module",
+   "main": "main.js",
+   "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+   },
+   "keywords": [
+      "MaximoPlus"
+   ],
+   "author": "Dusan Miloradovic",
+   "license": "ISC"
+}
