@@ -32,12 +32,12 @@
   []
   ;;if the user
   (if (exists? js/SQLite)
-      SQLITENATIVE
-      (if (exists? js/sqlitePlugin)
-          SQLITE
-          (if (exists? js/openDatabase)
-              WEBSQL
-              INDEXEDDB))))
+    SQLITENATIVE
+    (if (exists? js/sqlitePlugin)
+      SQLITE
+      (if (exists? js/openDatabase)
+        WEBSQL
+        INDEXEDDB))))
 
 
 
@@ -88,14 +88,14 @@
     (idb/ddl objects raw?))
   (ddl-internal
     [this objects raw? readonly?]
-     (idb/ddl objects raw? readonly?))
+    (idb/ddl objects raw? readonly?))
   (dml-internal
     [this objects]
     (idb/ddl objects))
   (dml-internal
     [this objects raw?]
     (idb/ddl objects raw?))
-    (dml-internal
+  (dml-internal
     [this objects raw? readonly?]
     (idb/ddl objects raw? readonly?))
   (exist-object-internal?
@@ -109,7 +109,7 @@
     (->
      (idb/get-database)
      (p/then (fn [db]
-             (aget db "objectStoreNames")))
+               (aget db "objectStoreNames")))
      ))
   (-update
     [this object]
@@ -133,18 +133,18 @@
                      (= table-name (:objectName x))
                      )})
      (p/then (fn [[res]]
-             (if-let [qbe (:offlineqbe res)]
-               {:where
-                (fn [x]
-                  (when (or (not parent-id) (= parent-id (aget x "parentid")))
-                    (loop [qbe-cols (keys qbe)]
-                      (if (empty? qbe-cols)
-                        true
-                        (let [qbe-col (first qbe-cols)]
-                          (if-not (column-qbe-true? x (name qbe-col) (qbe qbe-col))
-                            false
-                            (recur (rest qbe-cols))))))))}
-               (if-not parent-id {:where (fn[x] true)} {:where #(= parent-id (aget % "parentid"))}))))))
+               (if-let [qbe (:offlineqbe res)]
+                 {:where
+                  (fn [x]
+                    (when (or (not parent-id) (= parent-id (aget x "parentid")))
+                      (loop [qbe-cols (keys qbe)]
+                        (if (empty? qbe-cols)
+                          true
+                          (let [qbe-col (first qbe-cols)]
+                            (if-not (column-qbe-true? x (name qbe-col) (qbe qbe-col))
+                              false
+                              (recur (rest qbe-cols))))))))}
+                 (if-not parent-id {:where (fn[x] true)} {:where #(= parent-id (aget % "parentid"))}))))))
   (-get-unique-id [this rel-name _parent-id rownum]
     (let [parent-id (if _parent-id _parent-id -1)]
       (->
@@ -163,7 +163,7 @@
       [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName"}]
       true true)
      (p/then (fn [res]
-             (aget res 0)))))
+               (aget res 0)))))
   (-get-column-names
     [this object-name]
     (->
@@ -171,29 +171,29 @@
       [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName"}]
       true true)
      (p/then (fn [_res]
-             (let [res (-> _res (aget 0) (aget "columnsMeta"))]
-               (loop [vec [] i 0]
-                 (if (= i (.-length res))
-                   vec
-                   (recur (conj vec (aget (aget res i) "attributeName")) (inc i)))))))))
+               (let [res (-> _res (aget 0) (aget "columnsMeta"))]
+                 (loop [vec [] i 0]
+                   (if (= i (.-length res))
+                     vec
+                     (recur (conj vec (aget (aget res i) "attributeName")) (inc i)))))))))
   (-get-changed-object-values [this object-name]
     (->
      (dml1 {:type :select :name object-name :where :changed})
      (p/then (fn [ok]
-             [object-name (map (fn[v] (-> v :changedValue (assoc :uniqueid (:uniqueid v) :parentid (:parentid v)))) ok)]))))
+               [object-name (map (fn[v] (-> v :changedValue (assoc :uniqueid (:uniqueid v) :parentid (:parentid v)))) ok)]))))
   (-get-return-list-value [this list-table-name rownum]
     (->
      (get-unique-id list-table-name nil rownum)
      (p/then (fn [id]
-             (->
-              (dml
-               [{:type :select-by-key :name "objectMeta" :key list-table-name :key-name "objectName"}
-                {:type :select-by-key :name list-table-name :key id :key-name "uniqueid"}             
-                ] true true)
-              (p/then (fn [res]
-                      (let [return-column (-> res (aget 0) (aget "returnColumn") (.toUpperCase))
-                            ret-obj (-> res (aget 1))]
-                        (aget ret-obj return-column)))))))))
+               (->
+                (dml
+                 [{:type :select-by-key :name "objectMeta" :key list-table-name :key-name "objectName"}
+                  {:type :select-by-key :name list-table-name :key id :key-name "uniqueid"}             
+                  ] true true)
+                (p/then (fn [res]
+                          (let [return-column (-> res (aget 0) (aget "returnColumn") (.toUpperCase))
+                                ret-obj (-> res (aget 1))]
+                            (aget ret-obj return-column)))))))))
   )
 
 ;;WebSql and Sqlite are the same, setting the dialect will handle the difference
@@ -240,19 +240,19 @@
       (->
        (sqlite/dml [(assoc object :type :select :qbe qbe-where)])
        (p/then (fn [[rez]]
-               (if-not where-f
-                 rez
-                 (filter
-                  (fn [r]
-                    (-> r (aget sqlite/json-store-column) u/read-json where-f))
-                  rez))))
+                 (if-not where-f
+                   rez
+                   (filter
+                    (fn [r]
+                      (-> r (aget sqlite/json-store-column) u/read-json where-f))
+                    rez))))
        (p/then (fn [filtered]
-               (sqlite/dml
-                (map
-                 (fn [r]
-                   (let [val (-> r (aget sqlite/json-store-column) u/read-json updf)]
-                     (assoc object :type :update :qbe {key-name ["=" (aget r key-name)]} :updateObject {sqlite/json-store-column (u/create-json val)} )))
-                 filtered)))))))
+                 (sqlite/dml
+                  (map
+                   (fn [r]
+                     (let [val (-> r (aget sqlite/json-store-column) u/read-json updf)]
+                       (assoc object :type :update :qbe {key-name ["=" (aget r key-name)]} :updateObject {sqlite/json-store-column (u/create-json val)} )))
+                   filtered)))))))
   (-select
     [this object]
     (let [updf (:update object)
@@ -266,29 +266,29 @@
       (->
        (sqlite/dml [(assoc object :type :select :qbe qbe-where)])
        (p/then (fn [[rez]]
-               (if-not where-f
-                 rez
-                 (filter
-                  (fn [r]
-                    (-> r (aget sqlite/json-store-column) u/read-json where-f))
-                  rez))))
+                 (if-not where-f
+                   rez
+                   (filter
+                    (fn [r]
+                      (-> r (aget sqlite/json-store-column) u/read-json where-f))
+                    rez))))
        (p/then (fn [filtered]
-               (map
-                (fn [r]
-                  (-> r (aget sqlite/json-store-column) u/read-json))
-                filtered)
-               )))))
+                 (map
+                  (fn [r]
+                    (-> r (aget sqlite/json-store-column) u/read-json))
+                  filtered)
+                 )))))
   (-delete
     [this object]
     (->
      (-select this object)
      (p/then (fn [rez]
-             (sqlite/dml {:type :delete :name (:name object) :qbe
-                          {"uniqueid" ["="
-                                       (map
-                                        (fn [res]
-                                          (-> res (aget sqlite/json-store-column) u/read-json (aget "uniqueid")))
-                                        rez)]}}))))
+               (sqlite/dml {:type :delete :name (:name object) :qbe
+                            {"uniqueid" ["="
+                                         (map
+                                          (fn [res]
+                                            (-> res (aget sqlite/json-store-column) u/read-json (aget "uniqueid")))
+                                          rez)]}}))))
     )
   (-get-changed-value [this value] (when-let [cv  (aget value "changedValue")] (u/read-json cv)))
   (-set-changed-value [this value cval] (do (aset value "changedValue" (u/create-json cval)) value))
@@ -298,19 +298,19 @@
     (->
      (dml1 {:type :select :name "objectQbe" :key table-name  :key-name "objectName"})
      (p/then (fn [[res]]
-             (if-let [qbe (when res (aget res "offlineqbe"))]
-               {:qbe qbe}
-               (when parent-id
-                 {:qbe {"parentid" ["=" parent-id]}}
-                 ))))))
+               (if-let [qbe (when res (aget res "offlineqbe"))]
+                 {:qbe qbe}
+                 (when parent-id
+                   {:qbe {"parentid" ["=" parent-id]}}
+                   ))))))
   (-get-unique-id
     [this rel-name _parent-id rownum]
     (let [parent-id (if _parent-id _parent-id -1)]
       (->
        (dml1 {:type :select :name rel-name :qbe {"parentid" ["=" parent-id] "rownum" ["=" rownum]}})
        (p/then (fn [[res]]
-               (when res
-                 (aget res "uniqueid")))))))
+                 (when res
+                   (aget res "uniqueid")))))))
   (-get-flags-array
     [this val]
     (if-not val
@@ -324,30 +324,30 @@
       [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName"}]
       true true)
      (p/then (fn [res]
-             (when-not (empty? res)
-               (-> res first first (aget sqlite/json-store-column) u/read-json ))))))
+               (when-not (empty? res)
+                 (-> res first first (aget sqlite/json-store-column) u/read-json ))))))
   (-get-column-names
     [this object-name]
     (->
      (-get-object-meta this object-name)
      (p/then (fn [_res]
-             (let [res (-> _res (aget "columnsMeta"))]
-               (loop [vec [] i 0]
-                 (if (= i (.-length res))
-                   vec
-                   (recur (conj vec (aget (aget res i) "attributeName")) (inc i)))))))))
+               (let [res (-> _res (aget "columnsMeta"))]
+                 (loop [vec [] i 0]
+                   (if (= i (.-length res))
+                     vec
+                     (recur (conj vec (aget (aget res i) "attributeName")) (inc i)))))))))
   (-get-changed-object-values
     [this object-name]
     (->
      (dml1 {:type :select :name object-name :sqlwhere " changedValue is not null"})
      (p/then (fn [ok]
-             [object-name (map
-                           (fn [v] (-> v
-                                       (aget "changedValue")
-                                       u/read-json
-                                       (js->clj :keywordize-keys true)
-                                       (assoc :uniqueid (aget v "uniqueid") :parentid (aget v "parentind"))))
-                           ok)]))))
+               [object-name (map
+                             (fn [v] (-> v
+                                         (aget "changedValue")
+                                         u/read-json
+                                         (js->clj :keywordize-keys true)
+                                         (assoc :uniqueid (aget v "uniqueid") :parentid (aget v "parentind"))))
+                             ok)]))))
   (-get-return-list-value
     [this list-table-name rownum]
     (->
@@ -362,7 +362,7 @@
               (->
                (dml1 {:name list-table-name :type :select-by-key :key id :key-name "uniqueid"})
                (p/then (fn [_res]
-                       (aget (first _res) return-column))))))))))))
+                         (aget (first _res) return-column))))))))))))
   )
 
 (def engine  (atom nil))

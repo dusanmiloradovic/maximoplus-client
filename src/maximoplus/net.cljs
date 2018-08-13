@@ -114,6 +114,7 @@
         _ap  (if (= -1 (.indexOf url "?")) "?" "&")
         _url (str url _ap "t=" @tabsess)
         pc (if progress-callback (first progress-callback))]
+    (u/debug "Zovem send-meth " url)
     (.setWithCredentials xhr1 true)
     (goog.events/listenOnce xhr1
                        "complete"
@@ -202,14 +203,13 @@
 
 (defn sse-start
   [callback error-callback]
-  ;;For 1.1 branch be careful, there is no JSON, use transit!!
   (let [ev-s (js/EventSource. (sse) #js {:withCredentials true})]
     (reset! event-source ev-s)
     (.addEventListener ev-s "message"
                        (fn [message]
                          (let [_data (aget message "data")
                                data (if (= "" _data) "" (u/transit-read _data))]
-                           (u/debug data)
+                           (u/debug "SSE" data)
                            (callback data))))
     (.addEventListener ev-s "error"
                        (fn [error]
