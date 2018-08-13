@@ -104,7 +104,7 @@
 
 (defn callback-from-xhr
   [xhr1 callback error-callback]
-;  (u/debug "zovem callback from xhr " (. xhr1 (getLastErrorCode)))
+  (u/debug "zovem callback from xhr " (. xhr1 (getLastErrorCode)))
   (if (= ec/NO_ERROR (. xhr1 (getLastErrorCode)))
     (callback (get-response-vector xhr1  ))
     (error-callback (get-response-vector xhr1))))
@@ -209,6 +209,7 @@
                        (fn [message]
                          (let [_data (aget message "data")
                                data (if (= "" _data) "" (u/transit-read _data))]
+                           (u/debug data)
                            (callback data))))
     (.addEventListener ev-s "error"
                        (fn [error]
@@ -247,3 +248,7 @@
 
 (defn ^:export upload [container method params data callback errback progress-callback]
   (send-post (getUploadURL container method params true) data callback errback progress-callback))
+
+(defn ^:export set-server-root
+  [url]
+  (aset globalFunctions "serverRoot" (fn [_] url)))
