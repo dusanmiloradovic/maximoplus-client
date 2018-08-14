@@ -33,8 +33,6 @@
 
 (declare offlinePrepareOne)
 (declare offlineMetaMove)
-(declare stop-the-longpoll)
-(declare start-the-longpoll)
 
 
 (def is-offline (atom false))
@@ -49,17 +47,20 @@
 (declare register-controls-on-online)
 (declare any-offline-enabled?)
 
+(declare bulk-ev-dispf)
+(declare error-dispf)
+
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
   (if (and offline (any-offline-enabled?))
     (do
       (u/debug "Going offline")
-      (stop-the-longpoll)
+      (net/stop-server-push-receiving)
       (swap! is-offline (fn [_] true)))
     (do
       (u/debug "Going online")
-      (start-the-longpoll)
+      (net/start-server-push-receiving bulk-ev-dispf error-dispf)
       (swap! is-offline (fn [_] false))
       (register-controls-on-online);late online registration for the controls that have been registered offline 
       )))
@@ -1402,7 +1403,7 @@
         event-data (subvec se 1)]
                                         ;    (u/debug "ev-dispfevent-name ",data:" (js->clj event-data))
     (cond
-      (= event-name "logout") (.setTimeout js/window (fn [_] (page-init)) 300)
+      (= event-name "logout") (js/setTimeout (fn [_] (page-init)) 300)
       (= event-name "updatembovalue") (update-mbovalue event-data)
       (= event-name "commandmbo-param") (update-control-attribute-flags event-data)
       (= event-name "set-current-index") (set-control-index event-data)
@@ -1418,8 +1419,7 @@
 
 (defn bulk-ev-dispf [bulk-event];optimizacija performansi
   (doseq [e bulk-event]
-    (.setTimeout
-     js/window
+    (js/setTimeout
      (fn[_]
        (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e)))) 0)))
 
@@ -1435,25 +1435,14 @@
         (.call (aget globalFunctions "globalErrorHandler") nil "longpoll" [error-text] nil )
         ))))
 
-(defn stop-the-longpoll []
-  (if (exists? js/EventSource)
-    (net/sse-stop)
-    (reset! net/*run-the-longpoll* false)))
 
-(defn start-the-longpoll []
-  (let [force-long-poll (aget globalFunctions "forceLongPoll")]
-    (if (and (exists? js/EventSource) (not force-long-poll))
-      (net/sse-start bulk-ev-dispf error-dispf)
-      (when-not @net/*run-the-longpoll*
-        (reset! net/*run-the-longpoll* true)
-        (net/long-poll (net/longpoll-batch) bulk-ev-dispf error-dispf)))))
 
 
 (defn start-event-dispatch [];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
   (when-not @is-offline
-    (start-the-longpoll)))
+    (net/start-server-push-receiving bulk-ev-dispf error-dispf)))
 
 (defn start-receiving-events []
   (start-event-dispatch))
