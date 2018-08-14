@@ -65,10 +65,10 @@
       (register-controls-on-online);late online registration for the controls that have been registered offline 
       )))
 
-(defn listen-offline
-  []
-  (net/listen-offline (fn [offline]
-                        (setOffline offline))))
+;;(defn listen-offline
+;;  []
+;;  (net/listen-offline (fn [offline]
+;;                        (setOffline offline))))
                                         ;detects the offline and changes the status. TODO change the defcmd macro to report the error in case is-offline is set to true
 
 (defn str->bool [x]
@@ -291,7 +291,7 @@
   (set! (.-location js/window) "/login.html")) 
 
 (defn ^:export logout []
-  (net/send-get-with-data (net/logout) "" page-init page-init)
+  (net/send-get (net/logout)  page-init page-init)
   )
 
 (def months
@@ -1475,7 +1475,7 @@
                     (fn [_ts] 
                       (u/debug "start receiveing events")
                       (swap! logging-in (fn [_] false))
-                      (reset! net/tabsess (first _ts) )
+                      (net/set-tabsess! (first _ts) )
                       (p/callback @page-init-deferred (first _ts))
                       (start-receiving-events))
                     (fn [err]

@@ -27,6 +27,7 @@
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
                    :language-out :ecmascript5
+;;                   :parallel-build true
                    :optimizations :advanced
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
@@ -71,6 +72,7 @@
                    :language-in :ecmascript5
                    :language-out :ecmascript5
                    :optimizations :advanced
+;;                   :parallel-build true
                    :source-map "public/javascript/maximoplus-core/source-map.js.map"
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
@@ -86,6 +88,7 @@
                    :output-to "public/javascript/main.js",
                    :output-dir "public/javascript",
                    :target :nodejs
+;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
                    :language-out :ecmascript5-strict
@@ -97,6 +100,7 @@
 
                  ]}}]
              }
+  :jvm-opts ["-Xms12g" "-Xmx16g"]
   )
 
 (require 'cemerick.pomegranate.aether)

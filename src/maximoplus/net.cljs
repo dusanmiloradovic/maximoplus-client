@@ -3,7 +3,7 @@
    [maximoplus.utils :as u]
    [maximoplus.net.browser :as b]
    )
-)
+  )
 
 (declare serverRoot)
 (declare get-tabsess)
@@ -20,35 +20,39 @@
 (defn sse [] (str (serverRoot) "/server/sse?t=" (get-tabsess)))
 
 (defprotocol INet
-  (send-get
+  (-send-get
     [this url callback error-callback]
     [this url data callback error-callback])
-  (send-post
+  (-send-post
     [this url data callback error-callback]
     [this url data callback error-callback progress-callback])
-  (start-server-push-receiving
+  (-start-server-push-receiving
     [this callback error-callback])
-  (stop-server-push-receiving
+  (-stop-server-push-receiving
     [this])
-  (get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
+  (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
     [this])
+  (-set-tabsess!
+    [this tabsess])
   );;abstract away get post and server push receiving for nodejs and browser
 
 ;;I decided there will be no nodejs implementation in the core lib, but by definng protocols, in the nodejs based libraries (GraphQL currently), it will be easier to define network functions
 
 
-(deftype Browser
-    INet
+(deftype Browser []
+  INet
   (-send-get
     [this url callback error-callback]
-    (b/send-get url callback error-callback)
+    (b/send-get url callback error-callback))
+  (-send-get
     [this url callback error-callback data]
     (b/send-get-with-data url data callback error-callback))
   (-send-post
     [this url data callback error-callback]
-    (b/send-post url data callback error-callback)
+    (b/send-post url data callback error-callback))
+  (-send-post
     [this url data callback error-callback progress-callback]
-        (b/send-post url data callback error-callback progress-callback))
+    (b/send-post url data callback error-callback progress-callback))
   (-start-server-push-receiving
     [this callback error-callback]
     (b/start-server-push-receiving (sse) (longpoll-batch) false callback error-callback))
@@ -58,6 +62,9 @@
   (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
     [this]
     @b/tabsess)
+  (-set-tabsess!
+    [this tabsess]
+    (reset! b/tabsess tabsess))
   )
 
 (def net-type (atom (Browser.)))
@@ -70,10 +77,14 @@
   []
   (-get-tabsess @net-type))
 
+(defn set-tabsess!
+  [tabsess]
+  (-set-tabsess! @net-type tabsess))
+
 (defn send-get
   [url callback error-callback & data]
   (if data
-    (-send-get @net-type url callback error-callback (first-data))
+    (-send-get @net-type url callback error-callback (first data))
     (-send-get @net-type url callback error-callback)))
 
 (defn send-post

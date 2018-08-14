@@ -193,7 +193,7 @@
 
 (defn start-server-push-receiving [sse-path longpoll-path force-long-poll? cb errb]
   (if (and (exists? js/EventSource) (not force-long-poll?))
-    (sse-start bulk-ev-dispf error-dispf)
+    (sse-start sse-path cb errb)
     (when-not @*run-the-longpoll*
       (reset! *run-the-longpoll* true)
       (long-poll longpoll-path cb errb))))
