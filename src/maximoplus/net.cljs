@@ -75,12 +75,10 @@
 
 (defn get-tabsess
   []
-  (.log js/console "calling get-tabsess")
   (-get-tabsess @net-type))
 
 (defn set-tabsess!
   [tabsess]
-  (.log js/console "calling the set-tabsess " tabsess)
   (-set-tabsess! @net-type tabsess))
 
 (defn send-get
