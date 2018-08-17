@@ -1888,8 +1888,7 @@
                          (net/send-get (str (net/command) "?" data) okf proxy-error))))
                     (if post?
                       (net/send-post (net/command) data okf proxy-error)
-                      (net/send-get (str (net/command) "?" data) okf proxy-error))
-                    0)))))))
+                      (net/send-get (str (net/command) "?" data) okf proxy-error)))))))))
 
                                         ;helper function for macro, to reduce the generated file size
 (defn- deferred-for-cont
