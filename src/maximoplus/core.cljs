@@ -386,8 +386,10 @@
 
 
 (defn dispatch-data! [component data-type data];switch from events to core.async
-  (put! (get-channel component) {:type data-type :data data})
-  )
+  (js/setTimeout ;;stack is too deep, fails on nodejs, detach async wherever possible
+   (fn [_]
+     (put! (get-channel component) {:type data-type :data data}))
+   0))
 
 (defn dispatch-peers! [control event data & exclude-source?]
   (let [peers (get-peer-controls control)
@@ -1876,9 +1878,12 @@
           (page-init))
         (p/then @page-init-deferred
                 (fn [_]
-                  (if post?
-                    (net/send-post (net/command) data okf proxy-error)
-                    (net/send-get (str (net/command) "?" data) okf proxy-error))))))))
+                  (js/setTimeout ;;stack is too deep, and fails on nodejs environment, I should detach async calls wherever is possible
+                   (fn [_]
+                     (if post?
+                       (net/send-post (net/command) data okf proxy-error)
+                       (net/send-get (str (net/command) "?" data) okf proxy-error)))
+                   0)))))))
 
                                         ;helper function for macro, to reduce the generated file size
 (defn- deferred-for-cont
