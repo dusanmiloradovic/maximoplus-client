@@ -7,7 +7,7 @@
             [clojure.string :refer [trim]]
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
-            [cljs.core.async :refer [put! <! >! chan buffer poll!]])
+            [cljs.core.async :as a :refer [put! <! >! chan buffer poll!]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc!]]
                    [cljs.core.async.macros :refer [go]])
   )
@@ -468,6 +468,7 @@
                 (aset this "channel" (chan))
                 (aset this "receiving" (atom false))
                 (aset this "state" (atom {}))
+                (aset this "command-channel" (chan))
                 (c/start-receiving this)
                 )
        )
@@ -516,10 +517,18 @@
   (get-receive-functions
    [this]);by default nothing
   (get-channel [this] (aget this "channel"))
+  (send-command
+   [this command-closure]
+   (go (a/put! (aget this "command-channel") command-closure)))
   (start-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] true))
-   (let [chn (aget this "channel")]
+   (let [chn (aget this "channel")
+         command-channel (aget this "command-channel")]
+     (go-loop []
+       (let [closure (<! (a/map (fn [_ val] val) [@c/page-init-channel command-ch]))]
+         (closure))
+       (recur))
      (go (while @(aget this "receiving")
            (let [{type :type data :data :as msg} (<! chn)]
              (when-let [rf (get (c/get-receive-functions this) type)]
@@ -854,7 +863,6 @@
              (let [id (c/get-id this)
                    dfrd (p/get-deferred)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
                (c/toggle-state this :deferred dfrd)
-                                        ;               (c/set-promise-for-cont this dfrd)
                (p-deferred-on dfrd
                               (doseq [c  (get-children this)]
                                            (when-not (c/get-state c :iscontainer)

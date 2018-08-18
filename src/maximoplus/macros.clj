@@ -200,14 +200,6 @@
                                     ))
      (do ~@bd)))
 
-(defmacro p-deferred-q [o container & bd]
-                                        ;the variation of p-deferred which sets the new promise to be the promise of container, thus forcing the execution in sequence (important if we have the slow running kk! that stops the init of data)
-  `(let [p# (maximoplus.basecontrols.get-deferred ~o)
-         d# (maximoplus.promises.then p# (fn [_#]
-                                           ~@bd
-                                           ))]
-     (maximoplus.core.set-promise-for-cont ~container "vc" d#)
-     d#))
 
 (defmacro p-deferred-on [o & bd]
   `(maximoplus.promises.then ~o (fn [_#] ~@bd))
@@ -259,28 +251,22 @@
            (fh# ~command)
            (reject# err#)))))))
 
-(defmacro kk! [container command cont-f & args]
-                                        ;this is the version of the c! for contaiers. Commands on containers will have the callback and the errback for the finer container. This will just  add the preape call and finish call without getting the callback handler and the error handler
-                                        ;promises are stored for the containers. They are always resolved, so it doesn't break the internal logic of the library. However, on failure it returns the reject promise (but stores resovled)
+
+(defmacro kk!
+  [container command cont-f & args]
   (let [errh (last args);;user can pass null to the container function calling kk!, so we need to check
         cbh (-> args butlast last)
         args-rest (-> args butlast butlast)]
-    `(let [p# (maximoplus.core.get-promise-for-cont ~container)
-           new-p# (maximoplus.promises.then p# 
-                                            (fn [fullfill#]
-                                              (maximoplus.core.get-new-promise
-                                               ~container ~command
-                                               (fn [resolve# reject#]
-                                                 (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)]
-                                                   (pch# ~command)
-                                                   (try
-                                                     (~cont-f (.getId ~container) ~@args-rest cbh# errbh#)
-                                                     (catch :default e#
-                                                       (errbh# e#))))))))]
-       (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-                                        ;important! the container promise should always be resolved, otherwise the unrelated operations will not be able to execute, this is why we have thenCatch (that is catch in closure promise library)
-       new-p#
-       )))
+    `(js/Promise.
+      (fn [resolve# reject#]
+        (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)
+              fs# (fn [] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
+                    (pch# ~command)
+                    (try
+                      (~cont-f (.getId ~container) ~@args-rest cbh# errbh#)
+                      (catch :default e#
+                        (errbh# e#))))]
+          (c/send-command ~container fs#))))))
 
 
 (defmacro k!;;like kk! witthout the callback and errback (get default from container)
@@ -301,145 +287,76 @@
           cbh#
           erbh#)))
 
-(defmacro kk-noid! [container command cont-f & args]
-                                        ;this is the version of the c! for contaiers. Commands on containers will have the callback and the errback for the finer container. This will just  add the preape call and finish call without getting the callback handler and the error handler
-                                        ;promises are stored for the containers. They are always resolved, so it doesn't break the internal logic of the library. However, on failure it returns the reject promise (but stores resovled)
-  (let [errh (last args);;user can pass null to the container function calling kk!, so we need to check
-        cbh (-> args butlast last)
-        args-rest (-> args butlast butlast)]
-    `(let [p# (maximoplus.core.get-promise-for-cont ~container)
-           new-p# (maximoplus.promises.then p# 
-                                            (fn [fullfill#]
-                                              (maximoplus.core.get-new-promise
-                                               ~container ~command
-                                               (fn [resolve# reject#]
-                                                 (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)]
-                                                   (pch# ~command)
-                                                   (try
-                                                     (~cont-f  ~container ~@args-rest cbh# errbh#)
-                                                     (catch :default e#
-                                                       (errbh# e#))))))))]
-       (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-                                        ;important! the container promise should always be resolved, otherwise the unrelated operations will not be able to execute, this is why we have thenCatch (that is catch in closure promise library)
-       new-p#
-       )))
 
-
-                                        ;branching version of kk, see the comment for kk-branch-nocb
 (defmacro kk-branch! [orig-cont container command cont-f & args]
-  (let [errh (last args)
-        cbh (-> args butlast last)
-        args-rest (-> args butlast butlast)]
-    `(let [p# (maximoplus.core.get-promise-for-cont ~orig-cont)
-           new-p# (maximoplus.promises.then p# 
-                                            (fn [fullfill#]
-                                              (maximoplus.core.get-new-promise
-                                               ~container ~command
-                                               (fn [resolve# reject#]
-                                                 (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)]
-                                                   (pch# ~command)
-                                                   (try
-                                                     (~cont-f (.getId ~container) ~@args-rest cbh# errbh#)
-                                                     (catch :default e#
-                                                       (errbh# e#))))))))]
-       (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-       (maximoplus.core.set-promise-for-cont ~orig-cont ~command (-> new-p# (maximoplus.promises.then-catch (fn [err#] err#)) (maximoplus.promises.then)))
-       new-p#
-       )))
+  `(kk! ~container ~command ~cont-f ~@args);;since we don't need to set the promises anymore, this function is superflous
+  )
 
-                                        ;version for containers without the callback
-(defmacro kk-nocb! [container command cont-f & args]
-                                        ;this is the version of the c! for contaiers. Commands on containers will have the callback and the errback for the finer container. This will just  add the preape call and finish call without getting the callback handler and the error handler
-                                        ;promises are stored for the containers. They are always resolved, so it doesn't break the internal logic of the library. However, on failure it returns the reject promise (but stores resovled)
-  `(let [p# (maximoplus.core.get-promise-for-cont ~container)
-         new-p# (maximoplus.promises.then p# 
-                                          (fn [fullfill#]
-                                            (maximoplus.core.get-new-promise
-                                             ~container ~command
-                                             (fn [resolve# reject#]
-                                               (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  nil nil resolve# reject#)]
-                                                 (pch# ~command)
-                                                 (try
-                                                   (~cont-f (.getId ~container) ~@args cbh# errbh#)
-                                                   (catch :default e#
-                                                     (errbh# e#))))))))]
-     (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-                                        ;important! the container promise should always be resolved, otherwise the unrelated operations will not be able to execute, this is why we have thenCatch (that is catch in closure promise library)
-     new-p#
-     ))
+(defmacro kk-nocb!
+  [container command cont-f & args]
+  `(js/Promise.
+    (fn [resolve# reject#]
+      (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  nil nil resolve# reject#)
+            fs# (fn [] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
+                  (pch# ~command)
+                  (try
+                    (~cont-f (.getId ~container) ~@args cbh# errbh#)
+                    (catch :default e#
+                      (errbh# e#))))]
+        (c/send-command ~container fs#)))))
 
 
-                                        ;this is the version to be used from the controls, not the containers, but the promise is always for the containers
-(defmacro kk-control-nocb! [control container command control-f & args]
-  `(let [p# (maximoplus.core.get-promise-for-cont ~container)
-         fh# (maximoplus.basecontrols.get-finish-call-handler ~control)
+(defmacro kk-control-nocb!
+  [controls container command control-f & args]
+  `(let [fh# (maximoplus.basecontrols.get-finish-call-handler ~control)
          cbh# (maximoplus.basecontrols.get-callback-handler ~control)
-         errbh# (maximoplus.basecontrols.get-errback-handler ~control)
-         new-p# (maximoplus.promises.then p# 
-                                          (fn [fullfill#]
-                                            (maximoplus.core.get-new-promise ~container ~command
-                                                                             (fn [resolve# reject#]
-                                                                               ((maximoplus.basecontrols.get-prepare-call-handler ~control) ~command)
-                                                                               (try
-                                                                                 (~control-f  (.getId ~container) ~@args
-                                                                                  (fn [ok#]
-                                                                                    (fh# ~command)
-                                                                                    (cbh# ok#)
-                                                                                    (.call resolve# nil ok#))
-                                                                                  (fn [err#]
-                                                                                    (fh# ~command)
-                                                                                    (errbh# err#)
-                                                                                    (.call reject# nil err#)))
-                                                                                 (catch :default e#
-                                                                                   (fh# ~command ~control)
-                                                                                   (errbh# e#)
-                                                                                   (.call reject# nil e#)
-                                                                                   )))))
-                                          )]
-     (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-     new-p#
-     ))
+         errbh# (maximoplus.basecontrols.get-errback-handler ~control)]
+     (js/Promise.
+      (fn [resolve# reject#]
+        (c/send-command
+         ~container
+         (fn []
+           (try
+             (~control-f  (.getId ~container) ~@args
+              (fn [ok#]
+                (fh# ~command)
+                (cbh# ok#)
+                (.call resolve# nil ok#))
+              (fn [err#]
+                (fh# ~command)
+                (errbh# err#)
+                (.call reject# nil err#)))
+             (catch :default e#
+               (fh# ~command ~control)
+               (errbh# e#)
+               (.call reject# nil e#)
+               ))))))))
+
+
 
                                         ;here the deferred will be in the queue in orig-container queues, so the operation will be serialized. the new branch stems from the point and operations can be parallel after that(doesn't need to wait for the server response of the original branch)
 
-(defmacro kk-branch-nocb! [orig-cont container command cont-f & args]
-  `(let [p# (maximoplus.core.get-promise-for-cont ~orig-cont)
-         new-p# (maximoplus.promises.then p# 
-                                          (fn [fullfill#]
-                                            (maximoplus.core.get-new-promise
-                                             ~container ~command
-                                             (fn [resolve# reject#]
-                                               (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  nil nil resolve# reject#)]
-                                                 (pch# ~command)
-                                                 (try
-                                                   (~cont-f (.getId ~container) ~@args cbh# errbh#)
-                                                   (catch :default e#
-                                                     (errbh# e#))))))))]
-     (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-     (maximoplus.core.set-promise-for-cont ~orig-cont ~command (-> new-p# (maximoplus.promises.then-catch (fn [err#] err#)) (maximoplus.promises.then)))
-     new-p#
-     ))
 
-;;no arguments just the callback and errback
-(defmacro kk-branch-noargs! [orig-cont container command cont-f & args]
+(defmacro kk-branch-nocb!
+  [orig-cont container command cont-f & args]
+  `(kk-nocb! ~container ~command ~cont-f ~@args))
+
+
+
+(defmacto kk-branch-noargs!
+  [orig-cont container command cont-f & args]
   (let [errh (last args)
         cbh (-> args butlast last)]
-    `(let [p# (maximoplus.core.get-promise-for-cont ~container)
-           new-p# (maximoplus.promises.then p# 
-                                            (fn [fullfill#]
-                                              (maximoplus.core.get-new-promise
-                                               ~container ~command
-                                               (fn [resolve# reject#]
-                                                 (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)]
-                                                   (pch# ~command)
-                                                   (try
-                                                     (~cont-f cbh# errbh#)
-                                                     (catch :default e#
-                                                       (errbh# e#))))))))]
-       (maximoplus.core.set-promise-for-cont ~container ~command (maximoplus.promises.then-catch new-p# (fn [err#] err#)))
-       (maximoplus.core.set-promise-for-cont ~orig-cont ~command (-> new-p# (maximoplus.promises.then-catch (fn [err#] err#)) (maximoplus.promises.then)))
-       new-p#
-       )))
+    `(js/Promise.
+      (fn [resolve# reject#]
+        (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)
+              fs# (fn [_]
+                    (pch# ~command)
+                    (try
+                      (~cont-f cbh# errbh#)
+                      (catch :default e#
+                        (errbh# e#))))]
+          (c/send-command ~container fs#))))))
 
 (defmacro offline-alt
   [fun-name  online-cmd offline-cmd & _args]

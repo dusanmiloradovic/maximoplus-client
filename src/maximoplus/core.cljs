@@ -8,7 +8,7 @@
    [maximoplus.db :as db]
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
-   [cljs.core.async :refer [put!]]
+   [cljs.core.async :refer [put! promise-chan]]
    )
   (:require-macros 
    [maximoplus.macros :as mm]))
@@ -124,6 +124,8 @@
 
 (def ^:export page-init-deferred (atom nil))
 
+(def page-init-channel (atom (promise-chan)));; this is the atom to the channel, and not just the channel, because on logout, we need to again re-initiate the page by calling the server, and getting the new tab session. When the session ends, and the login function is called the atom should again be reset to the new promise channel
+
 
 (defprotocol Receivable ; getting rid of events for propagate the server message, will use the core-async
   (get-channel [component])
@@ -132,6 +134,7 @@
   (start-receiving [component])
   (stop-receiving [component])
   (get-receive-functions [component]);for each type of data received there may be a function to process it. If there is no function for the particular data type, the data is passed down to the child components, for its handlers to process
+  (send-command [component command-f]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
   )
 
 (defprotocol Component ;base protocol for the components
@@ -660,7 +663,6 @@
   (= (.toUpperCase column-name) "_SELECTED")
   )
 
-(declare get-promise-for-cont)
 
 (defn- vcolsreg
   [container-name]
@@ -670,33 +672,23 @@
     (swap! registered-columns-arr assoc container-name ar )))
 
 (defn register-columns [container columns-all cb-handler errback-handler]
-  (let [p (get-promise-for-cont container)
-        columns (filter (comp not is-virtual?) columns-all)
+  (let [columns (filter (comp not is-virtual?) columns-all)
         container-name (get-id container)
-        newp (p/then p
-                     (fn [fullfill]
-                       (let [diff (clojure.set/difference (set columns) (set (@registered-columns container-name)))
-                             old-cols (@registered-columns container-name) ]
-                         (if-not (empty? diff)
-                           (do
-                             (swap! registered-columns assoc container-name (apply conj (vec (@registered-columns container-name)) (vec columns)))
-                             (vcolsreg container-name)
-                             (let [cbh (fn [ok] 
-                                         (when cb-handler (cb-handler ok))
-                                         (when (and (.isOfflineEnabled container) 
-                                                    (not @is-offline))
-                                           (offlinePrepareOne (get-id container))))
-                                   errbh (fn [err] 
-                                           (swap! registered-columns assoc container-name old-cols)
-                                           (vcolsreg registered-columns)
-                                           (when errback-handler (errback-handler err)))]
-                               (mm/kk! container "registercol" add-control-columns-with-offline (vec diff) cbh errbh)))
-                           (get-promise-for-cont container)))))]
-    newp
-    )
-  )
-
-
+        diff (clojure.set/difference (set columns) (set (@registered-columns container-name)))
+        old-cols (@registered-columns container-name)]
+    (when-not (empty? diff)
+      (swap! registered-columns assoc container-name (apply conj (vec (@registered-columns container-name)) (vec columns)))
+      (vcolsreg container-name)
+      (let [cbh (fn [ok] 
+                  (when cb-handler (cb-handler ok))
+                  (when (and (.isOfflineEnabled container) 
+                             (not @is-offline))
+                    (offlinePrepareOne (get-id container))))
+            errbh (fn [err] 
+                    (swap! registered-columns assoc container-name old-cols)
+                    (vcolsreg registered-columns)
+                    (when errback-handler (errback-handler err)))]
+        (mm/kk! container "registercol" add-control-columns-with-offline (vec diff) cbh errbh)))))
 
 (defn deregister-columns [container-name columns]
   (let [newv (remove-incl (@registered-columns container-name) columns)
@@ -1879,48 +1871,11 @@
           (page-init))
         (p/then @page-init-deferred
                 (fn [_]
-                  (if js/setImmediate ;;nodejs call stack size reducing
-                    (js/setImmediate
-                     (fn []
-                       (u/debug "called with setImmediate")
-                       (if post?
-                         (net/send-post (net/command) data okf proxy-error)
-                         (net/send-get (str (net/command) "?" data) okf proxy-error))))
-                    (if post?
-                      (net/send-post (net/command) data okf proxy-error)
-                      (net/send-get (str (net/command) "?" data) okf proxy-error)))))))))
+                  (if post?
+                    (net/send-post (net/command) data okf proxy-error)
+                    (net/send-get (str (net/command) "?" data) okf proxy-error))))))))
 
                                         ;helper function for macro, to reduce the generated file size
-(defn- deferred-for-cont
-  [container]
-  (if-let [_cont (aget container-deferreds (get-id container))]
-    _cont
-    (let [_ddeb (gensym)
-          dfrd     (p/get-resolved-promise "cont") ]
-      (aset dfrd "ddebug" _ddeb)
-      dfrd)))
-
-(defn- set-deferred-for-cont
-  [container defrd]
-  (aset container-deferreds (get-id container) defrd))
-
-
-(defn- get-promise-for-cont
-  [container]
-  (if-let [p (aget container-promises (.getId container))]
-    p
-    (do
-      (when-not @page-init-deferred
-        (page-init))
-      @page-init-deferred)))
-
-(defn- set-promise-for-cont
-  [container command promise]
-  (aset promise "container" container)
-  (aset promise "command" command)
-  (aset container-promises (get-id container) promise)
-  )
-
 
 (defn- get-new-promise
   [container command f]

@@ -2,7 +2,9 @@
   (:require
    [maximoplus.utils :as u]
    [maximoplus.net.browser :as b]
+   [cljs.core.async :refer [put! <! >! chan buffer poll!]]
    )
+  (:require-macros [cljs.core.async.macros :refer [go-loop]])
   )
 
 (declare serverRoot)
@@ -69,6 +71,18 @@
 
 (def net-type (atom (Browser.)))
 
+;;(def command-pipeline (chan (buffer 1)))
+
+;;(go-loop []
+;;  (let [{url :url callback :callback error-callback :errback data :data} (<! command-pipeline)]
+;;    (if data
+;;      (-send-get @net-type url callback error-callback (first data))
+;;      (-send-get @net-type url callback error-callback))
+;;    (recur)))
+
+;;in ndoejs we are getting the stackoverflow wxception, because of the huge chaing of callbacks. If I pipe the send-get calls to the async channel I may fix this.
+;;Next step - instead of the global promise for the commands on the containers, use the channel. Only return the immediate promise for the user
+
 (defn  set-net-type
   [type-inst]
   (reset! net-type type-inst))
@@ -86,6 +100,11 @@
   (if data
     (-send-get @net-type url callback error-callback (first data))
     (-send-get @net-type url callback error-callback)))
+
+;;(defn send-get
+;;  [url callback error-callback & data]
+;;  (let [o {:url url :callback callback :errback error-callback :data (when data (first data))}]
+;;    (put! command-pipeline o)))
 
 (defn send-post
   [url data callback error-callback & progress-callback]
