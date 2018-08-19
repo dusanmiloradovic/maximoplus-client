@@ -9,7 +9,7 @@
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll!]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc!]]
-                   [cljs.core.async.macros :refer [go]])
+                   [cljs.core.async.macros :refer [go go-loop]])
   )
 
 
@@ -518,17 +518,27 @@
    [this]);by default nothing
   (get-channel [this] (aget this "channel"))
   (send-command
-   [this command-closure]
-   (go (a/put! (aget this "command-channel") command-closure)))
+   [this command-f command-cb command-errb]
+   (go (a/put! (aget this "command-channel") [command-f command-cb command-errb])))
   (start-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] true))
    (let [chn (aget this "channel")
          command-channel (aget this "command-channel")]
      (go-loop []
-       (let [closure (<! (a/map (fn [_ val] val) [@c/page-init-channel command-ch]))]
-         (closure))
-       (recur))
+       (let [[command-f command-cb command-erb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-ch]));;it will wait until page is not initialized
+             cb-chan (chan)]
+         (command-f
+          (fn [ok]
+            (try
+              (command-cb ok)
+              (finally (a/put! cb-chan ok))))
+          (fn [err]
+            (try
+              (command-errb err)
+              (finally (a/put! cb-chan err))))
+          (<! cb-chan)
+          (recur))))
      (go (while @(aget this "receiving")
            (let [{type :type data :data :as msg} (<! chn)]
              (when-let [rf (get (c/get-receive-functions this) type)]

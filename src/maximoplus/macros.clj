@@ -260,13 +260,13 @@
     `(js/Promise.
       (fn [resolve# reject#]
         (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)
-              fs# (fn [] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
+              fs# (fn [_cbh# _errbh#] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
                     (pch# ~command)
                     (try
-                      (~cont-f (.getId ~container) ~@args-rest cbh# errbh#)
+                      (~cont-f (.getId ~container) ~@args-rest _cbh# _errbh#)
                       (catch :default e#
-                        (errbh# e#))))]
-          (c/send-command ~container fs#))))))
+                        (_errbh# e#))))]
+          (c/send-command ~container fs# cbh# errbh#))))))
 
 
 (defmacro k!;;like kk! witthout the callback and errback (get default from container)
@@ -297,13 +297,13 @@
   `(js/Promise.
     (fn [resolve# reject#]
       (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  nil nil resolve# reject#)
-            fs# (fn [] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
+            fs# (fn [_cbh# _errbh#] ;; I will send the closure to the channel for the execution, the idea is to avoid stack overflow errorrs (mainly in nodejs). This will be stored on heap. the get-callbacks function will resolve the promise if user needs to use it (maybe this is not necessary, I will see after the testing)
                   (pch# ~command)
                   (try
-                    (~cont-f (.getId ~container) ~@args cbh# errbh#)
+                    (~cont-f (.getId ~container) ~@args _cbh# _errbh#)
                     (catch :default e#
-                      (errbh# e#))))]
-        (c/send-command ~container fs#)))))
+                      (_errbh# e#))))]
+        (c/send-command ~container fs# cbh# errbh#)))))
 
 
 (defmacro kk-control-nocb!
@@ -315,22 +315,23 @@
       (fn [resolve# reject#]
         (c/send-command
          ~container
-         (fn []
+         (fn [_cbh# _errbh#]
            (try
              (~control-f  (.getId ~container) ~@args
               (fn [ok#]
                 (fh# ~command)
-                (cbh# ok#)
+                (_cbh# ok#)
                 (.call resolve# nil ok#))
               (fn [err#]
                 (fh# ~command)
-                (errbh# err#)
+                (_errbh# err#)
                 (.call reject# nil err#)))
              (catch :default e#
                (fh# ~command ~control)
-               (errbh# e#)
+               (_errbh# e#)
                (.call reject# nil e#)
-               ))))))))
+               )))
+         cbh# errbh#)))))
 
 
 
@@ -350,13 +351,13 @@
     `(js/Promise.
       (fn [resolve# reject#]
         (let [[pch# cbh# errbh#] (maximoplus.basecontrols.get-callbacks ~container ~command  ~cbh ~errh resolve# reject#)
-              fs# (fn [_]
+              fs# (fn [_cbh# _errbh#]
                     (pch# ~command)
                     (try
-                      (~cont-f cbh# errbh#)
+                      (~cont-f _cbh# _errbh#)
                       (catch :default e#
-                        (errbh# e#))))]
-          (c/send-command ~container fs#))))))
+                        (_errbh# e#))))]
+          (c/send-command ~container fs# cbh# errbh#))))))
 
 (defmacro offline-alt
   [fun-name  online-cmd offline-cmd & _args]

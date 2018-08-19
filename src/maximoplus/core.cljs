@@ -134,7 +134,7 @@
   (start-receiving [component])
   (stop-receiving [component])
   (get-receive-functions [component]);for each type of data received there may be a function to process it. If there is no function for the particular data type, the data is passed down to the child components, for its handlers to process
-  (send-command [component command-f]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
+  (send-command [component command-f command-cb command-errb]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
   )
 
 (defprotocol Component ;base protocol for the components
