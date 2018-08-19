@@ -7,7 +7,7 @@
             [clojure.string :refer [trim]]
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
-            [cljs.core.async :as a :refer [put! <! >! chan buffer poll!]])
+            [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc!]]
                    [cljs.core.async.macros :refer [go go-loop]])
   )
@@ -557,21 +557,32 @@
        (put! chn msg))))
   )
 
+(defn simple-receive [_channel f]
+  (go
+    (<! _channel);;ignore what is put, just delay until the completion of init
+    (f)))
 
 (def-comp MboContainer [mboname] BaseComponent
   (fn* []
        (this-as this
          (googbase this)
          (c/add-container-to-registry this)
-         (c/set-states this
-                       {:currrow -1
-                        :uniqueid (p/get-deferred)
-                        :offlineenabled false
-                        :iscontainer true
-                        :receiver true
-                        :rel-containers []
-                        :deferred  (kk-nocb! this "init" c/register-mainset mboname)}
-                       )))
+         (let [deferred (promise-chan)]
+           (c/set-states this
+                         {:currrow -1
+                          :uniqueid (p/get-deferred)
+                          :offlineenabled false
+                          :iscontainer true
+                          :receiver true
+                          :rel-containers []
+                          ;;                        :deferred  (kk-nocb! this "init" c/register-mainset mboname)}
+                          :deferred deferred ;;I will not use the promises internally anymore for the control of processing. Function will just return the promises to the user. kk! macros will send to the "command-channel". This will be the first call to the command channel, so I can safely listen for the completion
+                          })
+           (kk-nocb! this "init" c/register-mainset mboname)
+           (go
+             (let [kc (aget this "command-channel")
+                   val (<! kc)]
+               (a/put! deferred val))))))
   Component
   (get-container
    [this]
@@ -735,15 +746,12 @@
              (aset this "offlinePosting" true)
              (js-delete this "pendingOfflineChanges" )
              (fetch-data this start numrows nil errb)
-             (after-fetch 
-              this
-              (fn [ok]
-                (->
-                 (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
-                 (p/then (fn [res]
-                         (offline-post-finished this (aget  res 0))
-                         (aset this "offlinePosting" false)
-                         (when cb (cb ok))))))))
+             (-> ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
+              (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
+              (p/then (fn [res]
+                        (offline-post-finished this (aget  res 0))
+                        (aset this "offlinePosting" false)
+                        (when cb (cb (aget res 0)))))))
            (fetch-data this start numrows cb errb)))
        (fetch-data this start numrows cb errb))))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor

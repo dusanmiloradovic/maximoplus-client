@@ -194,28 +194,22 @@
                (rest impls)))))))
 
 (defmacro p-deferred [o & bd]
-  `(if-let [p# (maximoplus.basecontrols.get-deferred ~o)]
-     (maximoplus.promises.then p# (fn [_#]
-                                    ~@bd
-                                    ))
+  `(if-let [prom-chan# (maximoplus.basecontrols.get-deferred ~o)]
+     (maximoplus.basecontrols.simple-receive
+      prom-chan# (fn [_#]
+                   ~@bd
+                   ))
      (do ~@bd)))
 
 
 (defmacro p-deferred-on [o & bd]
-  `(maximoplus.promises.then ~o (fn [_#] ~@bd))
+  `(maximoplus.basecontrols.simple-receive ~o (fn [_#] ~@bd))
   )
 
-(defmacro deferred-on-attr [o attr & bd]
-  `(deferred-on (aget ~o ~attr) ~@bd))
 
 (defmacro p-deferred-on-attr [o attr & bd]
   `(p-deferred-on (aget ~o ~attr) ~@bd))
 
-(defmacro deferred-on-attr-once [o attr & bd]
-  `(if-let [dfrd#  (aget ~o ~attr)]
-     (when-not (.hasFired dfrd#)
-       (deferred-on dfrd# ~@bd))
-     ~@bd))
 
 (defmacro loop-arr [[symbol arr] & body]
   `(when-let  [arrmut# ~arr];mutable, so not possible to read directly
