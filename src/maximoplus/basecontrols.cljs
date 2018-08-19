@@ -443,18 +443,16 @@
 
 (defn ^:export initControlDataRows 
   [control noRows & forceFetch]
-  (p-deferred control
-              (let [container (c/get-container control)
-                    nrs (js/parseInt noRows)
-                    force (first forceFetch)]
-                (let [currow (get-currow container)]
-                  (if (or (not currow) (= -1 currow))
-                    (p/then
-                     (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)
-                     (fn [ok]
-                       (mm/c! control  "fetch" fetch-data container  0 nrs))) ;fetch already has kk!
-                    (mm/c! control  "fetch" fetch-data container  currow nrs)
-                    )))))
+  (let [container (c/get-container control)
+        nrs (js/parseInt noRows)
+        force (first forceFetch)]
+    (let [currow (get-currow container)]
+      (if (or (not currow) (= -1 currow))
+        (do
+          (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)
+          (mm/c! control  "fetch" fetch-data container  0 nrs)) ;fetch already has kk!
+        (mm/c! control  "fetch" fetch-data container  currow nrs)
+        ))))
 
 (defn get-deferred [component]
   (c/get-state component :deferred)
@@ -526,7 +524,7 @@
    (let [chn (aget this "channel")
          command-channel (aget this "command-channel")]
      (go-loop []
-       (let [[command-f command-cb command-erb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-ch]));;it will wait until page is not initialized
+       (let [[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
              cb-chan (chan)]
          (command-f
           (fn [ok]
@@ -537,8 +535,8 @@
             (try
               (command-errb err)
               (finally (a/put! cb-chan err))))
-          (<! cb-chan)
-          (recur))))
+          (<! cb-chan))
+         (recur)))
      (go (while @(aget this "receiving")
            (let [{type :type data :data :as msg} (<! chn)]
              (when-let [rf (get (c/get-receive-functions this) type)]

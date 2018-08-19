@@ -224,7 +224,7 @@
          (let [~symbol (aget arrmut# i#)]
            ~@body)))))
 
-(defmacro c! [control command cont-f & args]
+(defmacro c! [control command cont-f & args] ;this will be used in cases where the function called already calls the kk! macro
   `(let [cb-handler# (maximoplus.basecontrols.get-callback-handler ~control)
          err-handler# (maximoplus.basecontrols.get-errback-handler ~control)
          fh# (maximoplus.basecontrols.get-finish-call-handler ~control)
@@ -266,7 +266,7 @@
                       (~cont-f (.getId ~container) ~@args-rest _cbh# _errbh#)
                       (catch :default e#
                         (_errbh# e#))))]
-          (c/send-command ~container fs# cbh# errbh#))))))
+          (maximoplus.core/send-command ~container fs# cbh# errbh#))))))
 
 
 (defmacro k!;;like kk! witthout the callback and errback (get default from container)
@@ -303,17 +303,17 @@
                     (~cont-f (.getId ~container) ~@args _cbh# _errbh#)
                     (catch :default e#
                       (_errbh# e#))))]
-        (c/send-command ~container fs# cbh# errbh#)))))
+        (maximoplus.core/send-command ~container fs# cbh# errbh#)))))
 
 
 (defmacro kk-control-nocb!
-  [controls container command control-f & args]
+  [control container command control-f & args]
   `(let [fh# (maximoplus.basecontrols.get-finish-call-handler ~control)
          cbh# (maximoplus.basecontrols.get-callback-handler ~control)
          errbh# (maximoplus.basecontrols.get-errback-handler ~control)]
      (js/Promise.
       (fn [resolve# reject#]
-        (c/send-command
+        (maximoplus.core/send-command
          ~container
          (fn [_cbh# _errbh#]
            (try
@@ -344,7 +344,7 @@
 
 
 
-(defmacto kk-branch-noargs!
+(defmacro kk-branch-noargs!
   [orig-cont container command cont-f & args]
   (let [errh (last args)
         cbh (-> args butlast last)]
@@ -357,7 +357,7 @@
                       (~cont-f _cbh# _errbh#)
                       (catch :default e#
                         (_errbh# e#))))]
-          (c/send-command ~container fs# cbh# errbh#))))))
+          (maximoplus.core/send-command ~container fs# cbh# errbh#))))))
 
 (defmacro offline-alt
   [fun-name  online-cmd offline-cmd & _args]
