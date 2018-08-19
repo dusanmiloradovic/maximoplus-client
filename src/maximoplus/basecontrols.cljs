@@ -768,18 +768,19 @@
                   (let [_id (c/get-id this)
                         nrs  (c/get-local-data-fetch-size _id)]
                     (c/trim-object-data _id rownum);clear data from local before the fetch
-                    (->
-                     (kk! this "addNewRow" c/add-at-index-with-offline rownum callback errback)
-                     (p/then (fn [ok] (fetch-data this   rownum (inc (- nrs rownum)) callback errback)))
-                     (p/then (fn [ok] (move-to-row this rownum callback errback))))
+                    (kk! this "addNewRow" c/add-at-index-with-offline rownum callback errback)
+                    (fetch-data this   rownum (inc (- nrs rownum)) callback errback)
+                    (move-to-row this rownum callback errback)
+                    ;;no need to wait on promises, both fetch-data and move-to-row use internally command pipeline, and will be executed just when the previous one has finished with callback
+;;                    (->
+;;                     (kk! this "addNewRow" c/add-at-index-with-offline rownum callback errback)
+;;                     (p/then (fn [ok] (fetch-data this   rownum (inc (- nrs rownum)) callback errback)))
+;;                     (p/then (fn [ok] (move-to-row this rownum callback errback))))
                     ))
-  (move-to-row [this rownum cb errb]
-               (let [d (p/get-deferred)]
-                 (aset this "move-to-deferred" d)
-                 (p/then
-                  (kk! this "move"
-                       c/move-to-with-offline  rownum cb errb)
-                  (fn [_] d))))
+  (move-to-row
+   [this rownum cb errb]
+   (kk! this "move"
+        c/move-to-with-offline  rownum cb errb))
   (get-currow [this]
               (c/get-state this :currrow))
   (get-local-data [this rownum]
@@ -815,11 +816,8 @@
     "set-control-index" (fn [ev]
                           (let [currow (get ev :currrow)]
                             (when-not (= -1 (js/parseInt currow))
-                              (let [d (aget this "move-to-deferred")]
-                                (when (and d (not (p/has-fired? d)))
-                                  (p/callback d currow))
-                                (doseq [_cnt  (get-rel-containers this) ]
-                                  (re-register-and-reset _cnt nil nil))))))
+                              (doseq [_cnt  (get-rel-containers this) ]
+                                (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
                            (re-register-and-reset _cnt nil nil))
@@ -829,10 +827,16 @@
 
 (def-comp AppContainer [mboname appname] MboContainer
   (^override fn* []
-             (this-as
-              this
-              (googbase this mboname)
-              (c/toggle-state this :deferred (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))))
+   (this-as
+       this
+     (googbase this mboname)
+     (let [deferred (promise-chan)]
+       (c/toggle-state this :deferred deferred)
+       (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))))) 
   Container
   (late-register
    [this]
@@ -850,20 +854,27 @@
 
 (def-comp RelContainer [mbocont rel] MboContainer
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
-                                     :parentid (c/get-id mbocont)})
-                      (aset this "appname" (aget mbocont "appname"))
-                      (add-child mbocont this)
-                      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
+   (this-as this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;                                       :deferred (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
+                      :deferred deferred
+                      :parentid (c/get-id mbocont)})
+       (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))
+       (aset this "appname" (aget mbocont "appname"))
+       (add-child mbocont this)
+       (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this)))))
   Offline
   (is-offline-enabled
    [this]
@@ -877,7 +888,7 @@
    (u/debug "calling re-registration of  relcontainer " (c/get-id this))
 
              (let [id (c/get-id this)
-                   dfrd (p/get-deferred)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
+                   dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
                (c/toggle-state this :deferred dfrd)
                (p-deferred-on dfrd
                               (doseq [c  (get-children this)]
@@ -888,9 +899,9 @@
                (c/re-register-mboset-byrel-with-offline
                 id rel (c/get-id mbocont)
                 (fn [ok]
-                  (p/callback dfrd ok))
+                  (go (a/put! dfrd ok)))
                 (fn [err]
-                  (p/errback dfrd err)))))
+                  (go (a/put! dfrd err))))))
   Foundation
   (dispose 
    [this]
@@ -901,14 +912,22 @@
    (this-as this
      (.call BaseComponent this);super-super konstruktor
      (c/add-container-to-registry this)
-     (c/set-states this
-                   {:currrow -1
-                    :uniqueid (p/get-deferred)
-                    :offlineenabled false
-                    :iscontainer true
-                    :rel-containers []
-                    :deferred (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
-                    :parentid (c/get-id mbocont)})
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;               :deferred (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
+                      :deferred deferred
+                      :parentid (c/get-id mbocont)})
+       (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))
+       )
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
@@ -927,11 +946,17 @@
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer
   (^override fn* []
-             (this-as
-              this
-              (googbase this mboname)
-              (c/toggle-state this :deferred (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) ))
-              ))
+   (this-as
+       this
+     (let [deferred (promise-chan)]
+       (googbase this mboname)
+       ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) ))
+       (c/toggle-state this :deferred deferred)
+       (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) )
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val))))))
   Container
   (get-unique-id [this]
                  uniqueId)
@@ -939,102 +964,133 @@
 
 (def-comp UniqueMboContainer [mboname uniqueid] MboContainer
   (^override fn* []
-             (this-as
-              this
-              (googbase this mboname)
-              (c/toggle-state this :deferred (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) ))
-              ))
+   (this-as
+       this
+     (googbase this mboname)
+     (let [deferred (promise-chan)]
+       ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) ))
+       (c/toggle-state this :deferred deferred)
+       (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) )
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val))))))
   Container
   (get-unique-id [this]
                  uniqueid))
 
-(def-comp MaxMenuContainer [] MboContainer
-  (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred (kk-nocb! this "register" c/register-maximo-menu )
-                                     }
-                                    ))))
 
 (mm/def-comp QueryMboContainer [appContainer] MboContainer
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
-                                     }
-                                    ))))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                                        ;                                       :deferred (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
+                      :deferred deferred
+                      })
+       (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))))))
 
 (mm/def-comp BookmarkMboContainer [appContainer] MboContainer
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred  (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))}
-                                    ))))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;                                       :deferred  (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))
+                      :deferred deferred
+                      })
+       (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))
+       ))))
 
 (mm/def-comp InboxMboContainer [] MboContainer
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred  (kk-nocb!  this "init" c/register-inbox)}
-                                    ))))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;                                       :deferred  (kk-nocb!  this "init" c/register-inbox)
+                      :deferred deferred
+                      })
+       (kk-nocb!  this "init" c/register-inbox)
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))
+       ))))
 
 (mm/def-comp PersonMboContainer [] MboContainer;will have just one record with the logged in person
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred (kk-nocb!  this "register" c/register-person-mboset)})
-                      )))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;                                       :deferred (kk-nocb!  this "register" c/register-person-mboset)
+                      :deferred deferred
+                      })
+       (kk-nocb!  this "register" c/register-person-mboset)
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))))))
 
 (def-comp ComponentAdapter [container columns] BaseComponent
   (fn* []
        (this-as this
-                (let [cb-handler (get-callback-handler this)
-                      err-handler (get-errback-handler this)
-                      vcols (seq columns)]
-                  (googbase this)
-                  (add-child container this)
-                  (c/set-states this {:iscontainer false
-                                      :deferred (c/register-columns container vcols
-                                                                    (fn [ok] (cb-handler ok))
-                                                                    (fn [err] (err-handler err)));;register columns gives deferred, no need for kk!
-                                      :columns vcols
-                                      :receiver true
-                                      }))))
+         (let [cb-handler (get-callback-handler this)
+               err-handler (get-errback-handler this)
+               vcols (seq columns)]
+           (googbase this)
+           (add-child container this)
+           (let [deferred (promise-chan)]
+             (c/set-states this {:iscontainer false
+                                 :deferred deferred
+                                 :columns vcols
+                                 :receiver true
+                                 })
+             (c/register-columns container vcols
+                                 (fn [ok] (cb-handler ok))
+                                 (fn [err] (err-handler err))) ;;has k! inside so we can listen channel
+             (go
+               (let [kc (aget this "command-channel")
+                     val (<! kc)]
+                 (a/put! deferred val)))))))
   ControlData
   (init-data
    [this]
@@ -1132,23 +1188,32 @@
 
 (mm/def-comp ListContainer [mbocont column] MboContainer
   (^override fn* []
-             (this-as this
-                      (.call BaseComponent this);super-super konstruktor
-                      (c/add-container-to-registry this)
-                      (c/set-states this
-                                    {:currrow -1
-                                     :uniqueid (p/get-deferred)
-                                     :offlineenabled false
-                                     :iscontainer true
-                                     :rel-containers []
-                                     :deferred  (kk-branch-nocb! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column)}
-                                    )
-                      (add-child mbocont this)))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      ;;               :deferred  (kk-branch-nocb! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column)
+                      :deferred deferred
+                      }
+                     )
+       (kk-branch-nocb! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column)
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val)))
+       )
+     (add-child mbocont this)))
   Offline
   (is-offline-enabled
    [this]
-   (c/is-offline-enabled mbocont))
-  )
+   (c/is-offline-enabled mbocont)))
 
 (defprotocol CommandProcess
   (pre-process-command-callback [control e])
@@ -1156,30 +1221,33 @@
 
 (mm/def-comp CommandContainer [mbocont command args] MboContainer
   (^override   fn* []
-               (this-as
-                this
-                (.call BaseComponent this);super-super konstruktor
-                (c/add-container-to-registry this)
-                (c/add-peer-control nil (c/get-id this))
-                (let [fap (apply partial  command (.getId this) (js->clj args))
-                      deferred (mm/kk-branch-noargs! mbocont this "init" fap
-                                                     (fn [e](pre-process-command-callback this e) )
-                                                     (fn [err] ((get-errback-handler this) err) ))]
-                  (c/set-states this
-                                {:currrow -1
-                                 :uniqueid (p/get-deferred)
-                                 :offlineenabled false
-                                 :iscontainer true
-                                 :rel-containers []
-                                 :deferred  deferred}
-                                ))
-                (add-child mbocont this)))
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (c/add-peer-control nil (c/get-id this))
+     (let [fap (apply partial  command (.getId this) (js->clj args))
+           deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      :deferred  deferred}
+                     )
+       (mm/kk-branch-noargs! mbocont this "init" fap
+                             (fn [e](pre-process-command-callback this e) )
+                             (fn [err] ((get-errback-handler this) err) ))
+       (go
+         (let [kc (aget this "command-channel")
+               val (<! kc)]
+           (a/put! deferred val))))
+     (add-child mbocont this)))
   CommandProcess
   (pre-process-command-callback [this e]
                                 (c/process-register-list-callback-event (c/get-id this) e)
-                                ((get-callback-handler this) e)
-                                )
-  )
+                                ((get-callback-handler this) e)))
 
 (defn- smart-fill-with-lookup
   [container column value]
@@ -1439,19 +1507,26 @@
 
 (def-comp Section [container columns] VisualComponent
   (fn* []
-       (this-as this
-                (let [cb-handler (get-callback-handler this)
-                      err-handler (get-errback-handler this)
-                      vcols (seq columns)]
-                  (googbase this)
-                  (c/set-states this
-                                {:isconatiner false
-                                 :receiver true
-                                 :columns columns
-                                 :deferred (c/register-columns container vcols
-                                                             (fn [ok] (cb-handler  ok))
-                                                             (fn [err] (err-handler err))) })
-                  (add-child container this))))
+       (this-as
+           this
+         (let [cb-handler (get-callback-handler this)
+               err-handler (get-errback-handler this)
+               vcols (seq columns)]
+           (googbase this)
+           (let [deferred (promise-chan)]
+             (c/set-states this
+                           {:isconatiner false
+                            :receiver true
+                            :columns columns
+                            :deferred  deferred})
+             (c/register-columns container vcols
+                                 (fn [ok] (cb-handler  ok))
+                                 (fn [err] (err-handler err)))
+             (go
+               (let [kc (aget this "command-channel")
+                     val (<! kc)]
+                 (a/put! deferred val))))
+           (add-child container this))))
   Component
   (get-container
    [this]
@@ -1470,38 +1545,38 @@
   (set-enabled [this enable]
                (c/toggle-state this :enabled enable)
                (aset this "enabled" enable)
-;               (mm/loop-arr [c  (get-children this)] 
-;                            (set-enabled c enable)
-;                            (set-readonly c (not enable)))
+                                        ;               (mm/loop-arr [c  (get-children this)] 
+                                        ;                            (set-enabled c enable)
+                                        ;                            (set-readonly c (not enable)))
                )
   (draw-section [this] (throw (js/Error. "drawSection not defined")))
   (get-insertion-point [this] (throw (js/Error. "getInsertion point not defined")))
   (add-rendered-child [this rendered-child child] (throw (js/Error. "addRenderedChild not implemented")))
   (^override render
-             [this]
+   [this]
    (let [vs (draw-section this)
          _cols (get-columns this)]
-               (c/toggle-state
-                this
-                :column-map
-                (loop [columns _cols colmap {}];when writing the value, lookup field by column name, performace optimization
-                  (if (empty? columns)
-                    colmap
-                    (let [col (first columns)
-                          col-metadata (clj->js (c/get-attribute-metadata-with-col-attrs
-                                                 this
-                                                 col))
-                          field (create-field this col-metadata)
-                          _ (add-child this field)
-                          rendered-field (render-deferred field)]
-                      
-                      (add-rendered-child this rendered-field field)
-                      (add-field-ui-listeners
-                       this field {:change (fn [value]
-                                             (change-maximo-value field value))})
-                      (recur (rest columns) (assoc colmap (.toUpperCase col) field))))))
-               (init-data this)
-               vs))
+     (c/toggle-state
+      this
+      :column-map
+      (loop [columns _cols colmap {}];when writing the value, lookup field by column name, performace optimization
+        (if (empty? columns)
+          colmap
+          (let [col (first columns)
+                col-metadata (clj->js (c/get-attribute-metadata-with-col-attrs
+                                       this
+                                       col))
+                field (create-field this col-metadata)
+                _ (add-child this field)
+                rendered-field (render-deferred field)]
+            
+            (add-rendered-child this rendered-field field)
+            (add-field-ui-listeners
+             this field {:change (fn [value]
+                                   (change-maximo-value field value))})
+            (recur (rest columns) (assoc colmap (.toUpperCase col) field))))))
+     (init-data this)
+     vs))
   (on-set-readonly
    [this flag]
                                         ;                   (u/debug "seting the row readonly:" mxrow flag)
@@ -1589,8 +1664,8 @@
          colz-js (clj->js columnz)]
      (mm/loop-arr [_c colz-js]
                   (doseq [ch (get-children this)]
-                               (if (= (.toUpperCase _c) (get-column ch))
-                                 (ar/conj! ret ch))))
+                    (if (= (.toUpperCase _c) (get-column ch))
+                      (ar/conj! ret ch))))
      ret))
   (set-field-focus
    [this field]
@@ -1598,41 +1673,41 @@
   (add-default-lookups
    [this columnz]
    (mm/p-deferred-on (c/get-state this :displayed)
-     (mm/loop-arr [f (get-fields this columnz)]
-                  (add-lookup f))))
+                     (mm/loop-arr [f (get-fields this columnz)]
+                                  (add-lookup f))))
   (set-col-label
    [this column label]
    (mm/p-deferred-on-attr this "displayed"
-     (mm/loop-arr [f (get-fields this [column])]
-                  (set-field-label this f label))))
+                          (mm/loop-arr [f (get-fields this [column])]
+                                       (set-field-label this f label))))
   (add-field-transform 
    [this column transformF]
    (c/add-col-attr this column "custom-transform" transformF)
                                         ;now just apply the transform if the field is in the document
    (let [f (get-field this column)]
      (p-deferred-on (c/get-state f :displayed)
-       (when-let [ff (aget transformF 0)]
-         (ff f)))))
+                    (when-let [ff (aget transformF 0)]
+                      (ff f)))))
   (remove-field-transform 
    [this column]
    (let [f (get-field this column)
          transformF (c/get-column-attribute this column "custom-transform")]
      (p-deferred-on (c/get-state f :displayed)
-       (when-let [ff (aget transformF 1)];removal function
-         (ff f))))
+                    (when-let [ff (aget transformF 1)];removal function
+                      (ff f))))
    (c/remove-col-attr this column "custom-transform"))
   (add-field-action
    [this column listenF actionF ]
    (let [deferred (aget this "deferred")]
      (mm/p-deferred-on deferred
-       (let [custom-actions
-             (if-let [cas (c/get-column-attribute this column "custom-actions")]
-               cas
-               (js/Array.)
-               )]
-         (ar/conj! custom-actions (js/Array. listenF  actionF deferred))
-         (c/add-col-attr this column "custom-actions" custom-actions))
-       (add-action (get-field this column) listenF actionF deferred))))
+                       (let [custom-actions
+                             (if-let [cas (c/get-column-attribute this column "custom-actions")]
+                               cas
+                               (js/Array.)
+                               )]
+                         (ar/conj! custom-actions (js/Array. listenF  actionF deferred))
+                         (c/add-col-attr this column "custom-actions" custom-actions))
+                       (add-action (get-field this column) listenF actionF deferred))))
   (remove-field-action
    [this column actionF removalF]
    (when-let [cas (c/get-column-attribute this column "custom-actions")]
@@ -1658,7 +1733,7 @@
    [this x]
    (let [_xrow (:row x)]
      (when ( = _xrow (get-currow container))
-             (set-enabled this true)
+       (set-enabled this true)
        (let [data (:data x)
              ks (keys data)
              flags (:flags x)]
@@ -1679,8 +1754,8 @@
   (init-data-from
    [this  start-row]
    (mm/p-deferred this 
-     (init-data-from-nd this start-row)
-     ))
+                  (init-data-from-nd this start-row)
+                  ))
   (init-data-from-nd
    [this  start-row]
    (when-not (aget container "fetching")
@@ -1692,8 +1767,8 @@
                   (let [currow (get-currow container)]
                     (if (or (not currow) (= -1 currow))
                       (c/move-to-with-offline (c/get-id container) 0
-                                 (fn[e]
-                                   (init-data-from-nd this 0)))
+                                              (fn[e]
+                                                (init-data-from-nd this 0)))
                       (init-data-from-nd this currow)))))
   MessageProcess
   (on-set-control-index
@@ -1706,8 +1781,8 @@
                                         ;performance problems, every on-set-indexs triggers fetch, do it just once for the main grid fetch
          
          (p/then fc (fn [fullfill]
-                     (aset this "fpause" false)
-                     (mm/c! this "fetch" fetch-data container (get-currow container) 1))))
+                      (aset this "fpause" false)
+                      (mm/c! this "fetch" fetch-data container (get-currow container) 1))))
        (mm/c! this "fetch" fetch-data container row 1))))
   (on-fetched-row [this x]
                                         ;(u/debug "Za sekciju " (.getId this) " dobio sam on-fetched-row u " (.getTime (js/Date.)))
@@ -1979,19 +2054,25 @@
                err-handler (get-errback-handler this)
                vcols (seq columns)]
            (googbase this)
-           (c/set-states this
-                         {:iscontainer false
-                          :receiver true
-                          :deferred (c/register-columns container  vcols
-                                                        (fn [ok] (cb-handler ok))
-                                                        (fn [err] (err-handler err)))
-                          :virtual-deferreds (ar/empty)
-                          :norows norows
-                          :first-maxrow 0
-                          :currrow -1
-                          :grid true
-                          :columns vcols
-                          })
+           (let [deferred (promise-chan)]
+             (c/set-states this
+                           {:iscontainer false
+                            :receiver true
+                            :deferred deferred
+                            :virtual-deferreds (ar/empty)
+                            :norows norows
+                            :first-maxrow 0
+                            :currrow -1
+                            :grid true
+                            :columns vcols
+                            })
+             (c/register-columns container  vcols
+                                 (fn [ok] (cb-handler ok))
+                                 (fn [err] (err-handler err)))
+             (go
+               (let [kc (aget this "command-channel")
+                     val (<! kc)]
+                 (a/put! deferred val))))
            (add-child container this))))
   Foundation
   (add-virtual-column
@@ -2775,23 +2856,19 @@
 (def-comp WorkflowControl [appContainer processName] VisualComponent
   (fn* []
        (this-as this
-         (let [deferred (p/get-deferred)]
-           (googbase this)
-           (c/set-states this {:deferred deferred
-                               :displayed (p/get-deferred)})
-           (mm/p-deferred appContainer
-                          (c/register-wf-director-with-offline (c/get-id appContainer) (aget appContainer "appname") processName (c/get-id this)
-                                                               (fn [c]
-                                                                 (c/is-active-wf-with-offline (c/get-id appContainer)
-                                                                                              (fn [c] (u/debug "ok" c) (p/callback deferred)
-                                                                                                (let [active-wf (get c 0)]
-                                                                                                  (set-wf-active this active-wf)))
-                                                                                              (fn [e]
-                                                                                                (wf-finished this)
-                                                                                                (u/debug "err" e)
-                                                                                                (p/errback deferred)
-                                                                                                ((get-errback-handler this) e))))
-                                                               (fn [e] (p/errback deferred)))))))
+         (googbase this)
+         (mm/p-deferred appContainer
+                        (c/register-wf-director-with-offline (c/get-id appContainer) (aget appContainer "appname") processName (c/get-id this)
+                                                             (fn [c]
+                                                               (c/is-active-wf-with-offline (c/get-id appContainer)
+                                                                                            (fn [c] (u/debug "ok" c) 
+                                                                                              (let [active-wf (get c 0)]
+                                                                                                (set-wf-active this active-wf)))
+                                                                                            (fn [e]
+                                                                                              (wf-finished this)
+                                                                                              (u/debug "err" e)
+                                                                                              ((get-errback-handler this) e))))
+                                                             (fn [e] ((get-errback-handler this) e))))))
   Foundation
   (dispose
    [this]
@@ -2894,11 +2971,10 @@
                  (u/debug "Workflow state for the current mbo is" flag))
   (route-wf [this]
             (c/toggle-state this :wf-finished false)
-            (mm/p-deferred this
-                           (let [cont  (get-wf-command-container this c/route-wf-with-offline [(c/get-id appContainer) (aget appContainer "appname") (c/get-id this) ])]
-                             (mm/p-deferred cont
-                                            (draw-wf-input-actions-internal this cont)
-                                            cont))))
+            (let [cont  (get-wf-command-container this c/route-wf-with-offline [(c/get-id appContainer) (aget appContainer "appname") (c/get-id this) ])]
+              (mm/p-deferred cont
+                             (draw-wf-input-actions-internal this cont)
+                             cont)))
   (reassign-wf [this]
                (let [cont (get-wf-command-container  this c/reassign-wf [(c/get-id this)])]
                  (mm/p-deferred cont
