@@ -3167,9 +3167,7 @@
        (this-as this
          (googbase this)
          (let [orgid-prom (p/get-deferred)
-               deferred (p/get-deferred)
                cont (c/get-container field)]
-           (c/toggle-state this :deferred deferred)
            (p/then
             (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
               (p/get-resolved-promise orgid)
@@ -3193,8 +3191,7 @@
                              :receiver true
                              :glcont (GLContainer. orgid)
                              :active-segment (atom 0)
-                             })
-              (p/callback deferred "ok"))))))
+                             }))))))
   UI
   (^override render
    [this]
