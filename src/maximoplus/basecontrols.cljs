@@ -467,6 +467,8 @@
                 (aset this "receiving" (atom false))
                 (aset this "state" (atom {}))
                 (aset this "command-channel" (chan))
+                (when-not @c/page-init-called
+                  (c/page-init))
                 (c/start-receiving this)
                 )
        )
@@ -517,15 +519,22 @@
   (get-channel [this] (aget this "channel"))
   (send-command
    [this command-f command-cb command-errb]
-   (go (a/put! (aget this "command-channel") [command-f command-cb command-errb])))
+   (let [cch (aget this "command-channel")]
+     (p-deferred-on @c/page-init-channel
+                    (u/debug "sending command" (c/get-id this))
+                    (go (a/put! cch [command-f command-cb command-errb])))))
   (start-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] true))
    (let [chn (aget this "channel")
          command-channel (aget this "command-channel")]
+     (aset this "pcc" @c/page-init-channel)
+     (u/debug "da vidimo?")
      (go-loop []
-       (let [[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
+       (let [;[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
+             [command-f command-cb command-errb] (<! command-channel)
              cb-chan (chan)]
+         (u/debug "receinved the command")
          (command-f
           (fn [ok]
             (try
@@ -557,10 +566,7 @@
        (put! chn msg))))
   )
 
-(defn simple-receive [_channel f]
-  (go
-    (<! _channel);;ignore what is put, just delay until the completion of init
-    (f)))
+
 
 (def-comp MboContainer [mboname] BaseComponent
   (fn* []
@@ -578,11 +584,11 @@
                           ;;                        :deferred  (kk-nocb! this "init" c/register-mainset mboname)}
                           :deferred deferred ;;I will not use the promises internally anymore for the control of processing. Function will just return the promises to the user. kk! macros will send to the "command-channel". This will be the first call to the command channel, so I can safely listen for the completion
                           })
-           (kk-nocb! this "init" c/register-mainset mboname)
-           (go
-             (let [kc (aget this "command-channel")
-                   val (<! kc)]
-               (a/put! deferred val))))))
+           (kk! this "init" c/register-mainset mboname
+                (fn [ok]
+                  (go (a/put! deferred ok)))
+                nil)
+           )))
   Component
   (get-container
    [this]
@@ -832,11 +838,9 @@
      (googbase this mboname)
      (let [deferred (promise-chan)]
        (c/toggle-state this :deferred deferred)
-       (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))))) 
+       (kk! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)
+            (fn [ok] (a/put! deferred ok))
+            nil)))) 
   Container
   (late-register
    [this]
@@ -867,11 +871,8 @@
                       ;;                                       :deferred (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))
+       (mm/kk-branch! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
+                      (fn [ok] (go (a/put! deferred ok))))
        (aset this "appname" (aget mbocont "appname"))
        (add-child mbocont this)
        (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this)))))
@@ -2067,12 +2068,10 @@
                             :columns vcols
                             })
              (c/register-columns container  vcols
-                                 (fn [ok] (cb-handler ok))
-                                 (fn [err] (err-handler err)))
-             (go
-               (let [kc (aget this "command-channel")
-                     val (<! kc)]
-                 (a/put! deferred val))))
+                                 (fn [ok]
+                                   (cb-handler ok)
+                                   (go (a/put! deferred ok)))
+                                 (fn [err] (err-handler err))))
            (add-child container this))))
   Foundation
   (add-virtual-column

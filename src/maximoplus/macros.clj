@@ -195,7 +195,7 @@
 
 (defmacro p-deferred [o & bd]
   `(if-let [prom-chan# (maximoplus.basecontrols.get-deferred ~o)]
-     (maximoplus.basecontrols.simple-receive
+     (maximoplus.core.simple-receive
       prom-chan# (fn [_#]
                    ~@bd
                    ))
@@ -203,7 +203,7 @@
 
 
 (defmacro p-deferred-on [o & bd]
-  `(maximoplus.basecontrols.simple-receive ~o (fn [_#] ~@bd))
+  `(maximoplus.core.simple-receive ~o (fn [_#] ~@bd))
   )
 
 

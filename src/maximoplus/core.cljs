@@ -8,10 +8,11 @@
    [maximoplus.db :as db]
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
-   [cljs.core.async :refer [put! promise-chan]]
+   [cljs.core.async :as a :refer [put! promise-chan <!]]
    )
   (:require-macros 
-   [maximoplus.macros :as mm]))
+   [maximoplus.macros :as mm :refer [p-deferred-on]]
+   [cljs.core.async.macros :refer [go go-loop]]))
 
 (declare yesnocancelproxy)
 (declare page-init)
@@ -25,7 +26,7 @@
 (declare put-coll-data-attrval!)
 (declare put-object-data-attrval!)
 (declare get-row-from-id)
-(declare start-event-dispatch)
+(declare start-receiving-events)
 (declare get-local-data-all-attrs)
 (declare get-parent-uniqueid)
 (declare globalFunctions)
@@ -49,6 +50,11 @@
 
 (declare bulk-ev-dispf)
 (declare error-dispf)
+
+(defn simple-receive [_channel f]
+  (go
+    (<! _channel);;ignore what is put, just delay until the completion of init
+    (f)))
 
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
@@ -122,7 +128,7 @@
 (declare globalDisplayWaitCursor)
 (declare globalRemoveWaitCursor)
 
-(def ^:export page-init-deferred (atom nil))
+(def page-init-called (atom false));;this will be set to true only once on calling the page init
 
 (def page-init-channel (atom (promise-chan)));; this is the atom to the channel, and not just the channel, because on logout, we need to again re-initiate the page by calling the server, and getting the new tab session. When the session ends, and the login function is called the atom should again be reset to the new promise channel
 
@@ -389,11 +395,7 @@
 
 
 (defn dispatch-data! [component data-type data];switch from events to core.async
-  (if js/setImmediate
-    (js/setImmediate ;;for nodejs avoiding stack overflow
-     (fn [_]
-       (put! (get-channel component) {:type data-type :data data})))
-    (put! (get-channel component) {:type data-type :data data})))
+  (go (put! (get-channel component) {:type data-type :data data})))
 
 (defn dispatch-peers! [control event data & exclude-source?]
   (let [peers (get-peer-controls control)
@@ -1426,21 +1428,23 @@
                                         ;      (global-login-function e)
       (.call (aget globalFunctions "global_login_function") nil e);indirection required becuase of advanced compilation
       (if  (= status 0)
-        (start-event-dispatch) ;fake alarm, continue the longpoll
+        (start-receiving-events) ;fake alarm, continue the longpoll
         (.call (aget globalFunctions "globalErrorHandler") nil "longpoll" [error-text] nil )
         ))))
 
 
 
 
-(defn start-event-dispatch [];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
+(defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
   (when-not @is-offline
     (net/start-server-push-receiving bulk-ev-dispf error-dispf)))
 
-(defn start-receiving-events []
-  (start-event-dispatch))
+(defn stop-receiving-events
+  []
+  (when-not @is-offline
+    (net/stop-server-push-receiving)))
 
 (declare pageDestructor)
 
@@ -1461,23 +1465,27 @@
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
   (internal-page-destructor)
-  (reset! page-init-deferred (p/get-deferred))
+  (reset! page-init-called true)
+  (stop-receiving-events)
+  (u/debug "calling page init")
   (if @is-offline
-    (p/callback @page-init-deferred "offline")
-    (when-not @logging-in
-      (swap! logging-in (fn [_] true))
-      (net/send-get (net/init)
-                    (fn [_ts] 
-                      (u/debug "start receiveing events")
-                      (swap! logging-in (fn [_] false))
-                      (net/set-tabsess! (first _ts) )
-                      (p/callback @page-init-deferred (first _ts))
-                      (start-receiving-events))
-                    (fn [err]
-                      (swap! logging-in (fn [_] true))
-                      (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
+    (go (put! @page-init-channel "offline"))
+    (net/send-get (net/init)
+                  (fn [_ts] 
+                    (u/debug "start receiveing events")
+                    (swap! logging-in (fn [_] false))
+                    (net/set-tabsess! (first _ts) )
+                    (go (put! @page-init-channel (first _ts)))
+                    (start-receiving-events))
+                  (fn [err]
+                    (u/debug "received page-init error")
+                    (u/debug err)
+                    (reset! page-init-called false)
+                    (reset! page-init-channel (promise-chan))
+                    (swap! logging-in (fn [_] true))
+                    (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
                                         ;(global-login-function err)
-                      )))))
+                    ))))
 
 
 (defn get-control-metadata
@@ -1757,11 +1765,8 @@
                                         ;here we have the same logic like in register-mainset. ALl the other dependent containers depend on mboocontainer, and for them page-init-deferred had always been already fired. InboxContainer doesn't depend on AppContainer
 (defn ^:export register-inbox
   [control-name cb errb]
-  (when-not @page-init-deferred
-    (page-init))
-  (p/then @page-init-deferred
-          (fn [_]
-            (register-inbox-mboset control-name cb errb))))
+  (p-deferred-on @page-init-channel
+          (register-inbox-mboset control-name cb errb)))
 
 (mm/defcmd register-bookmark-mboset
   [control-name app]
@@ -1867,13 +1872,12 @@
     (if @is-offline
       (errf (offline-error-response))
       (do
-        (when-not @page-init-deferred
+        (when-not @page-init-called
           (page-init))
-        (p/then @page-init-deferred
-                (fn [_]
-                  (if post?
-                    (net/send-post (net/command) data okf proxy-error)
-                    (net/send-get (str (net/command) "?" data) okf proxy-error))))))))
+        (p-deferred-on @page-init-channel
+                (if post?
+                  (net/send-post (net/command) data okf proxy-error)
+                  (net/send-get (str (net/command) "?" data) okf proxy-error)))))))
 
                                         ;helper function for macro, to reduce the generated file size
 
