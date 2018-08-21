@@ -542,7 +542,7 @@
   (send-message-sync
    [this msg components]
    (doseq [c components]
-     (receive-message-sync c msg)))
+     (c/receive-message-sync c msg)))
   (receive-message-sync
    [this {type :type data :data :as msg}]
    (when-let [rf (get (c/get-receive-functions this) type)]
