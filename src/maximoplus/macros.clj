@@ -260,7 +260,7 @@
                       (~cont-f (.getId ~container) ~@args-rest _cbh# _errbh#)
                       (catch :default e#
                         (_errbh# e#))))]
-          (maximoplus.core/send-command ~container fs# cbh# errbh#))))))
+          (maximoplus.core/send-command ~container ~command  fs# cbh# errbh#))))))
 
 
 (defmacro k!;;like kk! witthout the callback and errback (get default from container)
@@ -297,7 +297,7 @@
                     (~cont-f (.getId ~container) ~@args _cbh# _errbh#)
                     (catch :default e#
                       (_errbh# e#))))]
-        (maximoplus.core/send-command ~container fs# cbh# errbh#)))))
+        (maximoplus.core/send-command ~container ~command fs# cbh# errbh#)))))
 
 
 (defmacro kk-control-nocb!
@@ -309,6 +309,7 @@
       (fn [resolve# reject#]
         (maximoplus.core/send-command
          ~container
+         ~command
          (fn [_cbh# _errbh#]
            (try
              (~control-f  (.getId ~container) ~@args
@@ -351,7 +352,7 @@
                       (~cont-f _cbh# _errbh#)
                       (catch :default e#
                         (_errbh# e#))))]
-          (maximoplus.core/send-command ~container fs# cbh# errbh#))))))
+          (maximoplus.core/send-command ~container ~command fs# cbh# errbh#))))))
 
 (defmacro offline-alt
   [fun-name  online-cmd offline-cmd & _args]

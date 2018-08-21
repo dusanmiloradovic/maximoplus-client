@@ -451,27 +451,22 @@
         (do
           (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)
           (mm/c! control  "fetch" fetch-data container  0 nrs)) ;fetch already has kk!
-        (mm/c! control  "fetch" fetch-data container  currow nrs)
-        ))))
+        (mm/c! control  "fetch" fetch-data container  currow nrs)))))
 
 (defn get-deferred [component]
-  (c/get-state component :deferred)
-  )
+  (c/get-state component :deferred))
 
 (def-comp BaseComponent [] js/Object
   (fn* []
        (this-as this
                 (aset this "uniqueid" (get-next-unique-id (get-prefix this)))
                 (aset this "children" (atom []))
-                (aset this "channel" (chan))
                 (aset this "receiving" (atom false))
                 (aset this "state" (atom {}))
                 (aset this "command-channel" (chan))
                 (when-not @c/page-init-called
                   (c/page-init))
-                (c/start-receiving this)
-                )
-       )
+                (c/start-receiving this)))
   Component
   (get-id 
    [this]
@@ -516,25 +511,19 @@
   Receivable
   (get-receive-functions
    [this]);by default nothing
-  (get-channel [this] (aget this "channel"))
   (send-command
-   [this command-f command-cb command-errb]
+   [this command command-f command-cb command-errb]
    (let [cch (aget this "command-channel")]
      (p-deferred-on @c/page-init-channel
-                    (u/debug "sending command" (c/get-id this))
-                    (go (a/put! cch [command-f command-cb command-errb])))))
+                    (go (a/put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] true))
-   (let [chn (aget this "channel")
-         command-channel (aget this "command-channel")]
-     (aset this "pcc" @c/page-init-channel)
-     (u/debug "da vidimo?")
+   (let [command-channel (aget this "command-channel")]
      (go-loop []
        (let [;[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
-             [command-f command-cb command-errb] (<! command-channel)
+             [command command-f command-cb command-errb] (<! command-channel)
              cb-chan (chan)]
-         (u/debug "receinved the command")
          (command-f
           (fn [ok]
             (try
@@ -543,27 +532,25 @@
           (fn [err]
             (try
               (command-errb err)
-              (finally (a/put! cb-chan err))))
-          (<! cb-chan))
-         (recur)))
-     (go (while @(aget this "receiving")
-           (let [{type :type data :data :as msg} (<! chn)]
-             (when-let [rf (get (c/get-receive-functions this) type)]
-               (rf data))
-             ;;send the message after it was processed to all non-containers (Non-container cannot be the parent of the container)
-             (when-let [children (get-children this)]
-               (c/send-message this msg
-                               (filter (fn [c]
-                                         (and (c/get-state c :receiver) (not (c/get-state c :container)))) children))))))))
+              (finally (a/put! cb-chan err)))))
+         (<! cb-chan)
+         (recur)))))
   (stop-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] false))
    ) ;this should pause the component receivig the data from the long pollint
-  (send-message
+  (send-message-sync
    [this msg components]
    (doseq [c components]
-     (when-let [chn (c/get-channel c)] ;currently fields and rows don't propagate messages, maybe that will be changed soon
-       (put! chn msg))))
+     (receive-message-sync c msg)))
+  (receive-message-sync
+   [this {type :type data :data :as msg}]
+   (when-let [rf (get (c/get-receive-functions this) type)]
+     (rf data))
+   (when-let [children (get-children this)]
+     (c/send-message-sync this msg
+                     (filter (fn [c]
+                               (and (c/get-state c :receiver) (not (c/get-state c :container)))) children))))
   )
 
 

@@ -134,13 +134,14 @@
 
 
 (defprotocol Receivable ; getting rid of events for propagate the server message, will use the core-async
-  (get-channel [component])
   (process-received [component message])
   (send-message [component message components]);i can't think of anything else here but the direct children, but in any case might be useful
+  (send-message-sync [component message components]);;core.async has a cost, stack size is growing rapidly. If there is no need, I will send message directly(synchronously to the chidlren
+  (receive-message-sync [components message]);;this will be called on the child receiving the mesesage
   (start-receiving [component])
   (stop-receiving [component])
   (get-receive-functions [component]);for each type of data received there may be a function to process it. If there is no function for the particular data type, the data is passed down to the child components, for its handlers to process
-  (send-command [component command-f command-cb command-errb]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
+  (send-command [component command command-f command-cb command-errb]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
   )
 
 (defprotocol Component ;base protocol for the components
@@ -394,8 +395,8 @@
   (get-peer-controls control-name))
 
 
-(defn dispatch-data! [component data-type data];switch from events to core.async
-  (go (put! (get-channel component) {:type data-type :data data})))
+(defn dispatch-data! [component data-type data];dispatch synchronously!
+  (receive-message-sync component {:type data-type :data data}))
 
 (defn dispatch-peers! [control event data & exclude-source?]
   (let [peers (get-peer-controls control)
@@ -1414,11 +1415,17 @@
   (ev-dispf-from-str e)
   )
 
+;;(defn bulk-ev-dispf [bulk-event];optimizacija performansi
+;;  (doseq [e bulk-event]
+;;    (js/setTimeout
+;;     (fn[_]
+;;       (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e)))) 0)))
+
+;;trying to get rid of all the asynchrony. If there will be performance hit, consider the alternatives (workers). Async processing where sync is possible leads to stack overflow in node
+
 (defn bulk-ev-dispf [bulk-event];optimizacija performansi
   (doseq [e bulk-event]
-    (js/setTimeout
-     (fn[_]
-       (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e)))) 0)))
+    (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e))) 0))
 
 (defn error-dispf[e]
   (let [error-code (nth e 0)
@@ -1467,12 +1474,10 @@
   (internal-page-destructor)
   (reset! page-init-called true)
   (stop-receiving-events)
-  (u/debug "calling page init")
   (if @is-offline
     (go (put! @page-init-channel "offline"))
     (net/send-get (net/init)
                   (fn [_ts] 
-                    (u/debug "start receiveing events")
                     (swap! logging-in (fn [_] false))
                     (net/set-tabsess! (first _ts) )
                     (go (put! @page-init-channel (first _ts)))
