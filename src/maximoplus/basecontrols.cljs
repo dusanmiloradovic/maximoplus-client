@@ -8,7 +8,7 @@
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
-  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc!]]
+  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc! kk-branch!]]
                    [cljs.core.async.macros :refer [go go-loop]])
   )
 
@@ -515,7 +515,7 @@
    [this command command-f command-cb command-errb]
    (let [cch (aget this "command-channel")]
      (p-deferred-on @c/page-init-channel
-                    (go (a/put! cch [command command-f command-cb command-errb])))))
+                    (go (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
    (swap! (aget this "receiving") (fn [_] true))
@@ -528,11 +528,11 @@
           (fn [ok]
             (try
               (command-cb ok)
-              (finally (a/put! cb-chan ok))))
+              (finally (put! cb-chan ok))))
           (fn [err]
             (try
               (command-errb err)
-              (finally (a/put! cb-chan err)))))
+              (finally (put! cb-chan err)))))
          (<! cb-chan)
          (recur)))))
   (stop-receiving
@@ -573,7 +573,7 @@
                           })
            (kk! this "init" c/register-mainset mboname
                 (fn [ok]
-                  (go (a/put! deferred ok)))
+                  (go (put! deferred ok)))
                 nil)
            )))
   Component
@@ -826,7 +826,7 @@
      (let [deferred (promise-chan)]
        (c/toggle-state this :deferred deferred)
        (kk! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)
-            (fn [ok] (a/put! deferred ok))
+            (fn [ok] (go (put! deferred ok)))
             nil)))) 
   Container
   (late-register
@@ -859,7 +859,7 @@
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
        (mm/kk-branch! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
-                      (fn [ok] (go (a/put! deferred ok))))
+                      (fn [ok] (go (put! deferred ok))) nil)
        (aset this "appname" (aget mbocont "appname"))
        (add-child mbocont this)
        (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this)))))
@@ -887,9 +887,9 @@
                (c/re-register-mboset-byrel-with-offline
                 id rel (c/get-id mbocont)
                 (fn [ok]
-                  (go (a/put! dfrd ok)))
+                  (go (put! dfrd ok)))
                 (fn [err]
-                  (go (a/put! dfrd err))))))
+                  (go (put! dfrd err))))))
   Foundation
   (dispose 
    [this]
@@ -910,12 +910,8 @@
                       ;;               :deferred (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))
-       )
+       (kk-branch! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont)
+                   (fn [ok] (go (put! deferred ok))) nil))
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
@@ -940,15 +936,11 @@
        (googbase this mboname)
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) ))
        (c/toggle-state this :deferred deferred)
-       (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) )
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val))))))
+       (kk! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId)
+            (fn [ok] (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
-                 uniqueId)
-  )
+                 uniqueId))
 
 (def-comp UniqueMboContainer [mboname uniqueid] MboContainer
   (^override fn* []
@@ -958,11 +950,8 @@
      (let [deferred (promise-chan)]
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) ))
        (c/toggle-state this :deferred deferred)
-       (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) )
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val))))))
+       (kk! this "setUniqueId" c/set-unique-id  (.toString uniqueid)
+            (fn [ok] (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
                  uniqueid))
@@ -984,11 +973,8 @@
                                         ;                                       :deferred (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
                       :deferred deferred
                       })
-       (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))))))
+       (kk-branch! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname"))
+                   (fn [ok] (go (put! deferred ok))) nil)))))
 
 (mm/def-comp BookmarkMboContainer [appContainer] MboContainer
   (^override fn* []
@@ -1006,12 +992,8 @@
                       ;;                                       :deferred  (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))
                       :deferred deferred
                       })
-       (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))
-       ))))
+       (kk-branch! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname"))
+                   (fn [ok] (go (put! deferred ok))) nil)))))
 
 (mm/def-comp InboxMboContainer [] MboContainer
   (^override fn* []
@@ -1029,12 +1011,8 @@
                       ;;                                       :deferred  (kk-nocb!  this "init" c/register-inbox)
                       :deferred deferred
                       })
-       (kk-nocb!  this "init" c/register-inbox)
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))
-       ))))
+       (kk!  this "init" c/register-inbox
+             (fn [ok] (go (put! deferred ok))) nil)))))
 
 (mm/def-comp PersonMboContainer [] MboContainer;will have just one record with the logged in person
   (^override fn* []
@@ -1052,11 +1030,8 @@
                       ;;                                       :deferred (kk-nocb!  this "register" c/register-person-mboset)
                       :deferred deferred
                       })
-       (kk-nocb!  this "register" c/register-person-mboset)
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))))))
+       (kk!  this "register" c/register-person-mboset
+             (fn [ok] (go (put! deferred ok))) nil)))))
 
 (def-comp ComponentAdapter [container columns] BaseComponent
   (fn* []
@@ -1073,12 +1048,8 @@
                                  :receiver true
                                  })
              (c/register-columns container vcols
-                                 (fn [ok] (cb-handler ok))
-                                 (fn [err] (err-handler err))) ;;has k! inside so we can listen channel
-             (go
-               (let [kc (aget this "command-channel")
-                     val (<! kc)]
-                 (a/put! deferred val)))))))
+                                 (fn [ok] (cb-handler ok) (go (put! deferred ok)))
+                                 (fn [err] (err-handler err)))))))
   ControlData
   (init-data
    [this]
@@ -1136,7 +1107,7 @@
   (fn* []
        (this-as this
          (googbase this)
-         (c/toggle-state this :displayed (p/get-deferred))))
+         (c/toggle-state this :displayed (promise-chan))))
   UI
   (render-deferred
    [this]
@@ -1150,7 +1121,7 @@
                ))
   (mark-as-displayed
    [this]
-   (p/callback (c/get-state this :displayed)))
+   (go (put! (c/get-state this :displayed) :displayed)))
   (render
    [this]
    (throw (js/Error. "render not implemented")))
@@ -1191,12 +1162,8 @@
                       :deferred deferred
                       }
                      )
-       (kk-branch-nocb! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column)
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val)))
-       )
+       (kk-branch! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column
+                   (fn [ok] (go (put! deferred ok)))) nil)
      (add-child mbocont this)))
   Offline
   (is-offline-enabled
@@ -1225,12 +1192,10 @@
                       :deferred  deferred}
                      )
        (mm/kk-branch-noargs! mbocont this "init" fap
-                             (fn [e](pre-process-command-callback this e) )
-                             (fn [err] ((get-errback-handler this) err) ))
-       (go
-         (let [kc (aget this "command-channel")
-               val (<! kc)]
-           (a/put! deferred val))))
+                             (fn [e]
+                               (pre-process-command-callback this e)
+                               (go (put! deferred e)))
+                             (fn [err] ((get-errback-handler this) err) )))
      (add-child mbocont this)))
   CommandProcess
   (pre-process-command-callback [this e]
@@ -1508,12 +1473,8 @@
                             :columns columns
                             :deferred  deferred})
              (c/register-columns container vcols
-                                 (fn [ok] (cb-handler  ok))
-                                 (fn [err] (err-handler err)))
-             (go
-               (let [kc (aget this "command-channel")
-                     val (<! kc)]
-                 (a/put! deferred val))))
+                                 (fn [ok] (cb-handler  ok) (go (put! deferred ok)))
+                                 (fn [err] (err-handler err))))
            (add-child container this))))
   Component
   (get-container
@@ -1589,15 +1550,15 @@
    (let [existing-cols (vec (c/get-state this :columns))
          _pos (if pos pos  (count existing-cols))
          [befcols aftcols] (split-at _pos existing-cols)
-         vcol (aget metadata "attributeName")];;the existence of this means the virtual column is bound to the real column with this attribute
+         vcol (aget metadata "attributeName")
+         deferred (promise-chan)] ;;the existence of this means the virtual column is bound to the real column with this attribute
      (c/toggle-state this :columns  (concat befcols [column] aftcols))
      (c/add-col-attrs this column metadata)
      (when vcol
        (c/set-states this
-                     {:deferred
-                      (p-deferred
-                       this
-                       (c/register-columns (c/get-container this) [vcol] nil nil))}))))
+                     {:deferred deferred})
+       (c/register-columns (c/get-container this) [vcol] (fn [ok] (go (put! deferred ok))) nil)
+       )))
   Row
   ;;one level of indirection required for React and similar frameworkks(where state is kept in the top level component)
   (get-columns
@@ -1687,7 +1648,7 @@
   (add-field-action
    [this column listenF actionF ]
    (let [deferred (aget this "deferred")]
-     (mm/p-deferred-on deferred
+     (mm/p-deferred-on (c/get-state this :deferred)
                        (let [custom-actions
                              (if-let [cas (c/get-column-attribute this column "custom-actions")]
                                cas
@@ -2057,7 +2018,7 @@
              (c/register-columns container  vcols
                                  (fn [ok]
                                    (cb-handler ok)
-                                   (go (a/put! deferred ok)))
+                                   (go (put! deferred ok)))
                                  (fn [err] (err-handler err))))
            (add-child container this))))
   Foundation
@@ -3099,7 +3060,7 @@
    (this-as this
      (.call BaseComponent this);super-super konstruktor
      (c/add-container-to-registry this)
-     (let [d (p/get-deferred)]
+     (let [d (promise-chan)]
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
@@ -3117,8 +3078,8 @@
                          :segments (atom (vec (replicate (count (first e)) "")))};;empty vector of segments
                         )
           (c/set-segment (c/get-id this) @(c/get-state this :segments)  0 orgid
-                                              (fn [ee] (p/callback d ee))))
-                             (fn [e] (p/errback d e)))))) 
+                                              (fn [ee] (go (put! d ee)))))
+                             (fn [e] (go (put! d e))))))) 
   GL
   (get-gl-value [this]
                 (let [segments @(c/get-state this :segments)
@@ -3152,7 +3113,7 @@
   (fn* []
        (this-as this
          (googbase this)
-         (let [orgid-prom (p/get-deferred)
+         (let [orgid-prom (promise-chan)
                cont (c/get-container field)]
            (p/then
             (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
@@ -3162,12 +3123,11 @@
                   UI
                   (on-set-max-value [this column value]
                     (when (= "ORGID" column)
-                      (p/callback orgid-prom value)
-                      ))
+                      (go (put! orgid-prom value))))
                   MessageProcess
                   (on-fetched-row [this row]
                     (let  [val (-> row (js->clj :keywordize-keys true) :data :ORGID )];;debug
-                         (p/callback orgid-prom val ))))
+                         (go (put! orgid-prom val)))))
                ;; (render-deferred cad) componentadapter not a visual component!
                 (init-data cad)
                 orgid-prom))
