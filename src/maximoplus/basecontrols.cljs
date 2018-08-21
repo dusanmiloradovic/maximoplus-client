@@ -544,13 +544,15 @@
    (doseq [c components]
      (c/receive-message-sync c msg)))
   (receive-message-sync
-   [this {type :type data :data :as msg}]
-   (when-let [rf (get (c/get-receive-functions this) type)]
-     (rf data))
-   (when-let [children (get-children this)]
-     (c/send-message-sync this msg
-                     (filter (fn [c]
-                               (and (c/get-state c :receiver) (not (c/get-state c :container)))) children))))
+   [this msg]
+   (let [type (:type msg)
+         data (:data msg)]
+     (when-let [rf (get (c/get-receive-functions this) type)]
+       (rf data))
+     (when-let [children (get-children this)]
+       (c/send-message-sync this msg
+                            (filter (fn [c]
+                                      (and (c/get-state c :receiver) (not (c/get-state c :container)))) children)))))
   )
 
 
