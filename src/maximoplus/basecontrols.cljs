@@ -542,7 +542,14 @@
   (send-message-sync
    [this msg components]
    (doseq [c components]
-     (c/receive-message-sync c msg)))
+     (if js/setImmediate
+       (js/setImmediate
+        (fn []
+          (u/debug "delay")
+          (c/receive-message-sync c msg))
+        ))
+     (c/receive-message-sync c msg)
+     ))
   (receive-message-sync
    [this msg]
    (let [type (:type msg)
