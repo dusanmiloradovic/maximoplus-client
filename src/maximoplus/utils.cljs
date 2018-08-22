@@ -85,6 +85,10 @@
             (aset ret (aget arr ind) (aget arr (inc ind)))
             (recur (+ ind 2))))))))
 
+(defn vec-to-map
+  [v]
+  (into {} (map vec (partition 2 v))))
+
 (defn find-in-arr
   [arr f]
   (let [ln (.-length arr)]

@@ -15,6 +15,8 @@
 
 (def id-generator (IdGenerator.))
 
+
+
 (defn get-next-unique-id [& prefix]
   (str (.getNextUniqueId id-generator) (when prefix (first prefix)))
   )
@@ -350,7 +352,7 @@
 (defn- add-control-column [control ind column metadata]
   (let [columns (aget control "columns")
 	new-cols (-> columns (subvec 0 ind) (conj column) (concat (subvec columns ind (count columns))) vec)]
-    (c/add-virtual-column-to-metadata control column (js->clj metadata))
+    (c/add-virtual-column-to-metadata control column  metadata)
     (aset control "columns" new-cols)))
 
 (defn- get-first-in-hierarchy
@@ -459,14 +461,16 @@
 (def-comp BaseComponent [] js/Object
   (fn* []
        (this-as this
-                (aset this "uniqueid" (get-next-unique-id (get-prefix this)))
-                (aset this "children" (atom []))
-                (aset this "receiving" (atom false))
-                (aset this "state" (atom {}))
-                (aset this "command-channel" (chan))
-                (when-not @c/page-init-called
-                  (c/page-init))
-                (c/start-receiving this)))
+         (let [id (get-next-unique-id (get-prefix this))]
+           (aset this "uniqueid" id)
+           (aset this "children" (atom []))
+           (aset this "receiving" (atom false))
+           (aset this "state" (atom {}))
+           (aset this "command-channel" (chan))
+           (swap! c/registered-components assoc id this)
+           (when-not @c/page-init-called
+             (c/page-init))
+           (c/start-receiving this))))
   Component
   (get-id 
    [this]
@@ -541,15 +545,13 @@
    ) ;this should pause the component receivig the data from the long pollint
   (send-message-sync
    [this msg components]
-   (doseq [c components]
-     (if js/setImmediate
-       (js/setImmediate
-        (fn []
-          (u/debug "delay")
-          (c/receive-message-sync c msg))
-        ))
-     (c/receive-message-sync c msg)
-     ))
+   ;;sending directly causes the stack overflow. I will try to put it to the quueue, and from there it should be processed in async independetly
+   (doseq [id (map c/get-id components)]
+     (swap! c/pending-messages assoc id (conj (if-let [exs (get @c/pending-messages id)] exs []) msg)))
+   ;;   (doseq [c components]
+   ;;     ;;     (c/receive-message-sync c msg)
+   ;;     )
+   )
   (receive-message-sync
    [this msg]
    (let [type (:type msg)
@@ -560,6 +562,14 @@
        (c/send-message-sync this msg
                             (filter (fn [c]
                                       (and (c/get-state c :receiver) (not (c/get-state c :container)))) children)))))
+  (receive-all-pending-sync
+   [this]
+   (doseq [msg (@c/pending-messages (c/get-id this))]
+     (let [type (:type msg)
+           data (:data msg)]
+       (when-let [rf (get (c/get-receive-functions this) type)]
+         (rf data))
+       )))
   )
 
 
@@ -787,12 +797,12 @@
               (c/get-state this :currrow))
   (get-local-data [this rownum]
                   (let [_rn (if rownum (js/parseInt rownum) (get-currow this))]
-                    (clj->js (c/get-local-data-all-attrs (c/get-id this) _rn))))
+                     (c/get-local-data-all-attrs (c/get-id this) _rn)))
   (get-qbe [this cb errb]
            (kk! this "getQbe"
                 c/get-qbe-with-offline
                 (fn [e]
-                  (let [ qbe (-> (get e 0) clj->js  u/array-to-obj)]
+                  (let [ qbe (-> (get e 0)  u/vec-to-map)]
                     (when qbe
                       (aset this "qbe" qbe)
                       (cb qbe))))
@@ -1090,7 +1100,7 @@
   (get-receive-functions
    [this]
    {"addmbo" #() ; #(u/debug "called  addmbo in component adapteru for " %)
-    "fetched-row" #(on-fetched-row this (clj->js %))
+    "fetched-row" #(on-fetched-row this %)
     "reset" (fn [_] (on-reset this))
     "set-control-index" (fn[e]
                           (on-set-control-index this (get e :currrow)))
@@ -1354,8 +1364,7 @@
   (set-label [this label]
              (display-label this label)
              (aset this "metadata"
-                   (clj->js
-                    (assoc (js->clj (aget this "metadata"))  "title" label))))
+                   (assoc (aget this "metadata")  "title" label)))
   (show-date-lookup [this]
                     (throw (js/Error. "showDateLookup not implemented"))
                     )
@@ -1521,9 +1530,9 @@
         (if (empty? columns)
           colmap
           (let [col (first columns)
-                col-metadata (clj->js (c/get-attribute-metadata-with-col-attrs
-                                       this
-                                       col))
+                col-metadata  (c/get-attribute-metadata-with-col-attrs
+                                        this
+                                        col)
                 field (create-field this col-metadata)
                 _ (add-child this field)
                 rendered-field (render-deferred field)]
@@ -1559,7 +1568,7 @@
    (let [existing-cols (vec (c/get-state this :columns))
          _pos (if pos pos  (count existing-cols))
          [befcols aftcols] (split-at _pos existing-cols)
-         vcol (aget metadata "attributeName")
+         vcol (get metadata "attributeName")
          deferred (promise-chan)] ;;the existence of this means the virtual column is bound to the real column with this attribute
      (c/toggle-state this :columns  (concat befcols [column] aftcols))
      (c/add-col-attrs this column metadata)
@@ -1575,8 +1584,8 @@
    (c/get-state this :columns))
   (set-row-values
    [this colvals]
-   (mm/loop-arr [k (js-keys colvals)]
-                (set-row-value this k (aget colvals k))))
+   (doseq [k (keys colvals)]
+     (set-row-value this k (get colvals k))))
   (set-row-value
    [this col value]
    (set-field-value (get-field this col) value))
@@ -1585,8 +1594,8 @@
    (set-field-value field value))
   (set-row-flags
    [this colflags]
-   (mm/loop-arr [k (js-keys colflags)]
-                (set-field-flag this (get-field this k) (aget colflags k))))
+   (doseq [k (keys colflags)]
+     (set-field-flag this k (get colflags k))))
   (set-field-flag
    [this field flag]
    (set-flag field flag))
@@ -1608,8 +1617,8 @@
    ((c/get-state this :column-map) (.toUpperCase column)))
   (create-field
    [this column-metadata]
-   (let [col-metadata (clj->js column-metadata)
-         tp (aget col-metadata "maxType")
+   (let [col-metadata  column-metadata
+         tp (get col-metadata "maxType")
          fld (condp = tp
                "VIRTUAL" (VirtualActionField. col-metadata)
                "YORN" (CheckBox. col-metadata)
@@ -1618,13 +1627,14 @@
      ))
   (get-fields
    [this columnz]
-   (let [ret (ar/empty)
-         colz-js (clj->js columnz)]
-     (mm/loop-arr [_c colz-js]
-                  (doseq [ch (get-children this)]
-                    (if (= (.toUpperCase _c) (get-column ch))
-                      (ar/conj! ret ch))))
-     ret))
+   (loop [ch (get-children this) rez []]
+     (if (empty? ch)
+       rez
+       (let [c (first ch)
+             _rez (if (some #(= (.toUpperCase %) (get-column c)) columnz)
+                    (conj rez c)
+                    rez)]
+         (recur (rest ch) _rez)))))
   (set-field-focus
    [this field]
    (set-focus field))
@@ -1898,30 +1908,25 @@
      (cm (.toUpperCase column))))
   (get-fields
    [this columnz]
-   (let [ret (ar/empty)
-         colz-js (clj->js columnz)]
-     (mm/loop-arr [_c colz-js]
-                  (doseq [ch (get-children this)]
-                               (if (= (.toUpperCase _c) (get-column ch))
-                                 (ar/conj! ret ch))))
-     ret))
+   (loop [ch (get-children this) rez []]
+     (if (empty? ch)
+       rez
+       (let [c (first ch)
+             _rez (if (some #(= (.toUpperCase %) (get-column c)) columnz)
+                    (conj rez c)
+                    rez)]
+         (recur (rest ch) _rez)))))
   (set-row-value
    [this column value]
    (set-field-value (get-field this column) value))
   (set-row-values 
    [this colvals]
-   (let [ks (js-keys colvals)]	  
-     (dotimes [i (.-length ks)]
-       (let [k (aget ks i)
-             dval (aget colvals k)]
-         (set-row-value this k dval)))))
+   (doseq [k (keys colvals)]
+     (set-row-value this k (get colvals k))))
   (set-row-flags
    [this colflags]
-   (let [_jsf (js-keys colflags)]
-     (dotimes [i (.-length _jsf)]
-       (let [field (aget _jsf i)]
-         (when-let [_f (get-field this field)]
-           (set-field-flag this _f (aget colflags field)))))))
+   (doseq [k (keys colflags)]
+     (set-field-flag this k (get colflags k))))
   (add-default-lookups
    [this columnz]
    (mm/p-deferred-on  (c/get-state this :displayed)
@@ -2036,7 +2041,7 @@
    (mm/p-deferred this
                   (let [existing-cols (vec (c/get-state this :columns))]
                     (c/toggle-state this :columns  (-> (subvec existing-cols 0 (min pos (count existing-cols)))  (conj column) (concat (subvec existing-cols (min   pos  (count existing-cols)))) vec))
-                    (c/add-virtual-column-to-metadata this (.toUpperCase column)  (js->clj metadata)))))
+                    (c/add-virtual-column-to-metadata this (.toUpperCase column)   metadata))))
   UI
   (^override render
              [this]
@@ -2089,16 +2094,14 @@
   (set-grid-row-values-internal
    [this row values]
    (set-grid-row-values this row values)
-   (let [ks (js-keys values)]	  
-     (dotimes [i (.-length ks)]
-       (let [k (aget ks i)
-             dval (aget values k)]
-         (condp = k
-           "readonly" (on-set-grid-row-readonly this row dval)
-           "lastRow" (c/toggle-state this :lastRow dval)
-           "new" (when  (c/str->bool dval) (remove-mboset-count this))
-           "deleted" (on-set-grid-row-deleted this row (c/str->bool dval))
-           :true)))))
+   (doseq [k (keys values)]
+     (let [dval (get values k)]
+       (condp = k
+         "readonly" (on-set-grid-row-readonly this row dval)
+         "lastRow" (c/toggle-state this :lastRow dval)
+         "new" (when  (c/str->bool dval) (remove-mboset-count this))
+         "deleted" (on-set-grid-row-deleted this row (c/str->bool dval))
+         :true))))
   (set-grid-row-values
    [this row values]
    (set-row-values row values))
@@ -2382,13 +2385,14 @@
                   (remove-grid-field-action this dr (get-field dr column) actionF removalF))))
   (get-fields
    [this columnz]
-   (let [ret (ar/empty)
-         colz-js (clj->js columns)]
-     (mm/loop-arr [_c colz-js]
-                  (doseq [ch (get-children this)]
-                               (if (= (.toUpperCase _c) (get-column ch))
-                                 (ar/conj! ret ch))))
-     ret))
+   (loop [ch (get-children this) rez []]
+     (if (empty? ch)
+       rez
+       (let [c (first ch)
+             _rez (if (some #(= (.toUpperCase %) (get-column c)) columnz)
+                    (conj rez c)
+                    rez)]
+         (recur (rest ch) _rez)))))
   MessageProcess
   (on-fetched-row
    [this x]
@@ -2476,7 +2480,10 @@
    {"trimmed" #(do
                  (on-trimmed this (get % :rownum)))
                                         ;    "addmbo" #(u/debug "pozvan je addmbo u gridu za " %)
-    "fetched-row" #(on-fetched-row this %)
+    "fetched-row" (fn [r]
+                    (u/debug "da ovde ne pada" r)
+                    ;(on-fetched-row this r)
+                    )
     "update-mboflag" (fn [e]
                        (when-let [dr (get-data-row this (get e :rownum))]
                          (on-set-readonly dr (c/str->bool (get e :readonly)))))
@@ -2503,7 +2510,7 @@
    (let [data (:data x)
          ^number row (:row x)
          flags (:flags x)
-         ks (js-keys data)
+         ks (keys data)
          highlighted-row  (js/parseInt (c/get-state this :highlighted))
          fill-row (fn [disprow]
                     (build-row this
@@ -2520,8 +2527,8 @@
              (if to-be-updated
                (do
                                         ;                         (u/debug "from to-be-updated, row:" row ",data:" data)
-                 (set-grid-row-values-internal this to-be-updated (clj->js data))
-                 (set-grid-row-flags this to-be-updated (clj->js flags))
+                 (set-grid-row-values-internal this to-be-updated data)
+                 (set-grid-row-flags this to-be-updated  flags)
                  (when (= highlighted-row row)
                    (mark-grid-row-as-selected this to-be-updated true)))
                (let [adr (fill-row 0)
@@ -2530,8 +2537,8 @@
                  (if mr
                    (render-row-before this adr mr)
                    (render-row this adr))
-                 (set-grid-row-values-internal this adr (clj->js data))
-                 (set-grid-row-flags this adr (clj->js flags))
+                 (set-grid-row-values-internal this adr  data)
+                 (set-grid-row-flags this adr flags)
                  (when (= highlighted-row row)
                    (mark-grid-row-as-selected this adr true)))))
            (when-let [^number lrn (get-f-row this max)]
@@ -2549,12 +2556,12 @@
                           (set-disprow! rn (- (get-maximo-row rn) fmr)))))
          (let [adr (fill-row 0)]
            (render-row this adr)
-           (set-grid-row-values-internal this adr (clj->js data))
-           (set-grid-row-flags this adr (clj->js flags))
+           (set-grid-row-values-internal this adr  data)
+           (set-grid-row-flags this adr flags)
            (when (= highlighted-row row)
              (mark-grid-row-as-selected this adr true))
            (when-not (aget data "readonly")
-             (set-grid-row-flags this adr (clj->js flags)))
+             (set-grid-row-flags this adr flags))
            )))))
   (init-data-from-nd
    [this  start-row]

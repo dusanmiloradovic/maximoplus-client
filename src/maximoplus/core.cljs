@@ -8,7 +8,7 @@
    [maximoplus.db :as db]
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
-   [cljs.core.async :as a :refer [put! promise-chan <!]]
+   [cljs.core.async :as a :refer [put! promise-chan <! timeout]]
    )
   (:require-macros 
    [maximoplus.macros :as mm :refer [p-deferred-on]]
@@ -138,6 +138,7 @@
   (send-message [component message components]);i can't think of anything else here but the direct children, but in any case might be useful
   (send-message-sync [component message components]);;core.async has a cost, stack size is growing rapidly. If there is no need, I will send message directly(synchronously to the chidlren
   (receive-message-sync [components message]);;this will be called on the child receiving the mesesage
+  (receive-all-pending-sync [component]);;performance optimization, it will read all the messages once it receives the command
   (start-receiving [component])
   (stop-receiving [component])
   (get-receive-functions [component]);for each type of data received there may be a function to process it. If there is no function for the particular data type, the data is passed down to the child components, for its handlers to process
@@ -240,6 +241,30 @@
 (def control-columns (atom {}))
 
 (def container-registry (atom {}))
+
+(def pending-messages
+  (atom {}))
+
+(def registered-components (atom {}));;in nodejs passing messages directly to visual components causes the stack overflow error. I will register the component here, and pass the messages in the background
+
+(defn receive-pending-messages
+  []
+  (doseq [k (keys @pending-messages)]
+    (let [comp (@registered-components k)]
+      (receive-all-pending-sync comp)
+))
+;;    (reset! pending-messages {});;no race condition, this is happening on event loop
+  )
+
+(go-loop
+    []
+  (<! (timeout 10000))
+  (receive-pending-messages)
+  (recur)
+  )
+
+
+
 
 (defn add-container-to-registry [container]
   (swap! container-registry assoc (get-id container) container)
