@@ -1584,6 +1584,7 @@
    (c/get-state this :columns))
   (set-row-values
    [this colvals]
+   
    (doseq [k (keys colvals)]
      (set-row-value this k (get colvals k))))
   (set-row-value
@@ -1594,8 +1595,10 @@
    (set-field-value field value))
   (set-row-flags
    [this colflags]
+   (u/debug "setting the row flags")
    (doseq [k (keys colflags)]
-     (set-field-flag this k (get colflags k))))
+     (set-field-flag this k (get colflags k)))
+   (u/debug "uspeh"))
   (set-field-flag
    [this field flag]
    (set-flag field flag))
@@ -1921,8 +1924,12 @@
    (set-field-value (get-field this column) value))
   (set-row-values 
    [this colvals]
+   (u/debug "23")
+   (u/debug colvals)
    (doseq [k (keys colvals)]
-     (set-row-value this k (get colvals k))))
+     (u/debug k)
+     (set-row-value this k (get colvals k)))
+   (u/debug "finito"))
   (set-row-flags
    [this colflags]
    (doseq [k (keys colflags)]
@@ -2481,7 +2488,6 @@
                  (on-trimmed this (get % :rownum)))
                                         ;    "addmbo" #(u/debug "pozvan je addmbo u gridu za " %)
     "fetched-row" (fn [r]
-                    (u/debug "da ovde ne pada" r)
                     (on-fetched-row this r)
                     )
     "update-mboflag" (fn [e]

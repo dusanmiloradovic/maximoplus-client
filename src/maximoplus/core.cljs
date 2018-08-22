@@ -253,13 +253,13 @@
     (let [comp (@registered-components k)]
       (receive-all-pending-sync comp)
 ))
-;;    (reset! pending-messages {});;no race condition, this is happening on event loop
+  (reset! pending-messages {});;no race condition, this is happening on event loop
   )
 
 (go-loop
     []
-  (<! (timeout 10000))
-  (receive-pending-messages)
+  (<! (timeout 20));;
+  (receive-pending-messages);;put try/catch here when it becomes stable
   (recur)
   )
 
