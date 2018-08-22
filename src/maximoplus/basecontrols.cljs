@@ -2482,7 +2482,7 @@
                                         ;    "addmbo" #(u/debug "pozvan je addmbo u gridu za " %)
     "fetched-row" (fn [r]
                     (u/debug "da ovde ne pada" r)
-                    ;(on-fetched-row this r)
+                    (on-fetched-row this r)
                     )
     "update-mboflag" (fn [e]
                        (when-let [dr (get-data-row this (get e :rownum))]
