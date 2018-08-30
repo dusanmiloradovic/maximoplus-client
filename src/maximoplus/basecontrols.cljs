@@ -415,11 +415,10 @@
 
 (defn- get-callback-handler
   [control]
-  (fn[res]
-    (.call (if-let [cbh (get-first-in-hierarchy control "callbackHandler")]
+   (if-let [cbh (get-first-in-hierarchy control "callbackHandler")]
              cbh
-             (aget c/globalFunctions "globalCallbackHandler")) control
-           res)))
+             (fn [_])) ;;no need for global callback, makes no sense, we have global finish handler
+  )
 
 (defn ^:export mboCommand
   [control command argControl]
@@ -3241,20 +3240,31 @@
   ;;and reducing the size of compilation
   ;;once this is finished next step is to move internally from promises to channels, and
   ;;keep the promises just as an external javascript interface
+  (.log js/console "getting the callbacks for the container")
+  (.log js/console container)
   (let [pch (get-prepare-call-handler container)
         fch (get-finish-call-handler container)
         errbh-cont (if errbh errbh (get-errback-handler container))
-        cbh-container (if cbh cbh (get-callback-handler container))]
+        cbh-container (if cbh cbh (fn [_]))]
     [pch
      (fn [ok]
+       (.log js/console "1")
        (fch command)
+       (.log js/console "2")
+
        (cbh-container ok)
+       (.log js/console "3")
        (resolver ok)
+       (.log js/console "4")
        )
      (fn [err]
+       (.log js/console "5")
        (fch command)
+       (.log js/console "6")
        (errbh-cont err)
-       (rejecter err))]))
+       (.log js/console "7")
+       (rejecter err)
+       (.log js/console "8"))]))
 
 (defn offl [container orig-container level]
   "level 0 are original containers, when the recursion happens level increases. This is used for deletion of temporary containers. We don't want to delete the original containers (level 0)"

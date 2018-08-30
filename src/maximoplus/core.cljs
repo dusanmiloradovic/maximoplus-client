@@ -721,7 +721,7 @@
       (do
         (when cb-handler
           (cb-handler columns-all))
-        (p/get-resolved-promise columns-alll)))))
+        (p/get-resolved-promise columns-all)))))
       
 
 
