@@ -704,19 +704,26 @@
         container-name (get-id container)
         diff (clojure.set/difference (set columns) (set (@registered-columns container-name)))
         old-cols (@registered-columns container-name)]
-    (when-not (empty? diff)
-      (swap! registered-columns assoc container-name (apply conj (vec (@registered-columns container-name)) (vec columns)))
-      (vcolsreg container-name)
-      (let [cbh (fn [ok] 
-                  (when cb-handler (cb-handler ok))
-                  (when (and (.isOfflineEnabled container) 
-                             (not @is-offline))
-                    (offlinePrepareOne (get-id container))))
-            errbh (fn [err] 
-                    (swap! registered-columns assoc container-name old-cols)
-                    (vcolsreg registered-columns)
-                    (when errback-handler (errback-handler err)))]
-        (mm/kk! container "registercol" add-control-columns-with-offline (vec diff) cbh errbh)))))
+    (if-not (empty? diff)
+      (do
+        (swap! registered-columns assoc container-name (apply conj (vec (@registered-columns container-name)) (vec columns)))
+        (vcolsreg container-name)
+        (let [cbh (fn [ok] 
+                    (when cb-handler (cb-handler ok))
+                    (when (and (.isOfflineEnabled container) 
+                               (not @is-offline))
+                      (offlinePrepareOne (get-id container))))
+              errbh (fn [err] 
+                      (swap! registered-columns assoc container-name old-cols)
+                      (vcolsreg registered-columns)
+                      (when errback-handler (errback-handler err)))]
+          (mm/kk! container "registercol" add-control-columns-with-offline (vec diff) cbh errbh)))
+      (do
+        (when cb-handler
+          (cb-handler columns-all))
+        (p/get-resolved-promise columns-alll)))))
+      
+
 
 (defn deregister-columns [container-name columns]
   (let [newv (remove-incl (@registered-columns container-name) columns)
