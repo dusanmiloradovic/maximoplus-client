@@ -742,10 +742,10 @@
        (kk! (c/get-container this) "fetch" c/fetch-with-local start numrows
             (fn [ok]
               (swap! fq (fn[s] (remove #(= % new-fetch) s)))
-              (cb ok))
+              (when cb (cb ok)))
             (fn [err]
               (swap! fq (fn[s] (remove #(= % new-fetch) s)))
-              (errb err))))))
+              (when errb (errb err)))))))
   (init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
    (if (or (not (c/is-offline-enabled this))  @c/is-offline );don't try to post offline when offline
