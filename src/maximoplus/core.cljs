@@ -924,46 +924,49 @@
 
 (declare get-curr-uniqueid-promise)
 
+(defn get-fetched-row-data
+  [rd-evt]
+  ;;this will be used by graphql implementations, where querying will immediately return the data. Subscriptions will still use the same mechanism
+  (let [rownum (js/parseInt (nth rd-evt 0))
+        df (nth rd-evt 1);data and flags
+        columns (keys df)
+        _dta (transient {})
+        _flg (transient {})
+        ]
+    (when (js/isNaN rownum)
+      (u/debug-exception rd-evt)
+      (throw (js/Error. "Fetched row callback failed, rownum is not a number")))
+    (loop [ks (keys df) _dta _dta _flg _flg]
+      (if (empty? ks)
+        [rownum (persistent! _dta) (persistent! _flg)]
+        (let [column (first ks)
+              _val (df column)
+              rd-data (when-not (keyword? column) (if (vector? _val) (nth _val 0) _val))
+              rd-flags (when-not (keyword? column) (when (vector? _val) (nth  _val 1)))]
+          (recur (rest ks)
+                 (if-not rd-data _dta (assoc! _dta column  rd-data))
+                 (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ]))))))))
+
 (defn fetched-row-callback [control-name rd-evt & offline?]
   (when (first rd-evt)
-    (let [rownum (js/parseInt (nth rd-evt 0))
-          df (nth rd-evt 1);data and flags
-          columns (keys df)
-          _dta (transient {})
-          _flg (transient {})
-          ]
-      (when (js/isNaN rownum)
-        (u/debug-exception rd-evt)
-        (throw (js/Error. "Fetched row callback failed, rownum is not a number"))
+    (let [[rownum dta flg] (get-fetched-row-data rd-evt)]
+      (put-object-data! control-name rownum dta)
+      (put-object-flags! control-name rownum flg)
+      (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
+      (when-let [d (get-curr-uniqueid-promise control-name rownum)]
+        (p/callback d (get dta "_uniqueid"))
         )
-      (let [[dta flg]
-            (loop [ks (keys df) _dta _dta _flg _flg]
-              (if (empty? ks)
-                [(persistent! _dta) (persistent! _flg)]
-                (let [column (first ks)
-                      _val (df column)
-                      rd-data (when-not (keyword? column) (if (vector? _val) (nth _val 0) _val))
-                      rd-flags (when-not (keyword? column) (when (vector? _val) (nth  _val 1)))]
-                  (recur (rest ks)
-                         (if-not rd-data _dta (assoc! _dta column  rd-data))
-                         (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ]))))))]
-        (put-object-data! control-name rownum dta)
-        (put-object-flags! control-name rownum flg)
-        (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
-        (when-let [d (get-curr-uniqueid-promise control-name rownum)]
-          (p/callback d (get dta "_uniqueid"))
-          )
-        (when (and (not offline?)(is-offline-enabled control-name))
-          "dont move to offline storage if already offline"
-          (let [rel-name (aget rel-map control-name)
-                o-dta (assoc dta "rownum" rownum)
-                o-flags (assoc flg "rownum" rownum)]
-            (p/then
-             (get-parent-uniqueid control-name)
-             (fn [parent-uniqueid]
+      (when (and (not offline?)(is-offline-enabled control-name))
+        "dont move to offline storage if already offline"
+        (let [rel-name (aget rel-map control-name)
+              o-dta (assoc dta "rownum" rownum)
+              o-flags (assoc flg "rownum" rownum)]
+          (p/then
+           (get-parent-uniqueid control-name)
+           (fn [parent-uniqueid]
                                         ;                     (u/debug "**moving to offline " control-name " for parent uniqueid " parent-uniqueid)
-               (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
-               (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags)))))))))
+             (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
+             (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
 (mm/defcmd fetch [control-name]
   (fn [evt]
