@@ -3248,23 +3248,15 @@
         cbh-container (if cbh cbh (fn [_]))]
     [pch
      (fn [ok]
-       (.log js/console "1")
        (fch command)
-       (.log js/console "2")
-
        (cbh-container ok)
-       (.log js/console "3")
        (resolver ok)
-       (.log js/console "4")
        )
      (fn [err]
-       (.log js/console "5")
        (fch command)
-       (.log js/console "6")
        (errbh-cont err)
-       (.log js/console "7")
-       (rejecter err)
-       (.log js/console "8"))]))
+       (rejecter err))]
+    ))
 
 (defn offl [container orig-container level]
   "level 0 are original containers, when the recursion happens level increases. This is used for deletion of temporary containers. We don't want to delete the original containers (level 0)"
