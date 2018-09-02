@@ -3240,8 +3240,6 @@
   ;;and reducing the size of compilation
   ;;once this is finished next step is to move internally from promises to channels, and
   ;;keep the promises just as an external javascript interface
-  (.log js/console "getting the callbacks for the container")
-  (.log js/console container)
   (let [pch (get-prepare-call-handler container)
         fch (get-finish-call-handler container)
         errbh-cont (if errbh errbh (get-errback-handler container))

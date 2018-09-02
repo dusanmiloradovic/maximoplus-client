@@ -1956,8 +1956,6 @@
 (defn ^:export offlineMetaMove
   [relName meta]
   (offline/moveMeta relName meta)
-                                        ;  (.log js/console "moving to offline")
-                                        ; (.log js/console meta)
   )
 
 (defn offline-insert-qbe
