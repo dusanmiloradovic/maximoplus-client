@@ -933,19 +933,17 @@
         _dta (transient {})
         _flg (transient {})
         ]
-    (when (js/isNaN rownum)
-      (u/debug-exception rd-evt)
-      (throw (js/Error. "Fetched row callback failed, rownum is not a number")))
-    (loop [ks (keys df) _dta _dta _flg _flg]
-      (if (empty? ks)
-        [rownum (persistent! _dta) (persistent! _flg)]
-        (let [column (first ks)
-              _val (df column)
-              rd-data (when-not (keyword? column) (if (vector? _val) (nth _val 0) _val))
-              rd-flags (when-not (keyword? column) (when (vector? _val) (nth  _val 1)))]
-          (recur (rest ks)
-                 (if-not rd-data _dta (assoc! _dta column  rd-data))
-                 (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ]))))))))
+    (when-not (js/isNaN rownum)
+      (loop [ks (keys df) _dta _dta _flg _flg]
+        (if (empty? ks)
+          [rownum (persistent! _dta) (persistent! _flg)]
+          (let [column (first ks)
+                _val (df column)
+                rd-data (when-not (keyword? column) (if (vector? _val) (nth _val 0) _val))
+                rd-flags (when-not (keyword? column) (when (vector? _val) (nth  _val 1)))]
+            (recur (rest ks)
+                   (if-not rd-data _dta (assoc! _dta column  rd-data))
+                   (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ])))))))))
 
 (defn fetched-row-callback [control-name rd-evt & offline?]
   (when (first rd-evt)
