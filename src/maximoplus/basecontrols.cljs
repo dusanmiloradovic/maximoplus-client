@@ -514,11 +514,13 @@
   (send-command
    [this command command-f command-cb command-errb]
    (let [cch (aget this "command-channel")
-         _dfrd (c/get-state this :deferred)
-         dfrd (if (or (= command "init") (not _dfrd))
+         da1 (c/get-state this :deferred)
+         da2 (if (or (= command "init") (not da1))
                 @c/page-init-channel
-                _dfrd)]
-     (p-deferred-on dfrd 
+                da1)]
+     (println "trying to send main command " command " and deferred " (some? da1))
+     (p-deferred-on da2
+                    (println "main send command" command)
                     (go (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
@@ -916,13 +918,14 @@
   (^override send-command
    [this command command-f command-cb command-errb]
    (let [cch (aget this "command-channel")
-         __dfrd (c/get-state mbocont :deferred)
-         _dfrd (c/get-state this :deferred)
-         dfrd (if (or (= command "init" (not _dfrd)))
-                __dfrd
-                _dfrd
+         dd1 (c/get-state mbocont :deferred)
+         dd2 (c/get-state this :deferred)
+         dd (if (or (= command "init") (not dd2))
+                dd1
+                dd2
                 )]
-     (p-deferred-on dfrd
+     (println "trying to send  command " command " and deferred " (some? dd1))
+     (p-deferred-on dd
                  (println "sending command through rel container" command)
                  (go (put! cch [command command-f command-cb command-errb]))))))
 
