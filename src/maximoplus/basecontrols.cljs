@@ -12,10 +12,7 @@
                    [cljs.core.async.macros :refer [go go-loop]])
   )
 
-
 (def id-generator (IdGenerator.))
-
-
 
 (defn get-next-unique-id [& prefix]
   (str (.getNextUniqueId id-generator) (when prefix (first prefix)))
@@ -516,8 +513,12 @@
    [this]);by default nothing
   (send-command
    [this command command-f command-cb command-errb]
-   (let [cch (aget this "command-channel")]
-     (p-deferred-on @c/page-init-channel
+   (let [cch (aget this "command-channel")
+         _dfrd (c/get-state this :deferred)
+         dfrd (if (or (= command "init") (not _dfrd))
+                @c/page-init-channel
+                _dfrd)]
+     (p-deferred-on dfrd 
                     (go (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
@@ -843,7 +844,7 @@
      (googbase this mboname)
      (let [deferred (promise-chan)]
        (c/toggle-state this :deferred deferred)
-       (kk! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)
+       (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok] (go (put! deferred ok)))
             nil)))) 
   Container
@@ -873,10 +874,9 @@
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
-                      ;;                                       :deferred (mm/kk-branch-nocb! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont))
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (mm/kk-branch! mbocont this "register" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
+       (mm/kk-branch! mbocont this "init" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
                       (fn [ok] (go (put! deferred ok))) nil)
        (aset this "appname" (aget mbocont "appname"))
        (add-child mbocont this)
@@ -893,25 +893,38 @@
   (^override re-register-and-reset [this cb errb]
    (u/debug "calling re-registration of  relcontainer " (c/get-id this))
 
-             (let [id (c/get-id this)
-                   dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
-               (c/toggle-state this :deferred dfrd)
-               (p-deferred-on dfrd
-                              (doseq [c  (get-children this)]
-                                           (when-not (c/get-state c :iscontainer)
-                                             (clear-control c)
-                                             (init-data c)))
-                              (when cb (cb this)))
-               (c/re-register-mboset-byrel-with-offline
-                id rel (c/get-id mbocont)
-                (fn [ok]
-                  (go (put! dfrd ok)))
-                (fn [err]
-                  (go (put! dfrd err))))))
+   (let [id (c/get-id this)
+         dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
+     (c/toggle-state this :deferred dfrd)
+     (p-deferred-on dfrd
+                    (doseq [c  (get-children this)]
+                      (when-not (c/get-state c :iscontainer)
+                        (clear-control c)
+                        (init-data c)))
+                    (when cb (cb this)))
+     (c/re-register-mboset-byrel-with-offline
+      id rel (c/get-id mbocont)
+      (fn [ok]
+        (go (put! dfrd ok)))
+      (fn [err]
+        (go (put! dfrd err))))))
   Foundation
   (dispose 
    [this]
-   (c/toggle-state mbocont :rel-containers (filter (fn [c] (not= c this)) (c/get-state mbocont :rel-containers)))))
+   (c/toggle-state mbocont :rel-containers (filter (fn [c] (not= c this)) (c/get-state mbocont :rel-containers))))
+  Receivable
+  (^override send-command
+   [this command command-f command-cb command-errb]
+   (let [cch (aget this "command-channel")
+         __dfrd (c/get-state mbocont :deferred)
+         _dfrd (c/get-state this :deferred)
+         dfrd (if (or (= command "init" (not _dfrd)))
+                __dfrd
+                _dfrd
+                )]
+     (p-deferred-on dfrd
+                 (println "sending command through rel container" command)
+                 (go (put! cch [command command-f command-cb command-errb]))))))
 
 (def-comp SingleMboContainer [mbocont] RelContainer
   (^override fn* []
@@ -925,10 +938,9 @@
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
-                      ;;               :deferred (kk-branch-nocb! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont))
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch! mbocont this "register" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont)
+       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont)
                    (fn [ok] (go (put! deferred ok))) nil))
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
@@ -954,7 +966,7 @@
        (googbase this mboname)
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) ))
        (c/toggle-state this :deferred deferred)
-       (kk! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId)
+       (kk! this "init" c/set-unique-app (.toUpperCase appname) (.toString uniqueId)
             (fn [ok] (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
@@ -968,8 +980,10 @@
      (let [deferred (promise-chan)]
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) ))
        (c/toggle-state this :deferred deferred)
-       (kk! this "setUniqueId" c/set-unique-id  (.toString uniqueid)
-            (fn [ok] (go (put! deferred ok))) nil))))
+       (kk! this "init" c/set-unique-id  (.toString uniqueid)
+            (fn [ok]
+              (u/debug "defered triggering now , uniquembocontaier")
+              (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
                  uniqueid))
@@ -1045,10 +1059,9 @@
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
-                      ;;                                       :deferred (kk-nocb!  this "register" c/register-person-mboset)
                       :deferred deferred
                       })
-       (kk!  this "register" c/register-person-mboset
+       (kk!  this "init" c/register-person-mboset
              (fn [ok] (go (put! deferred ok))) nil)))))
 
 (def-comp ComponentAdapter [container columns] BaseComponent
@@ -1176,11 +1189,10 @@
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
-                      ;;               :deferred  (kk-branch-nocb! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column)
                       :deferred deferred
                       }
                      )
-       (kk-branch! mbocont this "register" c/register-list-with-offline (c/get-id mbocont) column
+       (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column
                    (fn [ok] (go (put! deferred ok)))) nil)
      (add-child mbocont this)))
   Offline

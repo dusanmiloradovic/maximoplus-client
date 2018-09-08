@@ -283,7 +283,9 @@
 
 
 (defmacro kk-branch! [orig-cont container command cont-f & args]
-  `(kk! ~container ~command ~cont-f ~@args);;since we don't need to set the promises anymore, this function is superflous
+  `(p-deferred ~orig-cont
+               (println "kk-branch triggering now, command start")
+               (kk! ~container ~command ~cont-f ~@args))
   )
 
 (defmacro kk-nocb!
