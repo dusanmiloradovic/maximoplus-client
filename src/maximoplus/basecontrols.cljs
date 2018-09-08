@@ -969,7 +969,18 @@
             (fn [ok] (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
-                 uniqueId))
+                 uniqueId)
+  Receivable
+  (^override get-receive-functions
+   [this]
+   {"fetch-finished" (fn [_]
+                       (when-let [dfrd (aget this "fetch-deferred")]
+                         (p/callback dfrd)
+                         (js-delete this "fetch-deferred")))
+    "reset" (fn [_]
+              (doseq [_cnt (get-rel-containers this)]
+                (reset _cnt nil nil))
+              (on-reset this))}))
 
 (def-comp UniqueMboContainer [mboname uniqueid] MboContainer
   (^override fn* []
@@ -984,7 +995,18 @@
               (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
-                 uniqueid))
+                 uniqueid)
+  Receivable
+  (^override get-receive-functions
+   [this]
+   {"fetch-finished" (fn [_]
+                       (when-let [dfrd (aget this "fetch-deferred")]
+                         (p/callback dfrd)
+                         (js-delete this "fetch-deferred")))
+    "reset" (fn [_]
+              (doseq [_cnt (get-rel-containers this)]
+                (reset _cnt nil nil))
+              (on-reset this))}))
 
 
 (mm/def-comp QueryMboContainer [appContainer] MboContainer
