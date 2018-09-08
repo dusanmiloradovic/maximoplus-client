@@ -515,12 +515,10 @@
    [this command command-f command-cb command-errb]
    (let [cch (aget this "command-channel")
          da1 (c/get-state this :deferred)
-         da2 (if (or (= command "init") (not da1))
+         da2 (if (or (= command "init") (not da1));;wait for deferred (usually the constructor), unless in constructor 
                 @c/page-init-channel
                 da1)]
-     (println "trying to send main command " command " and deferred " (some? da1))
      (p-deferred-on da2
-                    (println "main send command" command)
                     (go (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
@@ -924,9 +922,7 @@
                 dd1
                 dd2
                 )]
-     (println "trying to send  command " command " and deferred " (some? dd1))
      (p-deferred-on dd
-                 (println "sending command through rel container" command)
                  (go (put! cch [command command-f command-cb command-errb]))))))
 
 (def-comp SingleMboContainer [mbocont] RelContainer
@@ -985,7 +981,6 @@
        (c/toggle-state this :deferred deferred)
        (kk! this "init" c/set-unique-id  (.toString uniqueid)
             (fn [ok]
-              (u/debug "defered triggering now , uniquembocontaier")
               (go (put! deferred ok))) nil))))
   Container
   (get-unique-id [this]
