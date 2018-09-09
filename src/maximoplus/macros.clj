@@ -284,9 +284,7 @@
 
 (defmacro kk-branch! [orig-cont container command cont-f & args]
   `(p-deferred ~orig-cont
-               (println "kk-branch triggering now, command start")
-               (kk! ~container ~command ~cont-f ~@args))
-  )
+               (kk! ~container ~command ~cont-f ~@args)))
 
 (defmacro kk-nocb!
   [container command cont-f & args]
