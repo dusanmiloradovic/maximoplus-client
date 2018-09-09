@@ -1,4 +1,4 @@
-net(ns maximoplus.net
+(ns maximoplus.net
   (:require
    [maximoplus.utils :as u]
    [maximoplus.net.browser :as b]
