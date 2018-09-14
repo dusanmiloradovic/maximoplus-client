@@ -804,6 +804,8 @@
       ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
 					;      (u/debug "add at end " {"row" (first rd-evt) "data" (second rd-evt)})
+      (println rd-evt)
+      rd-evt
       ))
   )
 
