@@ -1213,7 +1213,7 @@
                       }
                      )
        (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column
-                   (fn [ok] (go (put! deferred ok)))) nil)
+                   (fn [ok] (go (put! deferred ok))) nil))
      (add-child mbocont this)))
   Offline
   (is-offline-enabled
