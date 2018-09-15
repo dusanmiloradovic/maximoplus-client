@@ -59,6 +59,7 @@
   (re-register-and-reset [cont cb errb]) ;previously the reset for the relcontainer also re-register it, which is bad if we manually want to reset the container after the qbe was set. Re-registration is required if the parent index has been changed
   (get-key-attributes [this cb errb])
   (fetch-data [this start numrows cb errb])
+  (fetch-current [this cb errb])
   (init-data-with-off [this start numrows cb errb])
   (fetch [this cb errb])
   (reset [this cb errb])
