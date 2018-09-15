@@ -974,6 +974,8 @@
       (fetched-row-callback control-name rd-evt)
       )))
 
+(mm/defcmd fetch-current [control-name]);;no need to update the local data here, this will be used just in GraphQL
+
 (mm/defcmd fetch-no-move [control-name]
   (fn [evt]
     (let [rd-evt  (nth evt 0)] 
