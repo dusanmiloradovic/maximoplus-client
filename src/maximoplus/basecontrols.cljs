@@ -727,7 +727,7 @@
    )
   (fetch-current
    [this cb errb]
-   (kk! this "fetch" cb errb)
+   (kk! this "fetch" c/fetch-current cb errb)
    )
   (fetch-data
    [this start numrows cb errb]
