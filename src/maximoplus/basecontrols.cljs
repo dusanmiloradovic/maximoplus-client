@@ -725,6 +725,10 @@
    [this callback errback]
    (c/undelete-with-offline (c/get-id this) callback errback)
    )
+  (fetch-current
+   [this cb errb]
+   (kk! this "fetch" cb errb)
+   )
   (fetch-data
    [this start numrows cb errb]
    ;;fetching queue is the performance optimization
