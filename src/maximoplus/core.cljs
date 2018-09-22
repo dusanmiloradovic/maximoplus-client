@@ -1887,7 +1887,7 @@
   [data okf errf post?]
   (let [proxy-error
         (fn [err]
-          (if-let [err-arr (aget err 0) ]
+          (if-let [err-arr (and (vector? err) (aget err 0)) ]
             (let [error-code (aget err-arr 0)]
               (if (= error-code "yesnocancel")
                 (let [ex-id (aget err-arr 1)
@@ -1905,10 +1905,8 @@
                                                      (fn [_err]
                                                        (remove-yes-no-cancel-input ex-id
                                                                                    (fn [_] (errf _err))))
-                                                     post?))))
-                      ]
-                  (yesnocancelErrorHandler ex-message ex-group ex-key fnproxy)
-                  )
+                                                     post?))))]
+                  (yesnocancelErrorHandler ex-message ex-group ex-key fnproxy))
                 (errf err)))
             (errf err)))]
     (if @is-offline
