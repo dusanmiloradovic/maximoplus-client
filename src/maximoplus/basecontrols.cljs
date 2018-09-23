@@ -719,12 +719,10 @@
   
   (del-row
    [this callback errback]
-   (c/delete-with-offline (c/get-id this) callback errback)
-   )
+   (kk! this "delete" c/delete-with-offline callback errback))
   (undel-row
    [this callback errback]
-   (c/undelete-with-offline (c/get-id this) callback errback)
-   )
+   (kk! this "undelete" c/undelete-with-offline callback errback))
   (fetch-current
    [this cb errb]
    (kk! this "fetch" c/fetch-current cb errb)
