@@ -1538,7 +1538,7 @@
   [control]
   (-> (@object-data control) :metadata first (get "mboPersistent")))
 
-(mm/defcmd register-mboset-with-one-mbo [control-name parent-control]
+(mm/defcmd register-mboset-with-one-mbo [control-name parent-control uniqueid]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1547,7 +1547,7 @@
       (add-relationship control-name (aget rel-map parent-control) nil)
       (add-peer-control nil control-name))))
 
-(defn offline-register-mboset-with-one-mbo [control-name parent-control cb errb]
+(defn offline-register-mboset-with-one-mbo [control-name parent-control uniqueid cb errb]
   (add-relationship control-name (aget rel-map parent-control) nil)
   (add-peer-control nil control-name)
   (when cb (cb "done")))

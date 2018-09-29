@@ -418,28 +418,6 @@
              (fn [_])) ;;no need for global callback, makes no sense, we have global finish handler
   )
 
-(defn ^:export mboCommand
-  [control command argControl]
-  (let [cb-handler (get-callback-handler control)
-        err-handler (get-errback-handler control)
-        container (c/get-container control)]
-    ((get-prepare-call-handler control) command control)
-    (c/run-mbo-command (c/get-id container) 
-                       command argControl
-                       (fn [ok] (cb-handler ok))
-                       (fn [err] (err-handler err)))))
-
-(defn ^:export mboSetCommand
-  [control command argControl]
-  (let [ cb-handler (get-callback-handler control)
-        err-handler (get-errback-handler control)
-        container (c/get-container control)]
-    ((get-prepare-call-handler control) command control)
-    (c/run-mboset-command (c/get-id container) 
-                          command argControl
-                          (fn [val] (cb-handler val))
-                          (fn [err] (err-handler err)))))
-
 (defn ^:export initControlDataRows 
   [control noRows & forceFetch]
   (let [container (c/get-container control)
@@ -928,7 +906,8 @@
      (p-deferred-on dd
                  (go (put! cch [command command-f command-cb command-errb]))))))
 
-(def-comp SingleMboContainer [mbocont] RelContainer
+;;uniqueid will be optional. That will be used instead of uniquembocontainer when we want to establish the hierarchy like the parent container (with setOwner in mbo), right now just for GraphQL. The point is that we need to preserve the access paths same as for the parent, so it will not give access denied exception
+(def-comp SingleMboContainer [mbocont uniqueid] RelContainer
   (^override fn* []
    (this-as this
      (.call BaseComponent this);super-super konstruktor
@@ -942,7 +921,7 @@
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont)
+       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) uniqueid
                    (fn [ok] (go (put! deferred ok))) nil))
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
