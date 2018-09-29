@@ -1557,7 +1557,7 @@
 (mm/offline-alt-noobj register-mboset-with-one-mbo-with-offline
                       register-mboset-with-one-mbo
                       offline-register-mboset-with-one-mbo
-                      [control-name parent-control]
+                      [control-name parent-control uniqueid]
                       )
 
 (mm/defcmd register-mboset-with-one-mbo-ind [control-name parent-control parent-index]
