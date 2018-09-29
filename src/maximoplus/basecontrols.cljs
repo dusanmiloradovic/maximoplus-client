@@ -807,11 +807,15 @@
                          (p/callback dfrd)
                          (js-delete this "fetch-deferred")))
     "set-control-index" (fn [ev]
-                          (let [currow (get ev :currrow)]
-                            (when-not (= -1 (js/parseInt currow))
+                          (let [currow (get ev :currrow)
+                                prev-row (get ev :prevrow)]
+                            (when-not (or
+                                       (= -1 (js/parseInt currow))
+                                       (= currow prev-row))
                               (doseq [_cnt  (get-rel-containers this) ]
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
+              (println "reset")
               (doseq [_cnt (get-rel-containers this)]
                            (re-register-and-reset _cnt nil nil))
               (on-reset this))
@@ -907,7 +911,7 @@
                  (go (put! cch [command command-f command-cb command-errb]))))))
 
 ;;uniqueid will be optional. That will be used instead of uniquembocontainer when we want to establish the hierarchy like the parent container (with setOwner in mbo), right now just for GraphQL. The point is that we need to preserve the access paths same as for the parent, so it will not give access denied exception
-(def-comp SingleMboContainer [mbocont uniqueid] RelContainer
+(def-comp SingleMboContainer [mbocont contuniqueid] RelContainer
   (^override fn* []
    (this-as this
      (.call BaseComponent this);super-super konstruktor
@@ -921,23 +925,31 @@
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) uniqueid
-                   (fn [ok] (go (put! deferred ok))) nil))
+       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
+                   (fn [ok]
+                     (go (put! deferred ok))) nil))
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
   Container
-  (^override re-register-and-reset 
+  (^override re-register-and-reset
    [this cb errb]
-   (let [idcont (c/get-id mbocont)]
-     (kk! this "re-register" c/re-register-mboset-with-one-mbo-with-offline
-             idcont
-             (fn [_]
-               (doseq [c  (get-children this)]
-                            (clear-control c)
-                            (init-data c))
-               (when cb (cb this)))
-             errb))))
+   (let [idcont (c/get-id mbocont)
+         _unid (aget this "contuniqueid")
+         dfrd (promise-chan)]
+     (c/toggle-state this :deferred dfrd)
+     (p-deferred-on dfrd
+                    (doseq [c  (get-children this)]
+                      (clear-control c)
+                      (init-data c)))
+     (c/re-register-mboset-with-one-mbo-with-offline
+      (c/get-id this)
+      idcont
+      _unid
+      (fn [ok]
+        (go (put! dfrd ok)))
+      (fn [err]
+        (go (put! dfrd err)))))))
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer
   (^override fn* []

@@ -99,6 +99,26 @@
 
 
                  ]}}]
+             :whitespace
+                          [{  :cljsbuild
+               {:builds
+                [
+                 {:source-paths ["src" "src-repl"],
+                  :compiler
+                  {:pretty-print true,
+                   :output-to "public/javascript/main.js",
+                   :output-dir "public/javascript",
+;;                   :parallel-build true
+                   :closure-output-charset "US-ASCII"
+                   :language-in :ecmascript5
+                   :language-out :ecmascript5-strict
+                   :optimizations :whitespace
+                   :closure-warnings {:externs-validation :off
+                                      :non-standard-jsdoc :off}
+                   }}
+
+
+                 ]}}]
              }
   :jvm-opts ["-Xms12g" "-Xmx16g"]
   )

@@ -1333,6 +1333,7 @@
     (doseq [control-name control-names]
       (let [control (get-connected-control control-name)
             _mess {:mboid mboid :currrow rownum :numrows 1}
+            prev-row (get-state control :currrow)
             uid (get-local-data control-name rownum "_uniqueid")
             _uid (if uid (p/get-resolved-promise uid) (get-new-curr-uniqueid-promise control-name rownum))
             org (get-state control :uniqueid)
@@ -1345,7 +1346,7 @@
                    (assoc _mess :uniqueid (p/get-deferred)))]
         (set-states control mess)
         (change-the-id-map! control-name mboid rownum)
-        (dispatch-peers! control-name "set-control-index" {:control-name control-name :mboid mboid :currrow rownum})
+        (dispatch-peers! control-name "set-control-index" {:control-name control-name :mboid mboid :currrow rownum :prevrow prev-row})
         (dispatch-datarow control-name rownum)
         (if (not (= -1 rownum))
           (dispatch-peers! control-name "setting-done" {:control-name control-name}))))))
@@ -1753,7 +1754,7 @@
         (add-peer-control already-reg control-name)))))
 
 (mm/defcmd re-register-mboset-with-one-mbo
-  [control-name parent-control]
+  [control-name parent-control parent-id]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -2003,15 +2004,21 @@
   )
 
 (defn offline-re-register-mboset-with-one-mbo
-  [container-id object-name parent-control cb errb]
+  [container-id  object-name parent-control parent-id cb errb]
   (clear-control-data container-id)
   (when cb (cb "ok"))
   (p/get-resolved-promise "ok")
   )
 
-(mm/offline-alt re-register-mboset-byrel-with-offline re-register-mboset-byrel offline-re-register-mboset-byrel  [container-id rel-name parent-control ])
+(mm/offline-alt re-register-mboset-byrel-with-offline
+                re-register-mboset-byrel
+                offline-re-register-mboset-byrel
+                [container-id rel-name parent-control])
 
-(mm/offline-alt re-register-mboset-with-one-mbo-with-offline re-register-mboset-with-one-mbo offline-re-register-mboset-with-one-mbo [container-id parent-control])
+(mm/offline-alt re-register-mboset-with-one-mbo-with-offline
+                re-register-mboset-with-one-mbo
+                offline-re-register-mboset-with-one-mbo
+                [container-id parent-control parent-id])
 
 (mm/offline-alt mboset-count-with-offline mboset-count offline-table-count [containerid])
 
