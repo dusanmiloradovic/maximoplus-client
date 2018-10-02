@@ -2851,18 +2851,20 @@
   (fn* []
        (this-as this
          (googbase this)
-         (mm/p-deferred appContainer
-                        (c/register-wf-director-with-offline (c/get-id appContainer) (aget appContainer "appname") processName (c/get-id this)
-                                                             (fn [c]
-                                                               (c/is-active-wf-with-offline (c/get-id appContainer)
-                                                                                            (fn [c] (u/debug "ok" c) 
-                                                                                              (let [active-wf (get c 0)]
-                                                                                                (set-wf-active this active-wf)))
-                                                                                            (fn [e]
-                                                                                              (wf-finished this)
-                                                                                              (u/debug "err" e)
-                                                                                              ((get-errback-handler this) e))))
-                                                             (fn [e] ((get-errback-handler this) e))))))
+         (mm/p-deferred
+          appContainer
+          (c/register-wf-director-with-offline
+           (c/get-id appContainer) (aget appContainer "appname") processName (c/get-id this)
+           (fn [c]
+             (c/is-active-wf-with-offline (c/get-id appContainer)
+                                          (fn [c] (u/debug "ok" c) 
+                                            (let [active-wf (get c 0)]
+                                              (set-wf-active this active-wf)))
+                                          (fn [e]
+                                            (wf-finished this)
+                                            (u/debug "err" e)
+                                            ((get-errback-handler this) e))))
+           (fn [e] ((get-errback-handler this) e))))))
   Foundation
   (dispose
    [this]
@@ -2940,16 +2942,16 @@
        (set-wf-title this  "Reassign")
        )
      (add-wf-action this 
-                           (fn [_]
-                             (let [add-dialog (if (= objectName "REASSIGNWF") (execute-reassign-wf this)  (choose-wf-action this))]))
-                           "OK"
-                           "ok"
-                           )
+                    (fn [_]
+                      (let [add-dialog (if (= objectName "REASSIGNWF") (execute-reassign-wf this)  (choose-wf-action this))]))
+                    "OK"
+                    "ok"
+                    )
      (when (= objectName "COMPLETEWF")    
        (add-wf-action this  
-                             (fn [_]
-                               (u/debug "Workflow reassign")
-                               (reassign-wf this)) "Reassign" "reassign"))
+                      (fn [_]
+                        (u/debug "Workflow reassign")
+                        (reassign-wf this)) "Reassign" "reassign"))
      (add-wf-action this  (fn [_] (cancel-wf this)) "Cancel" "cancel")
      (add-wf-section this  s)
      (init-wf-section this s)
