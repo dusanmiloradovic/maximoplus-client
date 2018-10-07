@@ -218,15 +218,6 @@
          (let [~symbol (aget arrmut# i#)]
            ~@body)))))
 
-(defmacro prom-command!
-  [command-f & args]
-  `(maximoplus.promises.get-promise
-    (fn [resolve# reject#]
-      (~command-f @args
-       (fn [ok#]
-         (resolve# ok#))
-       (fn [err#]
-         (reject# err#))))))
 
 (defmacro c! [control command cont-f & args] ;this will be used in cases where the function called already calls the kk! macro
   `(let [cb-handler# (maximoplus.basecontrols.get-callback-handler ~control)
