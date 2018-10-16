@@ -349,8 +349,8 @@
   (^override set-field-flag
    [this field [readonly? required? :as flag]]
    (set-field-state this (b/get-column field) "flags" (clj->js flag))
-   (set-field-enabled this field (not readonly?))
-   (set-field-requires this field required?))
+   (b/set-field-enabled this field (not readonly?))
+   (b/set-field-required this field required?))
   (^override add-field-ui-listeners
    [this field listen-map]
    (doseq [[k v] listen-map]
