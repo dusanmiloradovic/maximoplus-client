@@ -1249,7 +1249,7 @@
 (defn- smart-fill-with-lookup
   [container column value]
   (let [metadata (aget column "metadata")
-        attribute (aget metadata "attributeName")
+        attribute (get metadata "attributeName")
         sm-cont (CommandContainer. container c/smart-fill [(c/get-id container) attribute value])]
     (mm/p-deferred sm-cont
                    (c/mboset-count-with-offline
@@ -1267,7 +1267,10 @@
   (fn* []
        (this-as this
          (googbase this)
-         (c/toggle-state this :receiver false)))
+         (c/set-states
+          this {:receiver false
+                :deferred (promise-chan)
+                })))
   App
   (callback-handler
    [this command evTarget]
@@ -1284,13 +1287,13 @@
                                         ;   (add-field-ui-listeners (get-parent this) this {:change (fn [ev]
                                         ;                                              (change-maximo-value this
                                         ;                                                                   (get-ui-event-value this :change ev)))})
-   (when (aget metadata "hasLookup") (add-lookup-internal this))
-   (when (aget metadata "canSmartFill") (aset this "canSmartFill" true))
-   (mm/loop-arr [_acc (aget metadata "custom-actions")]
+   (when (get metadata "hasLookup") (add-lookup-internal this))
+   (when (get metadata "canSmartFill") (aset this "canSmartFill" true))
+   (mm/loop-arr [_acc (get metadata "custom-actions")]
                 (let [listenF (aget _acc 0)
                       actF (aget _acc 1)
                       deferred (aget _acc 2)]
-                  (u/debug "adding custom action for " (aget metadata "objectName") " and attribute " (aget metadata "attributeName"))
+                  (u/debug "adding custom action for " (get metadata "objectName") " and attribute " (get metadata "attributeName"))
                   (add-action this listenF actF deferred)))
    (when-let [custom-transform (c/get-column-attribute this (get-column this) "custom-transform")]
      (let [tr-func (aget custom-transform 0)]
@@ -1300,7 +1303,7 @@
    [this enable]
    (mm/p-deferred-on (c/get-state this :displayed)
                      (let [parent (get-parent this)]
-                       (if (or (aget metadata "readOnly") (and parent (not (.isEnabled parent))))
+                       (if (or (get metadata "readOnly") (and parent (not (.isEnabled parent))))
                          (set-readonly this true)
                          (set-readonly this false)))))
   (set-readonly 
@@ -1335,9 +1338,9 @@
   (add-lookup-internal
    [this]
    (let [metadata (aget this "metadata")
-         maxtype (aget metadata "maxType")
+         maxtype (get metadata "maxType")
          ]
-     (when (and (not= false (aget metadata "canSmartFill")) (or (= maxtype "ALN") (= maxtype "UPPER") (= maxtype "LOWER")))
+     (when (and (not= false (get metadata "canSmartFill")) (or (= maxtype "ALN") (= maxtype "UPPER") (= maxtype "LOWER")))
        (aset this "canSmartFill" true))
      (add-lookup this)))
   (add-lookup 
@@ -1348,10 +1351,10 @@
   (show-lookup
    [this]
    (let [metadata (aget this "metadata")
-         attributeName (aget metadata "attributeName")
-         maxType (aget metadata "maxType")
-         hasLD (aget metadata "hasLD")
-         isALNDomain (aget metadata "isALNDomain")]
+         attributeName (get metadata "attributeName")
+         maxType (get metadata "maxType")
+         hasLD (get metadata "hasLD")
+         isALNDomain (get metadata "isALNDomain")]
      (cond  
        hasLD (show-ld-lookup this)
        (= "DATE" maxType) (show-date-lookup this)
@@ -1368,8 +1371,8 @@
   (get-list-columns
    [this]
    (let [metadata (aget this "metadata")
-         isALNDomain? (aget metadata "isALNDomain")
-         listColumns (aget metadata "listColumns")]
+         isALNDomain? (get metadata "isALNDomain")
+         listColumns (get metadata "listColumns")]
      (if listColumns 
        listColumns
        (when isALNDomain?
@@ -1407,7 +1410,7 @@
    (let [ctrl (get-parent this)
          container (aget ctrl "container")
          cid (c/get-id container)
-         column (aget metadata "attributeName" )
+         column (get metadata "attributeName" )
          curr-row (get-currow container)
          smartfill? (aget this "canSmartFill")
          ]
@@ -1421,7 +1424,7 @@
   (set-field-value [this value]
                    (throw (js/Error. "setFieldValue not implemented")))              
   (get-column [_]
-              (aget metadata "attributeName"  ))
+              (get metadata "attributeName"  ))
   (show-list [this columns]
              (let [ctrl (get-parent this)
                    container (aget ctrl "container")
@@ -1433,7 +1436,7 @@
                       (let [ctrl (get-parent this)
                             container (aget ctrl "container")
                             cid (c/get-id container)
-                            column (aget metadata "attributeName")
+                            column (get metadata "attributeName")
                             curr-row (get-currow container)
                             rowid (c/get-id-from-row cid curr-row)
                             ]
@@ -1484,7 +1487,7 @@
                    pparent (get-parent parent)]
              (listen-action this
                             (fn [ev]
-                              (let [action (aget metadata "action")]
+                              (let [action (get metadata "action")]
                                 (if pparent
                                   (when-let [vrs (c/get-state pparent :virtual-deferreds)]
                                         
@@ -1492,7 +1495,7 @@
                                       (.push vrs deferred)
                                       (mm/p-deferred-on deferred (action this))))
                                   (action this)))))
-             (mm/loop-arr [_acc (aget metadata "custom-actions")]
+             (mm/loop-arr [_acc (get metadata "custom-actions")]
                           (let [listenF (aget _acc 0)
                                 actF (aget _acc 1)
                                 deferred (aget _acc 2)]
@@ -1505,19 +1508,22 @@
   (fn* []
        (this-as
            this
+         (googbase this)
          (let [cb-handler (get-callback-handler this)
                err-handler (get-errback-handler this)
-               vcols (seq columns)]
-           (googbase this)
-           (let [deferred (promise-chan)]
-             (c/set-states this
-                           {:isconatiner false
-                            :receiver true
-                            :columns columns
-                            :deferred  deferred})
-             (c/register-columns container vcols
-                                 (fn [ok] (cb-handler  ok) (go (put! deferred ok)))
-                                 (fn [err] (err-handler err))))
+               vcols (seq columns)
+               deferred (promise-chan)]
+           (c/set-states this
+                         {:isconatiner false
+                          :receiver true
+                          :columns columns
+                          :deferred deferred})
+           (c/register-columns container  vcols
+                               (fn [ok]
+                                 (println "registering columns finished for section!")
+                  (cb-handler)
+                  (go (put! deferred ok)))
+                err-handler)
            (add-child container this))))
   Component
   (get-container
@@ -1838,7 +1844,9 @@
          (googbase this)
          (c/set-states this
                        {:vcols (seq columns)
-                        :deleted false})))
+                        :deleted false
+                        :deferred (promise-chan)
+                        })))
   UI
   (on-set-readonly [this flag]
                    (set-enabled this (not flag)))
@@ -2044,28 +2052,27 @@
   (fn* []
        (this-as
            this
-         
+         (googbase this)         
          (let [cb-handler (get-callback-handler this)
                err-handler (get-errback-handler this)
-               vcols (seq columns)]
-           (googbase this)
-           (let [deferred (promise-chan)]
-             (c/set-states this
-                           {:iscontainer false
-                            :receiver true
-                            :deferred deferred
-                            :virtual-deferreds (ar/empty)
-                            :norows norows
-                            :first-maxrow 0
-                            :currrow -1
-                            :grid true
-                            :columns vcols
-                            })
-             (c/register-columns container  vcols
-                                 (fn [ok]
-                                   (cb-handler ok)
-                                   (go (put! deferred ok)))
-                                 (fn [err] (err-handler err))))
+               vcols (seq columns)
+               deferred (promise-chan)]
+           (c/set-states this
+                         {:iscontainer false
+                          :receiver true
+                          :deferred deferred
+                          :virtual-deferreds (ar/empty)
+                          :norows norows
+                          :first-maxrow 0
+                          :currrow -1
+                          :grid true
+                          :columns vcols
+                          })
+           (c/register-columns container  vcols
+                               (fn [ok]
+                                 (cb-handler ok)
+                                 (go (put! deferred ok)))
+                               err-handler)
            (add-child container this))))
   Foundation
   (add-virtual-column
@@ -2619,7 +2626,7 @@
 (defn internal-return-selectable-grid
   [dialog listContainer field dialogcols]
   (let [metadata (aget field "metadata")
-        column (aget metadata "attributeName")
+        column (get metadata "attributeName")
         container (c/get-container dialog)]
     (get-selectable-grid 
      dialog
@@ -2640,7 +2647,7 @@
 (defn internal-return-qbe-grid;in the new 1.1 version the dialog will not be closed automatically when it is not clicked on the checkbox
   [dialog listContainer field dialogcols]
   (let [metadata (aget field "metadata")
-        column (aget metadata "attributeName")
+        column (get metadata "attributeName")
         container (c/get-container dialog)
         parentC (get-parent field);qbe section or qbe row
         ]
@@ -2742,7 +2749,7 @@
   (^override fn* []
              (this-as this
                       (googbase this metadata)
-                      (aset this "column" (aget metadata "attributeName"))))
+                      (aset this "column" (get metadata "attributeName"))))
   UI
   (on-render
    [this]
@@ -2763,7 +2770,7 @@
                    (throw (js/Error. "buildPickerList not yet implemented, should return the subclass of AbstractPickerList")))
   (display-picker-list-internal
    [this]
-   (let [column (aget metadata "attributeName")
+   (let [column (get metadata "attributeName")
          container (c/get-container this)
          listcon (ListContainer. container column)]
      (c/toggle-state this :list-container listcon)
@@ -3005,19 +3012,19 @@
   Field
   (^override get-column
    [this]
-   (if-let [virt-name (aget metadata "virtualName")]
+   (if-let [virt-name (get metadata "virtualName")]
      virt-name
-     (aget metadata "attributeName")))
+     (get metadata "attributeName")))
   (^override local-value [this])
   (^override change-maximo-value
              [this value]
              (let  [ctrl (.getParent this)
                     container (aget ctrl "container")
                     cid (.getId container)
-                    qbe-prep (aget metadata "qbePrepend")
+                    qbe-prep (get metadata "qbePrepend")
                     column (if qbe-prep 
-                             (str (aget metadata "virtualName") "/" qbe-prep "/" (aget metadata "attributeName"))
-                             (aget metadata "attributeName"))
+                             (str (get metadata "virtualName") "/" qbe-prep "/" (get metadata "attributeName"))
+                             (get metadata "attributeName"))
                     ]
                (c/set-qbe-with-offline cid column value
                           (fn[_] (c/get-qbe-with-offline cid
@@ -3060,13 +3067,13 @@
      (let [fields (get-children this)
            _cols (vec (map (fn [col]
                              (let [ metadata (aget col "metadata")
-                                   qbePrepend (aget metadata "qbePrepend")
-                                   virtualName (aget metadata "virtualName")
+                                   qbePrepend (get metadata "qbePrepend")
+                                   virtualName (get metadata "virtualName")
                                         ;id (.getId col)
                                    ]
                                (if qbePrepend
-                                 (str virtualName "/" qbePrepend "/" (aget metadata "attributeName"))
-                                 (aget metadata "attributeName"))))
+                                 (str virtualName "/" qbePrepend "/" (get metadata "attributeName"))
+                                 (get metadata "attributeName"))))
                            fields))]
        (c/get-columns-qbe
         (c/get-id container) _cols

@@ -327,7 +327,7 @@
   Row
   (^override set-row-field-value
    [this field value]
-   (if (-> field (aget "metadata") (aget "picker"))
+   (if (-> field (aget "metadata") (get "picker"))
      (b/set-field-value field value)
      (this-as this
        (let [column (b/get-column field)]
@@ -340,10 +340,11 @@
    (set-field-state this (b/get-column field) "required" required))
   (^override create-field
    [this col-metadata]
-   (if-let [is-picker (and col-metadata (aget col-metadata "picker"))]
-     (let [pickerkeycol (aget col-metadata "pickerkeycol")
-           pickercol (aget col-metadata "pickercol")
-           pickerrows (aget col-metadata "pickerrows")]
+   (println "creating the field with " col-metadata)
+   (if-let [is-picker (and col-metadata (get col-metadata "picker"))]
+     (let [pickerkeycol (get col-metadata "pickerkeycol")
+           pickercol (get col-metadata "pickercol")
+           pickerrows (get col-metadata "pickerrows")]
        (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
@@ -355,7 +356,7 @@
      (add-field-listener this (b/get-column field) (name k) v)))
   (^override set-field-focus
    [this field]
-   (when-not (-> field (aget "metadata") (aget "picker"))
+   (when-not (-> field (aget "metadata") (get "picker"))
      (set-all-fields-state this "focused" false)
      (set-field-state this (b/get-column field) "focused" true)))
   Reactive
