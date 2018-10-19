@@ -22,7 +22,7 @@
                 (when (first ~opt)
                   ((first ~opt) e#)))
              `(fn [evt#]
-                (maximoplus.utils/debug ~z evt#)
+;;                (maximoplus.utils/debug ~z evt#)
                 (when (first ~opt)
                   ((first ~opt) evt#))))
           ~(if (second actions)

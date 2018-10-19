@@ -515,7 +515,6 @@
 (mm/defcmd add-control-columns [control-name columns]
   (fn[evt]
     (let [metadata  (nth evt 0)]
-      (println "overwriting metadata for " control-name)
       (overwrite-metadata control-name metadata))))
 
 (defn offline-add-control-columns [control-name object-name columns cb errb]
@@ -671,19 +670,6 @@
 
 (mm/defcmd set-qbe-from-list [mbocontainer-name list-name column-name])
 
-(mm/defcmd initiate-hier [control-name mboname attribute value]
-  (fn [evt]
-    (add-peer-control nil control-name)
-    )
-  )
-                                        ;kada se radi bilo kakva registracija mboseta na serveru, nema nacina za sada da se na klijentu detektuje da li je komanda to radila, ili nesto drugo. zato mora rucno da se regisruje mboset. Ne zaboravi da je moguce da je komanda vec registrovana. U tom slucaju evt nije "ok", vec ime kontrole. Ovde to nije bitno
-
-(mm/defcmd add-hier-children [control-name attribute value]
-  (fn [evt]
-    (u/debug "Added for parent :" value " children " (js->clj evt))
-    )
-  )
-
 (declare get-connected-control)
 
 (defn is-virtual? [column-name]
@@ -787,7 +773,7 @@
       ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
 					;      (u/debug "add at end " {"row" (first rd-evt) "data" (second rd-evt)})
-      (println rd-evt)
+;;      (println rd-evt)
       rd-evt
       ))
   )
@@ -1108,15 +1094,12 @@
 
 (defn get-column-metadata
   [control-name column]
-  (println "getting column metadata for " control-name " and " column)
-  (println "!!! " (@object-data control-name))
   (first (filter #(= (.toUpperCase column) (:attributeName  %))
                  (-> (@object-data control-name)  :metadata))))
 
 
 (defn overwrite-metadata
   [control-name metadata]
-  (println "overwrite metadata for " control-name " and " metadata)
   (swap! object-data (fn [o];assoc-in, because it overwrites
                        (assoc-in o [control-name :metadata]
                                  (conj metadata {:attributeName  "_SELECTED" :maxType "YORN" })))))
