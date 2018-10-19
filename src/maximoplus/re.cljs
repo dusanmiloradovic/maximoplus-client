@@ -348,8 +348,10 @@
        (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
-   [this field flag]
-   (set-field-state this (b/get-column field) "flags" (clj->js flag)))
+   [this field [readonly? required? :as flag]]
+   (set-field-state this (b/get-column field) "flags" (clj->js flag))
+   (b/set-field-enabled this field (not readonly?))
+   (b/set-field-required this field required?))
   (^override add-field-ui-listeners
    [this field listen-map]
    (doseq [[k v] listen-map]
@@ -472,7 +474,7 @@
        (aset (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow")))) type colvals)
        (loop-arr [k (js-keys colvals)]
                  (aset row-data k (aget colvals k))))
-      (set-wrapped-state this "maxrows" rows-state)))
+     (set-wrapped-state this "maxrows" rows-state)))
   (set-row-state-meta
    [this row meta value]
    (let [rows-state (safe-arr-clone (get-wrapped-state this "maxrows"))
@@ -712,7 +714,7 @@
    (set-wrapped-state this "section" #js{:container cont :objectName objectName :fields (clj->js secFields)}))
   (^override add-wf-section
    [this section]
-  ;;this is a good place to indicate that the control is open
+   ;;this is a good place to indicate that the control is open
    )
   (^override init-wf-section
    [this section])
