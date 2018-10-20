@@ -247,7 +247,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -269,7 +269,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -319,7 +319,6 @@
   (^override add-rendered-child
    [this rendered-child child]
    (let [column (b/get-column child)
-         meta (aget child "metadata")
          new-field-state (get-new-field-state child)
          ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
      (ar/conj! ex-fields new-field-state)
@@ -327,28 +326,25 @@
   Row
   (^override set-row-field-value
    [this field value]
-   (if (-> field (aget "metadata") (get "picker"))
+   (if (-> field (aget "metadata") :picker)
      (b/set-field-value field value)
      (this-as this
        (let [column (b/get-column field)]
-         (println "setting row field value for " column " and " value)
-         (set-field-state this column "data" value)))))
+             (set-field-state this column "data" value)))))
   (^override set-field-enabled
    [this field enabled]
    (let [column (b/get-column field)]
-     (println " setting field enabled for " column "and " enabled)
-     (set-field-state this  column "enabled" enabled)))
+         (set-field-state this  column "enabled" enabled)))
   (^override set-field-required
    [this field required]
    (let [column (b/get-column field)]
-     (println " setting field required for " column "and " required)
      (set-field-state this  column "required" required)))
   (^override create-field
    [this col-metadata]
-   (if-let [is-picker (and col-metadata (get col-metadata "picker"))]
-     (let [pickerkeycol (get col-metadata "pickerkeycol")
-           pickercol (get col-metadata "pickercol")
-           pickerrows (get col-metadata "pickerrows")]
+   (if-let [is-picker (and col-metadata (:picker col-metadata))]
+     (let [pickerkeycol (:pickerkeycol col-metadata)
+           pickercol (:pickercol col-metadata)
+           pickerrows (:pickerrows col-metadata)]
        (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
@@ -362,7 +358,7 @@
      (add-field-listener this (b/get-column field) (name k) v)))
   (^override set-field-focus
    [this field]
-   (when-not (-> field (aget "metadata") (get "picker"))
+   (when-not (-> field (aget "metadata") :picker)
      (set-all-fields-state this "focused" false)
      (set-field-state this (b/get-column field) "focused" true)))
   Reactive
@@ -580,7 +576,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -602,7 +598,6 @@
   (^override add-rendered-child
    [this rendered-child child]
    (let [column (b/get-column child)
-         meta (aget child "metadata")
          new-field-state (get-new-field-state child)
          ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
      (ar/conj! ex-fields new-field-state)
