@@ -331,16 +331,20 @@
      (b/set-field-value field value)
      (this-as this
        (let [column (b/get-column field)]
+         (println "setting row field value for " column " and " value)
          (set-field-state this column "data" value)))))
   (^override set-field-enabled
    [this field enabled]
-   (set-field-state this (b/get-column field) "enabled" enabled))
+   (let [column (b/get-column field)]
+     (println " setting field enabled for " column "and " enabled)
+     (set-field-state this  column "enabled" enabled)))
   (^override set-field-required
    [this field required]
-   (set-field-state this (b/get-column field) "required" required))
+   (let [column (b/get-column field)]
+     (println " setting field required for " column "and " required)
+     (set-field-state this  column "required" required)))
   (^override create-field
    [this col-metadata]
-   (println "creating the field with " col-metadata)
    (if-let [is-picker (and col-metadata (get col-metadata "picker"))]
      (let [pickerkeycol (get col-metadata "pickerkeycol")
            pickercol (get col-metadata "pickercol")
@@ -467,8 +471,9 @@
      (aset row-data column value)
      (set-wrapped-state this "maxrows" rows-state)))
   (set-row-state-bulk-data-or-flags
-   [this row type colvals]
-   (let [rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
+   [this row type _colvals]
+   (let [colvals (u/to-js-obj _colvals)
+         rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
          row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))]
      (if (object-empty? row-data)
        (aset (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow")))) type colvals)
