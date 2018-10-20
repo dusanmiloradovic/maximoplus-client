@@ -1841,7 +1841,6 @@
          (c/set-states this
                        {:vcols (seq columns)
                         :deleted false
-                        :deferred (promise-chan)
                         })))
   UI
   (on-set-readonly [this flag]
