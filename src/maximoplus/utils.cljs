@@ -171,5 +171,5 @@
 (defn to-js-obj
   [clj-obj]
   (apply js-obj
-         (interleave (keys clj-obj)
+         (interleave (map name (keys clj-obj))
                      (vals clj-obj))))
