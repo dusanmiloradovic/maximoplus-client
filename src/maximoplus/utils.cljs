@@ -166,3 +166,10 @@
   [ch-type parent-type]
   (when (.-prototype parent-type)
     (set! (.. ch-type -prototype) (.create js/Object (.. parent-type -prototype)))))
+
+
+(defn to-js-obj
+  [clj-obj]
+  (apply js-obj
+         (interleave (map name (keys clj-obj))
+                     (vals clj-obj))))

@@ -247,7 +247,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -269,7 +269,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -319,7 +319,6 @@
   (^override add-rendered-child
    [this rendered-child child]
    (let [column (b/get-column child)
-         meta (aget child "metadata")
          new-field-state (get-new-field-state child)
          ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
      (ar/conj! ex-fields new-field-state)
@@ -327,23 +326,25 @@
   Row
   (^override set-row-field-value
    [this field value]
-   (if (-> field (aget "metadata") (aget "picker"))
+   (if (-> field (aget "metadata") :picker)
      (b/set-field-value field value)
      (this-as this
        (let [column (b/get-column field)]
-         (set-field-state this column "data" value)))))
+             (set-field-state this column "data" value)))))
   (^override set-field-enabled
    [this field enabled]
-   (set-field-state this (b/get-column field) "enabled" enabled))
+   (let [column (b/get-column field)]
+         (set-field-state this  column "enabled" enabled)))
   (^override set-field-required
    [this field required]
-   (set-field-state this (b/get-column field) "required" required))
+   (let [column (b/get-column field)]
+     (set-field-state this  column "required" required)))
   (^override create-field
    [this col-metadata]
-   (if-let [is-picker (and col-metadata (aget col-metadata "picker"))]
-     (let [pickerkeycol (aget col-metadata "pickerkeycol")
-           pickercol (aget col-metadata "pickercol")
-           pickerrows (aget col-metadata "pickerrows")]
+   (if-let [is-picker (and col-metadata (:picker col-metadata))]
+     (let [pickerkeycol (:pickerkeycol col-metadata)
+           pickercol (:pickercol col-metadata)
+           pickerrows (:pickerrows col-metadata)]
        (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
@@ -357,7 +358,7 @@
      (add-field-listener this (b/get-column field) (name k) v)))
   (^override set-field-focus
    [this field]
-   (when-not (-> field (aget "metadata") (aget "picker"))
+   (when-not (-> field (aget "metadata") :picker)
      (set-all-fields-state this "focused" false)
      (set-field-state this (b/get-column field) "focused" true)))
   Reactive
@@ -466,8 +467,9 @@
      (aset row-data column value)
      (set-wrapped-state this "maxrows" rows-state)))
   (set-row-state-bulk-data-or-flags
-   [this row type colvals]
-   (let [rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
+   [this row type _colvals]
+   (let [colvals (u/to-js-obj _colvals)
+         rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
          row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))]
      (if (object-empty? row-data)
        (aset (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow")))) type colvals)
@@ -574,7 +576,7 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata meta
+     #js{:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
@@ -596,7 +598,6 @@
   (^override add-rendered-child
    [this rendered-child child]
    (let [column (b/get-column child)
-         meta (aget child "metadata")
          new-field-state (get-new-field-state child)
          ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
      (ar/conj! ex-fields new-field-state)

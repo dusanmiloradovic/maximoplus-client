@@ -11,7 +11,7 @@
    [cljs.core.async :as a :refer [put! promise-chan <! timeout]]
    )
   (:require-macros 
-   [maximoplus.macros :as mm :refer [p-deferred-on]]
+   [maximoplus.macros :as mm :refer [p-deferred-on p-deferred]]
    [cljs.core.async.macros :refer [go go-loop]]))
 
 (declare yesnocancelproxy)
@@ -235,8 +235,6 @@
 
 
 (def registered-columns (atom {}))
-
-(def registered-columns-arr (atom {})) ; performance optimization - keep the array instead of vector
 
 (def control-columns (atom {}))
 
@@ -515,7 +513,7 @@
 (declare overwrite-metadata)
 
 (mm/defcmd add-control-columns [control-name columns]
-  (fn[evt] 
+  (fn[evt]
     (let [metadata  (nth evt 0)]
       (overwrite-metadata control-name metadata))))
 
@@ -533,8 +531,8 @@
          (offline/get-object-meta object-name)
          (p/then
           (fn [metadata]
-            (overwrite-metadata control-name (aget  metadata "columnsMeta"))
-            (cb (aget  metadata "columnsMeta"))))))))
+            (overwrite-metadata control-name (get  metadata "columnsMeta"))
+            (cb (get  metadata "columnsMeta"))))))))
    (p/then-catch
     (fn [err] (when errb (errb err)) err)
     )))
@@ -672,56 +670,27 @@
 
 (mm/defcmd set-qbe-from-list [mbocontainer-name list-name column-name])
 
-(mm/defcmd initiate-hier [control-name mboname attribute value]
-  (fn [evt]
-    (add-peer-control nil control-name)
-    )
-  )
-                                        ;kada se radi bilo kakva registracija mboseta na serveru, nema nacina za sada da se na klijentu detektuje da li je komanda to radila, ili nesto drugo. zato mora rucno da se regisruje mboset. Ne zaboravi da je moguce da je komanda vec registrovana. U tom slucaju evt nije "ok", vec ime kontrole. Ovde to nije bitno
-
-(mm/defcmd add-hier-children [control-name attribute value]
-  (fn [evt]
-    (u/debug "Added for parent :" value " children " (js->clj evt))
-    )
-  )
-
 (declare get-connected-control)
 
 (defn is-virtual? [column-name]
   (= (.toUpperCase column-name) "_SELECTED")
   )
 
-
-(defn- vcolsreg
-  [container-name]
-  (let [vr (@registered-columns container-name)
-        uv (map #(.toUpperCase %) vr)
-        ar (u/vector->arr (vec uv) )]
-    (swap! registered-columns-arr assoc container-name ar )))
-
 (defn register-columns [container columns-all cb-handler errback-handler]
   (let [columns (filter (comp not is-virtual?) columns-all)
-        container-name (get-id container)
-        diff (clojure.set/difference (set columns) (set (@registered-columns container-name)))
-        old-cols (@registered-columns container-name)]
-    (if-not (empty? diff)
-      (do
-        (swap! registered-columns assoc container-name (apply conj (vec (@registered-columns container-name)) (vec columns)))
-        (vcolsreg container-name)
-        (let [cbh (fn [ok] 
-                    (when cb-handler (cb-handler ok))
-                    (when (and (.isOfflineEnabled container) 
-                               (not @is-offline))
-                      (offlinePrepareOne (get-id container))))
-              errbh (fn [err] 
-                      (swap! registered-columns assoc container-name old-cols)
-                      (vcolsreg registered-columns)
-                      (when errback-handler (errback-handler err)))]
-          (mm/kk! container "registercol" add-control-columns-with-offline (vec diff) cbh errbh)))
-      (do
-        (when cb-handler
-          (cb-handler columns-all))
-        (p/get-resolved-promise columns-all)))))
+        container-name (get-id container)]
+    (let [cbh (fn [ok]
+                (let [old-cols (set (@registered-columns container-name))
+                      new-cols (set (map #(.toUpperCase %) columns))
+                      tc (vec (clojure.set/union old-cols new-cols))]
+                  (swap! registered-columns assoc container-name tc))
+                (when cb-handler (cb-handler ok))
+                (when (and (.isOfflineEnabled container) 
+                           (not @is-offline))
+                  (offlinePrepareOne (get-id container))))
+          errbh (fn [err] 
+                  (when errback-handler (errback-handler err)))]
+      (mm/kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
       
 
 
@@ -804,7 +773,7 @@
       ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
 					;      (u/debug "add at end " {"row" (first rd-evt) "data" (second rd-evt)})
-      (println rd-evt)
+;;      (println rd-evt)
       rd-evt
       ))
   )
@@ -1064,7 +1033,11 @@
   [control-name start-row no-rows]
   (when-let [locrows (@object-data control-name)]
     (let [;reg-cols (u/vector->arr (map #(.toUpperCase %) (@registered-columns control-name)))
-          reg-cols (@registered-columns-arr control-name) ;performance optimization
+          _reg-cols (@registered-columns control-name) ;performance optimization
+          reg-cols (->> _reg-cols
+                        (map #(.toUpperCase %))
+                        vec
+                        u/vector->arr)
           cmp-cols? (fn [_cols]
                       (when reg-cols
                         (let [_len (.-length reg-cols)]
@@ -1126,7 +1099,6 @@
 
 
 (defn overwrite-metadata
-                                        ;there is a bug, if the ajax call returns after the first one it can overwrite the metadata
   [control-name metadata]
   (swap! object-data (fn [o];assoc-in, because it overwrites
                        (assoc-in o [control-name :metadata]
@@ -1151,7 +1123,7 @@
   (let [_cup (if (goog/isString column)
                (.toUpperCase column)
                (let [_mda (aget column "metadata")]
-                 (aget _mda "attributeName")))]
+                 (get _mda "attributeName")))]
     (swap! (aget control "state")
            (fn [s]
              (update-in s [:colAttrs _cup] assoc attribute-name attribute-value)))))
@@ -1169,7 +1141,7 @@
   (let [_cup (if (goog/isString column)
                (.toUpperCase column)
                (let [_mda (aget column "metadata")]
-                 (aget _mda "attributeName")
+                 (get _mda "attributeName")
                  ))]
     (swap! (aget control "state")
            (fn [s]
