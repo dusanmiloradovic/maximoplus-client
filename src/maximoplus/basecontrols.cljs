@@ -151,6 +151,7 @@
   (changed-row [control row]);use this to notify the picker when the row was changed, so inline picker list are triggered
   (set-ld-value [control value])
   (show-gl-lookup [control orgid])
+  (get-metadata [control]);;now the metadata is the clojurescript object. If we need to access it from javascript, we need a function converting it
   )
 
 (defprotocol Row
@@ -1311,6 +1312,10 @@
                 (throw (js/Error. "setRequired not implemented"))
                 )
   Field
+  (get-metadata
+   [this]
+   (u/to-js-obj
+    (aget this "metadata")))
   (changed-row [this row])
   (local-value
    [this]
@@ -2206,8 +2211,8 @@
    (c/get-state this :mbosetcnt))
   (after-move
    [this f]
-   (let [deferred (p/get-deferred)]
-     (aset this "moveToDeferred" deferred)
+   (let [deferred (promise-chan)]
+     (c/toggle-state this :moveToDeferred deferred)
      (mm/p-deferred-on deferred (f this))))
   (update-paginator [this fromRow toRow numRows]
                     (throw (js/Error. "updatePaginator not implemented")))
@@ -2471,9 +2476,8 @@
   (on-set-control-index
    [this row]
    (when-not (= -1 row)
-     (when-let [mtd (aget this "moveToDeferred")]
-       (when-not (p/has-fired? mtd)
-         (p/callback mtd row)))
+     (when-let [mtd (c/get-state this :moveToDeferred)]
+       (go (put! mtd row)))
      (let [fmr (get-firstmaxrow this)
            ^number first-maxrow (if (= -1 fmr) 0 fmr)
            norows (get-numrows this)
