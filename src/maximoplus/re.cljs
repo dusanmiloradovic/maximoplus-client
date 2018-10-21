@@ -424,7 +424,8 @@
 
 (defn object-empty?
   [obj]
-  (= 0 (.-length (js/Object.keys obj))))
+  (or (not obj)
+      (= 0 (.-length (js/Object.keys obj)))))
 
 (def-comp Grid [container columns norows] b/Grid ; for the time being full grid will not be done for react
   (^override fn* []
@@ -469,12 +470,20 @@
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
    (let [colvals (u/to-js-obj _colvals)
+         mrow (b/get-maximo-row row)
          rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
-         row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))]
-     (if (object-empty? row-data)
-       (aset (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow")))) type colvals)
-       (loop-arr [k (js-keys colvals)]
-                 (aset row-data k (aget colvals k))))
+         rs (-> rows-state
+                (u/first-in-arr
+                 #(=  mrow (aget % "mxrow"))))
+         row-data (when rs (aget rs type ))]
+     (if-not row-data
+       (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
+         (aset ndata type colvals)
+         (ar/conj! rows-state ndata))
+       (if (object-empty? row-data)
+         (aset rs type colvals)
+         (loop-arr [k (js-keys colvals)]
+                   (aset row-data k (aget colvals k)))))
      (set-wrapped-state this "maxrows" rows-state)))
   (set-row-state-meta
    [this row meta value]
