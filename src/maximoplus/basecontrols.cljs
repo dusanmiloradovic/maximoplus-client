@@ -3153,7 +3153,7 @@
   (fn* []
        (this-as this
          (googbase this)
-         (let [orgid-prom (promise-chan)
+         (let [orgid-prom (p/get-deferred)
                cont (c/get-container field)]
            (p/then
             (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
@@ -3167,7 +3167,7 @@
                   MessageProcess
                   (on-fetched-row [this row]
                     (let  [val (-> row (js->clj :keywordize-keys true) :data :ORGID )];;debug
-                         (go (put! orgid-prom val)))))
+                      (p/callback orgid-prom val))))
                ;; (render-deferred cad) componentadapter not a visual component!
                 (init-data cad)
                 orgid-prom))
