@@ -80,7 +80,7 @@
 
 (defn callback-from-xhr
   [xhr1 callback error-callback]
-  (u/debug "zovem callback from xhr " (. xhr1 (getLastErrorCode)))
+;;  (u/debug "zovem callback from xhr " (. xhr1 (getLastErrorCode)))
   (if (= ec/NO_ERROR (. xhr1 (getLastErrorCode)))
     (callback (get-response-vector xhr1  ))
     (error-callback (get-response-vector xhr1))))
@@ -90,7 +90,7 @@
         _ap  (if (= -1 (.indexOf url "?")) "?" "&")
         _url (str url _ap "t=" @tabsess)
         pc (if progress-callback (first progress-callback))]
-    (u/debug "Zovem send-meth " url)
+  ;;  (u/debug "Zovem send-meth " url)
     (.setWithCredentials xhr1 true)
     (goog.events/listenOnce xhr1
                        "complete"
@@ -165,7 +165,7 @@
                        (fn [message]
                          (let [_data (aget message "data")
                                data (if (= "" _data) "" (u/transit-read _data))]
-                           (u/debug "SSE" data)
+               ;;            (u/debug "SSE" data)
                            (callback data))))
     (.addEventListener ev-s "error"
                        (fn [error]
