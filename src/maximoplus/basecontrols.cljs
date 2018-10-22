@@ -3154,7 +3154,9 @@
        (this-as this
          (googbase this)
          (let [orgid-prom (p/get-deferred)
-               cont (c/get-container field)]
+               cont (c/get-container field)
+               dfrd (promise-chan)]
+           (c/toggle-state this :deferred dfrd)
            (p/then
             (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
               (p/get-resolved-promise orgid)
@@ -3163,7 +3165,7 @@
                   UI
                   (on-set-max-value [this column value]
                     (when (= "ORGID" column)
-                      (go (put! orgid-prom value))))
+                      (p/callback orgid-prom value)))
                   MessageProcess
                   (on-fetched-row [this row]
                     (let  [val (-> row (js->clj :keywordize-keys true) :data :ORGID )];;debug
@@ -3177,7 +3179,8 @@
                              :receiver true
                              :glcont (GLContainer. orgid)
                              :active-segment (atom 0)
-                             }))))))
+                             })
+              (go (put! dfrd "ok")))))))
   UI
   (^override render
    [this]
