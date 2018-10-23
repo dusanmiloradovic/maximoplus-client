@@ -2810,7 +2810,7 @@
   (^override errback-handler
    [this error-text error-code error-group error-key]
    (wf-finished wfControl)
-   ((get-errback-handler wfControl)[[error-text error-code error-group error-key] nil nil]))
+   ((get-errback-handler wfControl)[[(keyword error-code) error-text  error-group error-key] nil nil]))
   CommandProcess
   (^override pre-process-command-callback [this e]
              (let [act (-> e (get 0) ( get "actions"))
