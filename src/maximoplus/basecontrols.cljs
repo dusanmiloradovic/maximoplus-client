@@ -3168,7 +3168,7 @@
                       (p/callback orgid-prom value)))
                   MessageProcess
                   (on-fetched-row [this row]
-                    (let  [val (-> row (js->clj :keywordize-keys true) :data :ORGID )];;debug
+                    (let  [val (-> row :data (get "ORGID") )];;debug
                       (p/callback orgid-prom val))))
                ;; (render-deferred cad) componentadapter not a visual component!
                 (init-data cad)

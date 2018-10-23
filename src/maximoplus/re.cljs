@@ -448,7 +448,7 @@
    (set-row-state-data-or-flags this row column "data" value))
   (^override set-grid-row-flags
    [this row flags]
-   (set-row-state-bulk-data-or-flags this row "flags" flags))
+   (set-row-state-bulk-data-or-flags this row "flags"  flags))
   (^override mark-grid-row-as-selected
    [this row selected?]
    (set-row-state-meta this row "selected" selected?))
