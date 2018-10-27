@@ -43,8 +43,9 @@
   [component column type value]
   (let [ex-state (safe-arr-clone (get-wrapped-state component "maxfields"))
         field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
-    (aset field-state type value)
-    (set-wrapped-state component "maxfields" ex-state)))
+    (when field-state
+      (aset field-state type value)
+      (set-wrapped-state component "maxfields" ex-state))))
 
 (defn get-field-state
   [component column type]
@@ -322,6 +323,7 @@
          new-field-state (get-new-field-state child)
          ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
      (ar/conj! ex-fields new-field-state)
+     (b/on-render child)
      (set-wrapped-state this "maxfields" ex-fields)))
   Row
   (^override set-row-field-value
@@ -364,9 +366,9 @@
   Reactive
   (add-columns-meta
    [this columns-meta]
-   (doseq [[column mkv]  (js->clj columns-meta)]
-     (doseq [[k v] mkv]
-       (b/add-meta this column k v))))
+   (doseq [[column mkv] (js->clj columns-meta)]
+     (doseq [[k v]  mkv]
+       (b/add-meta this column (keyword k) v))))
   Dialog
   (^override get-field-list-dialog
    [this field list-container dialog-cols]
