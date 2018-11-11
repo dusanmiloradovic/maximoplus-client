@@ -462,6 +462,21 @@
   (^override unhighlight-grid-row
    [this row]
    (set-row-state-meta this row "hightlighed" false))
+  (fetch-more
+   [control num-rows]
+   (set-wrapped-state this "fetching" true)
+   (b/after-fetch this
+                  (fn [_] (set-wrapped-state this "fetching" false))))
+  (page-next
+   [control]
+   (set-wrapped-state this "fetching" true)
+   (b/after-fetch this
+                  (fn [_] (set-wrapped-state this "fetching" false))))
+  (page-prev
+   [control]
+   (set-wrapped-state this "fetching" true)
+   (b/after-fetch this
+                  (fn [_] (set-wrapped-state this "fetching" false))))
   Reactive
   (set-row-state-data-or-flags
    [this row column type value];;type is data or flag
@@ -537,6 +552,12 @@
   (^override unpick-row
    [this row]
    (remove-row-state-meta this row "picked"))
+  ControlData
+  (init-data-from-nd
+   [this start-row]
+   (set-wrapped-state this "fetching" true)
+   (b/after-fetch this
+                  (fn [_] (set-wrapped-state this "fetching" false))))
   )
 
 (def-comp QbeField [metadata] b/QbeField
