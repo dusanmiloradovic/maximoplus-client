@@ -464,19 +464,19 @@
    (set-row-state-meta this row "hightlighed" false))
   (fetch-more
    [control num-rows]
-   (set-wrapped-state this "fetching" true)
-   (b/after-fetch this
-                  (fn [_] (set-wrapped-state this "fetching" false))))
+   (set-wrapped-state control "fetching" true)
+   (b/after-fetch control
+                  (fn [_] (set-wrapped-state control "fetching" false))))
   (page-next
    [control]
-   (set-wrapped-state this "fetching" true)
-   (b/after-fetch this
-                  (fn [_] (set-wrapped-state this "fetching" false))))
+   (set-wrapped-state control "fetching" true)
+   (b/after-fetch control
+                  (fn [_] (set-wrapped-state control "fetching" false))))
   (page-prev
    [control]
-   (set-wrapped-state this "fetching" true)
-   (b/after-fetch this
-                  (fn [_] (set-wrapped-state this "fetching" false))))
+   (set-wrapped-state control "fetching" true)
+   (b/after-fetch control
+                  (fn [_] (set-wrapped-state control "fetching" false))))
   Reactive
   (set-row-state-data-or-flags
    [this row column type value];;type is data or flag
