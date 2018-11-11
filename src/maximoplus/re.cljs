@@ -114,6 +114,8 @@
   (del-row-state-data [this row])
   (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
+  (set-external-state [this property state]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
+  (get-internal-state [this property])
   )
 
 
@@ -464,31 +466,47 @@
    (set-row-state-meta this row "hightlighed" false))
   (fetch-more
    [control num-rows]
-   (set-wrapped-state control "fetching" true)
+   (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (set-wrapped-state control "fetching" false))))
+                  (fn [_] (c/toggle-state control :fetching false))))
   (page-next
    [control]
-   (set-wrapped-state control "fetching" true)
+   (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (set-wrapped-state control "fetching" false))))
+                  (fn [_] (c/toggle-state control :fetching false))))
   (page-prev
    [control]
-   (set-wrapped-state control "fetching" true)
+   (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (set-wrapped-state control "fetching" false))))
+                  (fn [_] (c/toggle-state control :fetching false))))
   Reactive
+  (get-external-state
+   [this property]
+   (if (c/get-state this :fetching)
+     (if-let [delayed-state (c/get-state this :re)]
+       (if-let [dls (get delayed-state property)]
+         dls
+         (safe-arr-clone (get-wrapped-state this property)))
+       (safe-arr-clone (get-wrapped-state this property)))
+     (safe-arr-clone (get-wrapped-state this property))))
+  (set-external-state
+   [this property value]
+   (if (c/get-state this :fetching)
+     (let [_dl (c/get-state this :re)
+           dl (if _dl dl {})]
+       (c/toggle-state this :re (assoc dl property value)))
+     (set-wrapped-state this property value)))
   (set-row-state-data-or-flags
    [this row column type value];;type is data or flag
-   (let [rows-state (safe-arr-clone (get-wrapped-state this "maxrows"))
+   (let [rows-state (get-external-state this "maxrows")
          row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
      (aset row-data column value)
-     (set-wrapped-state this "maxrows" rows-state)))
+     (set-external-state this "maxrows" rows-state)))
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
    (let [colvals (u/to-js-obj _colvals)
          mrow (b/get-maximo-row row)
-         rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
+         rows-state (get-external-state this "maxrows")
          rs (-> rows-state
                 (u/first-in-arr
                  #(=  mrow (aget % "mxrow"))))
@@ -501,22 +519,22 @@
          (aset rs type colvals)
          (loop-arr [k (js-keys colvals)]
                    (aset row-data k (aget colvals k)))))
-     (set-wrapped-state this "maxrows" rows-state)))
+     (set-external-state this "maxrows" rows-state)))
   (set-row-state-meta
    [this row meta value]
-   (let [rows-state (safe-arr-clone (get-wrapped-state this "maxrows"))
+   (let [rows-state (get-external-state this "maxrows")
          row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
      (aset row meta value)
-     (set-wrapped-state this "maxrows" rows-state)))
+     (set-external-state this "maxrows" rows-state)))
   (remove-row-state-meta
    [this row meta]
-   (let [rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
+   (let [rows-state  (get-external-state this "maxrows")
          row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
      (js-delete row meta)
-     (set-wrapped-state this "maxrows" rows-state)))
+     (set-external-state this "maxrows" rows-state)))
   (add-new-row-state-data
    [this row colvals colflags]
-   (let  [rows-state  (safe-arr-clone (get-wrapped-state this "maxrows"))
+   (let  [rows-state  (get-external-state this "maxrows")
           new-maximo-row  (b/get-maximo-row row)
           rows-count (ar/count rows-state)]
      (if (and
@@ -524,15 +542,15 @@
           (<= (js/parseInt new-maximo-row) (-> rows-state (aget (- rows-count 1)) (aget "mxrow") (js/parseInt)) ))
        (ar/insert-before! rows-state new-maximo-row #js{:mxrow new-maximo-row :data colvals :flags colflags})
        (ar/conj! rows-state #js{:mxrow new-maximo-row :data colvals :flags colflags} ))
-     (set-wrapped-state this "maxrows" rows-state)))
+     (set-external-state this "maxrows" rows-state)))
   (del-row-state-data
    [this row]
    (let  [
-          rows-state (safe-arr-clone (get-wrapped-state this "maxrows"))
+          rows-state  (get-external-state this "maxrows")
           new-maximo-row (b/get-maximo-row row)]
      (when rows-state
        (ar/remove-at! rows-state (u/first-ind-in-arr rows-state #(= (aget % "mxrow") new-maximo-row )))
-       (set-wrapped-state this "maxrows" rows-state))))
+       (set-external-state this "maxrows" rows-state))))
   UI
   (^override render-row
    [this row]
@@ -555,10 +573,9 @@
   ControlData
   (init-data-from-nd
    [this start-row]
-   (set-wrapped-state this "fetching" true)
-   (b/after-fetch (c/get-container this)
-                  (fn [_] (set-wrapped-state this "fetching" false))))
-  )
+   (c/toggle-state control :fetching true)
+   (b/after-fetch (c/get-container control)
+                  (fn [_] (c/toggle-state control :fetching false)))))
 
 (def-comp QbeField [metadata] b/QbeField
   (^override fn* []
