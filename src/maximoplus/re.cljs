@@ -116,6 +116,7 @@
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
   (set-external-state [this property state]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
   (get-external-state [this property])
+  (move-externals [this])
   )
 
 
@@ -468,18 +469,32 @@
    [control num-rows]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (c/toggle-state control :fetching false))))
+                  (fn [_]
+                    (c/toggle-state control :fetching false)
+                    (move-externals this))))
   (page-next
    [control]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (c/toggle-state control :fetching false))))
+                  (fn [_]
+                    (c/toggle-state control :fetching false)
+                    (move-externals this))))
   (page-prev
    [control]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (c/toggle-state control :fetching false))))
+                  (fn [_]
+                    (c/toggle-state control :fetching false)
+                    (move-externals this))))
   Reactive
+  (move-externals
+   [this]
+   ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
+   (let [st (c/get-state this :re)]
+     (doseq [k (keys st)]
+       (let [v (get st k )]
+         (set-wrapped-state this k v))))
+   (c/remove-state this :re))
   (get-external-state
    [this property]
    (if (c/get-state this :fetching)
@@ -575,7 +590,9 @@
    [control start-row]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
-                  (fn [_] (c/toggle-state control :fetching false)))))
+                  (fn [_]
+                    (c/toggle-state control :fetching false)
+                    (move-externals this)))))
 
 (def-comp QbeField [metadata] b/QbeField
   (^override fn* []
