@@ -471,21 +471,21 @@
    (b/after-fetch (c/get-container control)
                   (fn [_]
                     (c/toggle-state control :fetching false)
-                    (move-externals this))))
+                    (move-externals control))))
   (page-next
    [control]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
                   (fn [_]
                     (c/toggle-state control :fetching false)
-                    (move-externals this))))
+                    (move-externals control))))
   (page-prev
    [control]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
                   (fn [_]
                     (c/toggle-state control :fetching false)
-                    (move-externals this))))
+                    (move-externals control))))
   Reactive
   (move-externals
    [this]
@@ -592,7 +592,7 @@
    (b/after-fetch (c/get-container control)
                   (fn [_]
                     (c/toggle-state control :fetching false)
-                    (move-externals this)))))
+                    (move-externals control)))))
 
 (def-comp QbeField [metadata] b/QbeField
   (^override fn* []
