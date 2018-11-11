@@ -115,7 +115,7 @@
   (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
   (set-external-state [this property state]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
-  (get-internal-state [this property])
+  (get-external-state [this property])
   )
 
 
@@ -493,7 +493,7 @@
    [this property value]
    (if (c/get-state this :fetching)
      (let [_dl (c/get-state this :re)
-           dl (if _dl dl {})]
+           dl (if _dl _dl {})]
        (c/toggle-state this :re (assoc dl property value)))
      (set-wrapped-state this property value)))
   (set-row-state-data-or-flags
@@ -572,7 +572,7 @@
    (remove-row-state-meta this row "picked"))
   ControlData
   (init-data-from-nd
-   [this start-row]
+   [control start-row]
    (c/toggle-state control :fetching true)
    (b/after-fetch (c/get-container control)
                   (fn [_] (c/toggle-state control :fetching false)))))
