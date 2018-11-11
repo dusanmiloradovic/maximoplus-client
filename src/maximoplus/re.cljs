@@ -478,8 +478,8 @@
   (on-fetch-finished
    [this]
    (when (c/get-state this :fetching)
-     (c/toggle-state control :fetching false)
-     (move-externals control)))
+     (c/toggle-state this :fetching false)
+     (move-externals this)))
   Reactive
   (move-externals
    [this]
