@@ -465,17 +465,17 @@
   (fetch-more
    [control num-rows]
    (set-wrapped-state control "fetching" true)
-   (b/after-fetch control
+   (b/after-fetch (c/get-container control)
                   (fn [_] (set-wrapped-state control "fetching" false))))
   (page-next
    [control]
    (set-wrapped-state control "fetching" true)
-   (b/after-fetch control
+   (b/after-fetch (c/get-container control)
                   (fn [_] (set-wrapped-state control "fetching" false))))
   (page-prev
    [control]
    (set-wrapped-state control "fetching" true)
-   (b/after-fetch control
+   (b/after-fetch (c/get-container control)
                   (fn [_] (set-wrapped-state control "fetching" false))))
   Reactive
   (set-row-state-data-or-flags
@@ -556,7 +556,7 @@
   (init-data-from-nd
    [this start-row]
    (set-wrapped-state this "fetching" true)
-   (b/after-fetch this
+   (b/after-fetch (c/get-container this)
                   (fn [_] (set-wrapped-state this "fetching" false))))
   )
 
