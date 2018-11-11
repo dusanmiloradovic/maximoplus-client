@@ -40,7 +40,9 @@
   (on-add-at-index [control row])
   (on-set-fieldflag [control row field flag])
   (on-update-control-data [control rownum column value])
-  (on-delete [control rownum value]))
+  (on-delete [control rownum value])
+  (on-fetch-finished [control]))
+
 
 
 (defprotocol App
@@ -1122,6 +1124,7 @@
             (clear-control this)
             (set-enabled this false))
   (on-set-fieldflag [this row field _flags])
+  (on-fetch-finished [this])
   Receivable
   (get-receive-functions
    [this]
@@ -2514,6 +2517,7 @@
     "fetched-row" (fn [r]
                     (on-fetched-row this r)
                     )
+    "fetch-finished" (fn [r] (on-fetch-finished this))
     "update-mboflag" (fn [e]
                        (when-let [dr (get-data-row this (get e :rownum))]
                          (on-set-readonly dr (c/str->bool (get e :readonly)))))

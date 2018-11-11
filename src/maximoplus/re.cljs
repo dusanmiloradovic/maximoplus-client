@@ -2,7 +2,7 @@
   (:require [maximoplus.core :as c]
             [maximoplus.arrays :as ar]
             [maximoplus.utils :as u]
-            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL]])
+            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]])
   )
 
@@ -467,25 +467,19 @@
    (set-row-state-meta this row "hightlighed" false))
   (fetch-more
    [control num-rows]
-   (c/toggle-state control :fetching true)
-   (b/after-fetch (c/get-container control)
-                  (fn [_]
-                    (c/toggle-state control :fetching false)
-                    (move-externals control))))
+   (c/toggle-state control :fetching true))
   (page-next
    [control]
-   (c/toggle-state control :fetching true)
-   (b/after-fetch (c/get-container control)
-                  (fn [_]
-                    (c/toggle-state control :fetching false)
-                    (move-externals control))))
+   (c/toggle-state control :fetching true))
   (page-prev
    [control]
-   (c/toggle-state control :fetching true)
-   (b/after-fetch (c/get-container control)
-                  (fn [_]
-                    (c/toggle-state control :fetching false)
-                    (move-externals control))))
+   (c/toggle-state control :fetching true))
+  MessageProcess
+  (on-fetch-finished
+   [this]
+   (when (c/get-state this :fetching)
+     (c/toggle-state control :fetching false)
+     (move-externals control)))
   Reactive
   (move-externals
    [this]
@@ -588,11 +582,9 @@
   ControlData
   (init-data-from-nd
    [control start-row]
+   (u/debug "!!!!fetch start " (.now js/Date))
    (c/toggle-state control :fetching true)
-   (b/after-fetch (c/get-container control)
-                  (fn [_]
-                    (c/toggle-state control :fetching false)
-                    (move-externals control)))))
+   ))
 
 (def-comp QbeField [metadata] b/QbeField
   (^override fn* []

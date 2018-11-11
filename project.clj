@@ -106,8 +106,8 @@
                  {:source-paths ["src" "src-repl"],
                   :compiler
                   {:pretty-print true,
-                   :output-to "public/javascript/main.js",
-                   :output-dir "public/javascript",
+                   :output-dir "public/javascript/maximoplus-core",
+                   :output-to "public/javascript/maximoplus-core/main.js",
 ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
