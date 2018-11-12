@@ -390,6 +390,12 @@
   (^override draw-field [this]);rendering done in react
   (^override draw-fields [this]);first version of react will give us just the list, when we are ready to implement the grid, we will call this methid and make the listrow component which inherits this. we don't 
   (^override add-rendered-child [this rendered-child child]);rendering composition should be done in React
+  (^override on-render
+   [this]
+   ;;in the basecontrols we wait until the row is display to attach the listener. For react and similar that will only hurt the performance (one state change more for each row). We will do it immediately
+   (b/listen-row this
+                 (fn [_] (b/selected-action this)))
+   )
   Row
   (^override set-row-flags
    [this colfglags]
