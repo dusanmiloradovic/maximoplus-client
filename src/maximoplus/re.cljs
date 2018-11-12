@@ -116,6 +116,7 @@
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
   (set-external-state [this property state]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
   (get-external-state [this property])
+  (before-move-externals [this rows])
   (move-externals [this])
   )
 
@@ -478,13 +479,13 @@
   (page-prev
    [control]
    (c/toggle-state control :fetching true))
-  (build-row
-   [control rowcontrol]
-   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
-   (b/listen-row rowcontrol
-                 (fn [_] (b/selected-action rowcontrol)))
-   rowcontrol
-   )
+;;  (build-row
+;;   [control rowcontrol]
+;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
+;;   (b/listen-row rowcontrol
+;;                 (fn [_] (b/selected-action rowcontrol)))
+;;   rowcontrol
+;;   )
   MessageProcess
   (on-fetch-finished
    [this]
@@ -492,12 +493,20 @@
      (c/toggle-state this :fetching false)
      (move-externals this)))
   Reactive
+  (before-move-externals
+   [this rows]
+   (doseq [row rows]
+     (let [maximo-row (b/get-data-row this (aget row "mxrow"))]
+       (aset row "rowSelectedAction" (fn [_] (b/selected-action maximo-row)) )))
+   )
   (move-externals
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
    (let [st (c/get-state this :re)]
      (doseq [k (keys st)]
        (let [v (get st k )]
+         (when (= k "maxrows")
+           (before-move-externals this v))
          (set-wrapped-state this k v))))
    (c/remove-state this :re))
   (get-external-state
