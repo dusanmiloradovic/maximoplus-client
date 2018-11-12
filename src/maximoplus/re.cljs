@@ -392,9 +392,7 @@
   (^override add-rendered-child [this rendered-child child]);rendering composition should be done in React
   (^override on-render
    [this]
-   ;;in the basecontrols we wait until the row is display to attach the listener. For react and similar that will only hurt the performance (one state change more for each row). We will do it immediately
-   (b/listen-row this
-                 (fn [_] (b/selected-action this)))
+   ;;in the basecontrols we wait until the row is display to attach the listener. For react and similar that will only hurt the performance (one state change more for each row). We will do it immediately in build-row
    )
   Row
   (^override set-row-flags
@@ -480,6 +478,13 @@
   (page-prev
    [control]
    (c/toggle-state control :fetching true))
+  (build-row
+   [control rowcontrol]
+   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
+   (b/listen-row rowcontrol
+                 (fn [_] (b/selected-action rowcontrol)))
+   rowcontrol
+   )
   MessageProcess
   (on-fetch-finished
    [this]
@@ -538,8 +543,11 @@
   (set-row-state-meta
    [this row meta value]
    (let [rows-state (get-external-state this "maxrows")
-         row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-     (aset row meta value)
+         rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
+     (if rs
+       (aset rs meta value)
+       (let [new-row (js-obj "mxrow" (b/get-maximo-row row) meta value)]
+         (ar/conj! rows-state new-row)))
      (set-external-state this "maxrows" rows-state)))
   (remove-row-state-meta
    [this row meta]
