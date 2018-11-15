@@ -2355,9 +2355,10 @@
               (move-control-to-row this rownum)))
   (fetch-more [this numrows]
               (let [fmr (get-firstmaxrow this)
-                    nrs (get-numrows this)]
-                (c/toggle-state this :norows (+ nrs numrows))
-                (mm/c! this "fetch" fetch-data container (+ fmr nrs) numrows)))
+                    nrs (get-numrows this)
+                    _numrows (js/parseInt numrows]
+                (c/toggle-state this :norows (+ nrs _numrows)
+                (mm/c! this "fetch" fetch-data container (+ fmr nrs) _numrows)))
   (row-selected-action
    [this row-control]
    (when-let [mr (get-maximo-row row-control)]
