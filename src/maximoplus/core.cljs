@@ -1509,7 +1509,7 @@
 
 (defn is-persistent?
   [control]
-  (-> (@object-data control) :metadata first (get "mboPersistent")))
+  (-> (@object-data control) :metadata second :mboPersistent))
 
 (mm/defcmd register-mboset-with-one-mbo [control-name parent-control uniqueid]
   (fn [evt]
