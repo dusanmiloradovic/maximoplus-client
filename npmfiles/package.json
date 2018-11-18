@@ -1,6 +1,6 @@
 {
    "name": "maximoplus-core",
-   "version": "2.1.25",
+   "version": "2.1.26",
    "description": "MaximoPlus core module",
    "main": "main.js",
    "scripts": {
