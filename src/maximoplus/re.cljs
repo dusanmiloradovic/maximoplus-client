@@ -479,13 +479,20 @@
   (page-prev
    [control]
    (c/toggle-state control :fetching true))
-;;  (build-row
-;;   [control rowcontrol]
-;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
-;;   (b/listen-row rowcontrol
-;;                 (fn [_] (b/selected-action rowcontrol)))
-;;   rowcontrol
-;;   )
+  (^override clear-data-rows;;check if web components lib is working after this change
+   [this]
+   (b/remove-mboset-count this)
+   (reset! (aget this "children") [])
+   (set-external-state this "maxrows" #js[]))
+  (build-row
+   [control rowcontrol]
+   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
+   (when-not (c/get-state control :fetching)
+     ;;if multi-fetch, it will be done after the fetch is finished
+     (b/listen-row rowcontrol
+                   (fn [_] (b/selected-action rowcontrol))))
+   rowcontrol
+   )
   MessageProcess
   (on-fetch-finished
    [this]
