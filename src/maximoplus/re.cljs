@@ -484,15 +484,15 @@
    (b/remove-mboset-count this)
    (reset! (aget this "children") [])
    (set-external-state this "maxrows" #js[]))
-  (build-row
-   [control rowcontrol]
-   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
-   (when-not (c/get-state control :fetching)
-     ;;if multi-fetch, it will be done after the fetch is finished
-     (b/listen-row rowcontrol
-                   (fn [_] (b/selected-action rowcontrol))))
-   rowcontrol
-   )
+;;  (build-row
+;;   [control rowcontrol]
+;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
+;;   (when-not (c/get-state control :fetching)
+;;     ;;if multi-fetch, it will be done after the fetch is finished
+;;     (b/listen-row rowcontrol
+;;                   (fn [_] (b/selected-action rowcontrol))))
+;;   rowcontrol
+;;   )
   MessageProcess
   (on-fetch-finished
    [this]
@@ -518,7 +518,7 @@
    (c/remove-state this :re))
   (get-external-state
    [this property]
-   (if (c/get-state this :fetching)
+   (if (c/get-state this :fetchingo)
      (if-let [delayed-state (c/get-state this :re)]
        (if-let [dls (get delayed-state property)]
          dls
@@ -542,15 +542,21 @@
    [this row type _colvals]
    (let [colvals (u/to-js-obj _colvals)
          mrow (b/get-maximo-row row)
+       ;;  maximo-row (b/get-data-row this mrow)
          rows-state (get-external-state this "maxrows")
          rs (-> rows-state
                 (u/first-in-arr
                  #(=  mrow (aget % "mxrow"))))
          row-data (when rs (aget rs type ))]
      (if-not row-data
-       (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
+       (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{}
+                           ;;"rowSelectedAction" (fn [_] (b/selected-action maximo-row))
+                           )]
          (aset ndata type colvals)
-         (ar/conj! rows-state ndata))
+         (.log js/console "^^^^^^^^^^^^^^^^^^^^")
+         (ar/conj! rows-state ndata)
+         (.log js/console rows-state)
+         )
        (if (object-empty? row-data)
          (aset rs type colvals)
          (loop-arr [k (js-keys colvals)]
