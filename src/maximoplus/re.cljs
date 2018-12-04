@@ -112,7 +112,7 @@
 
 (defn push-field-state-arr
   [component column type value]
-  (set-wrapped-staste
+  (set-wrapped-state
    component
    (fn [state]
      (let [field-arr (safe-arr-clone (aget state "maxfields"))
@@ -122,7 +122,7 @@
        (ar/insert-before!  field-arr-state 0 value)
        (aset new-field-state type field-arr-state)
        (ar/assoc! field-arr ind new-field-state)
-       #{js "maxfields" field-arr}))))
+       #js{"maxfields" field-arr}))))
 
 (defn pop-field-state-arr
   [component column type]
@@ -136,7 +136,7 @@
        (ar/remove-at! field-arr-state 0)
        (aset new-field-state type field-arr-state)
        (ar/assoc! field-arr ind new-field-state)
-       #{js "maxfields" field-arr}))))
+       #js{"maxfields" field-arr}))))
 
 (defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
   ;;will be rendered just by updating the state
@@ -149,7 +149,7 @@
   (del-row-state-data [this row])
   (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
-  (set-external-state [this property state]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
+  (set-external-state [this state-f]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
   (get-external-state [this property])
   (before-move-externals [this rows])
   (move-externals [this])
@@ -587,7 +587,7 @@
    [this row type _colvals]
    (set-external-state
     this
-    (fm [state]
+    (fn [state]
         (let [colvals (u/to-js-obj _colvals)
               mrow (b/get-maximo-row row)
               ;;  maximo-row (b/get-data-row this mrow)
@@ -747,7 +747,10 @@
   UI
   (^override draw-section
    [this]
-   (set-wrapped-state this "maxfields" #js[]));;same as for section
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"maxfields" #js[]})));;same as for section
   (^override add-rendered-child
    [this rendered-child child]
    (set-wrapped-state
@@ -865,7 +868,7 @@
    )
   (^override set-wf-title
    [this title]
-   (set-wrapped-state this (fn [state] #js){"title" title "actions" #js{}}))
+   (set-wrapped-state this (fn [state] #js {"title" title "actions" #js{}})))
   (^override add-wf-action
    [this f label key]
    (set-wrapped-state
