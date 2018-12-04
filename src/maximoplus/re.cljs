@@ -30,22 +30,39 @@
   (-> react-control (aget "state") (aget "mplus")))
                                         ;there will be no state except on the level of grid and section
 
+
+
+;;(defn set-wrapped-state
+;;  [el property state]
+;;  (set-internal-state (aget el "wrapped") property state)
+;;  )
+;;
+;;(defn set-internal-state
+;;  [wrapped property state]
+;;  (.call (aget wrapped "setInternalState") wrapped property state))
+
+;;For React, getting the state and then act upon it is not guaranteed to be correct. The correct way is to pass the state function. TODO change the template for web components to use the state function
+
 (defn set-internal-state
-  [wrapped property state]
-  (.call (aget wrapped "setInternalState") wrapped property state))
+  [wrapped state-f]
+  (.call (aget wrapped "setInternalState") wrapped state-f))
 
 (defn set-wrapped-state
-  [el property state]
-  (set-internal-state (aget el "wrapped") property state)
-  )
+  [el state-f]
+  (set-internal-state (aget el "wrapped") state-f))
 
 (defn set-field-state
   [component column type value]
-  (let [ex-state (safe-arr-clone (get-wrapped-state component "maxfields"))
-        field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
-    (when field-state
-      (aset field-state type value)
-      (set-wrapped-state component "maxfields" ex-state))))
+  (set-wrapped-state
+   component
+   (fn[state]
+     (let [ex-state (safe-arr-clone (aget state "maxfields"))
+           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
+       (if field-state
+         (do
+           (aset field-state type value)
+           #js{"maxfields" ex-state})
+         #js{})))))
 
 (defn get-field-state
   [component column type]
@@ -53,55 +70,73 @@
 
 (defn remove-field-state
   [component column type]
-  (let [ex-state (safe-arr-clone (get-wrapped-state component "maxfields"))
-        field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
-    (js-delete field-state type)
-    (set-wrapped-state component "maxfields" ex-state)))
+  (set-wrapped-state
+   component
+   (fn [state]
+     (let [ex-state (safe-arr-clone (aget state "maxfields"))
+           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
+       (js-delete field-state type)
+       #js{"maxfields" ex-state}))))
 
 (defn add-field-listener
   [component column type function]
-  (let [ex-state (safe-arr-clone (get-wrapped-state component "maxfields"))
-        field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
-        field-listeners (aget field-state "listeners")]
-    (aset field-listeners type function)
-    (set-wrapped-state component "maxfields" ex-state)))
+  (set-wrapped-state
+   component
+   (fn [state]
+     (let [ex-state (safe-arr-clone (aget state "maxfields"))
+           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
+           field-listeners (aget field-state "listeners")]
+       (aset field-listeners type function)
+       #js{"maxfields" ex-state}))))
 
 (defn remove-field-listener
   [component column type]
-  (let [ex-state (safe-arr-clone (get-wrapped-state component "maxfields"))
-        field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
-        field-listeners (aget field-state "listeners")]
-    (js-delete field-listeners type)
-    (set-wrapped-state component "maxfields" ex-state)))
+  (set-wrapped-state
+   component
+   (fn [state]
+     (let [ex-state (safe-arr-clone (aget state "maxfields"))
+           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
+           field-listeners (aget field-state "listeners")]
+       (js-delete field-listeners type)
+       #js{"maxfields" ex-state}))))
 
 (defn set-all-fields-state
   [component type state]
-  (let [fields (safe-arr-clone (get-wrapped-state component "maxfields"))]
-    (loop-arr [f fields]
-              (aset f type state))
-    (set-wrapped-state component "maxfields" fields)))
+  (set-wrapped-state
+   component
+   (fn [state]
+     (let [fields (safe-arr-clone (aget state "maxfields"))]
+       (loop-arr [f fields]
+                 (aset f type state))
+       #js{"maxfields" fields}))))
 
 (defn push-field-state-arr
   [component column type value]
-  (let [field-arr (safe-arr-clone (get-wrapped-state component "maxfields"))
-        [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
-        new-field-state (u/clone-object field-state)
-        field-arr-state (safe-arr-clone (aget new-field-state type)) ]
-    (ar/insert-before!  field-arr-state 0 value)
-    (aset new-field-state type field-arr-state)
-    (ar/assoc! field-arr ind new-field-state)
-    (set-wrapped-state component "maxfields" field-arr)))
+  (set-wrapped-staste
+   component
+   (fn [state]
+     (let [field-arr (safe-arr-clone (aget state "maxfields"))
+           [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
+           new-field-state (u/clone-object field-state)
+           field-arr-state (safe-arr-clone (aget new-field-state type)) ]
+       (ar/insert-before!  field-arr-state 0 value)
+       (aset new-field-state type field-arr-state)
+       (ar/assoc! field-arr ind new-field-state)
+       #{js "maxfields" field-arr}))))
 
 (defn pop-field-state-arr
   [component column type]
-  (let [field-arr (safe-arr-clone (get-wrapped-state component "maxfields"))
-        [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
-        new-field-state (u/clone-object field-state)
-        field-arr-state (safe-arr-clone (aget new-field-state type))]
-    (ar/remove-at! field-arr-state 0)
-    (aset new-field-state type field-arr-state)
-    (ar/assoc! field-arr ind new-field-state)
-    (set-wrapped-state component "maxfields" field-arr)))
+  (set-wrapped-state
+   component
+   (fn [state]
+     (let [field-arr (safe-arr-clone (aget state "maxfields"))
+           [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
+           new-field-state (u/clone-object field-state)
+           field-arr-state (safe-arr-clone (aget new-field-state type))]
+       (ar/remove-at! field-arr-state 0)
+       (aset new-field-state type field-arr-state)
+       (ar/assoc! field-arr ind new-field-state)
+       #{js "maxfields" field-arr}))))
 
 (defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
   ;;will be rendered just by updating the state
@@ -319,16 +354,22 @@
   UI
   (^override draw-section
    [this]
-   (set-wrapped-state this "maxfields" #js[]);;initial state
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"maxfields" #js[]} ));;initial state
    ) ;wrapper component will draw the frame for fields
   (^override add-rendered-child
    [this rendered-child child]
-   (let [column (b/get-column child)
-         new-field-state (get-new-field-state child)
-         ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
-     (ar/conj! ex-fields new-field-state)
-     (b/on-render child)
-     (set-wrapped-state this "maxfields" ex-fields)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [column (b/get-column child)
+            new-field-state (get-new-field-state child)
+            ex-fields (safe-arr-clone (aget state "maxfields"))]
+        (ar/conj! ex-fields new-field-state)
+        (b/on-render child)
+        #js{"maxfields" ex-fields}))))
   Row
   (^override set-row-field-value
    [this field value]
@@ -463,7 +504,11 @@
    [this row selected?]
    (set-row-state-meta this row "selected" selected?))
   (^override update-paginator [this fromRow toRow numRows]
-   (set-wrapped-state this "paginator" #js{:fromrow fromRow :torow toRow :numrows numRows}))
+   (set-wrapped-state
+    this
+    (fn [state]
+      {"paginator"
+       #js{:fromrow fromRow :torow toRow :numrows numRows}})))
   (^override highlight-grid-row
    [this row]
    (set-row-state-meta this row "hightlighed" true))
@@ -483,7 +528,9 @@
    [this]
    (b/remove-mboset-count this)
    (reset! (aget this "children") [])
-   (set-external-state this "maxrows" #js[]))
+   (set-external-state
+    this
+    (fn [state] {"maxrows" #js[]}) ))
 ;;  (build-row
 ;;   [control rowcontrol]
 ;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
@@ -509,93 +556,105 @@
   (move-externals
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
-   (let [st (c/get-state this :re)]
+   (let [st (c/get-state this :re)
+         re-state #js{}]
      (doseq [k (keys st)]
        (let [v (get st k )]
          (when (= k "maxrows")
            (before-move-externals this v))
-         (set-wrapped-state this k v))))
+         (aset re-state k v)))
+     (set-wrapped-state
+      this
+      (fn [state] re-state)))
    (c/remove-state this :re))
-  (get-external-state
-   [this property]
-   (if (c/get-state this :fetchingo)
-     (if-let [delayed-state (c/get-state this :re)]
-       (if-let [dls (get delayed-state property)]
-         dls
-         (safe-arr-clone (get-wrapped-state this property)))
-       (safe-arr-clone (get-wrapped-state this property)))
-     (safe-arr-clone (get-wrapped-state this property))))
   (set-external-state
-   [this property value]
+   [this fn-s]
    (if (c/get-state this :fetching)
      (let [_dl (c/get-state this :re)
            dl (if _dl _dl {})]
-       (c/toggle-state this :re (assoc dl property value)))
-     (set-wrapped-state this property value)))
+       (c/toggle-state this :re (fn-s dl)))
+     (set-wrapped-state this fn-s)))
   (set-row-state-data-or-flags
    [this row column type value];;type is data or flag
-   (let [rows-state (get-external-state this "maxrows")
-         row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
-     (aset row-data column value)
-     (set-external-state this "maxrows" rows-state)))
+   (set-external-state
+    this
+    (fn [state]
+      (let [rows-state (aget state "maxrows")
+            row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
+        (aset row-data column value)
+        #js{"maxrows" rows-state}))))
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
-   (let [colvals (u/to-js-obj _colvals)
-         mrow (b/get-maximo-row row)
-       ;;  maximo-row (b/get-data-row this mrow)
-         rows-state (get-external-state this "maxrows")
-         rs (-> rows-state
-                (u/first-in-arr
-                 #(=  mrow (aget % "mxrow"))))
-         row-data (when rs (aget rs type ))]
-     (if-not row-data
-       (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{}
-                           ;;"rowSelectedAction" (fn [_] (b/selected-action maximo-row))
-                           )]
-         (aset ndata type colvals)
-         (.log js/console "^^^^^^^^^^^^^^^^^^^^")
-         (ar/conj! rows-state ndata)
-         (.log js/console rows-state)
-         )
-       (if (object-empty? row-data)
-         (aset rs type colvals)
-         (loop-arr [k (js-keys colvals)]
-                   (aset row-data k (aget colvals k)))))
-     (set-external-state this "maxrows" rows-state)))
+   (set-external-state
+    this
+    (fm [state]
+        (let [colvals (u/to-js-obj _colvals)
+              mrow (b/get-maximo-row row)
+              ;;  maximo-row (b/get-data-row this mrow)
+              rows-state (aget state "maxrows")
+              rs (-> rows-state
+                     (u/first-in-arr
+                      #(=  mrow (aget % "mxrow"))))
+              row-data (when rs (aget rs type ))]
+          (if-not row-data
+            (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{}
+                                ;;"rowSelectedAction" (fn [_] (b/selected-action maximo-row))
+                                )]
+              (aset ndata type colvals)
+              (.log js/console "^^^^^^^^^^^^^^^^^^^^")
+              (ar/conj! rows-state ndata)
+              (.log js/console rows-state)
+              )
+            (if (object-empty? row-data)
+              (aset rs type colvals)
+              (loop-arr [k (js-keys colvals)]
+                        (aset row-data k (aget colvals k)))))
+          #js{"maxrows" rows-state}))))
   (set-row-state-meta
    [this row meta value]
-   (let [rows-state (get-external-state this "maxrows")
-         rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-     (if rs
-       (aset rs meta value)
-       (let [new-row (js-obj "mxrow" (b/get-maximo-row row) meta value)]
-         (ar/conj! rows-state new-row)))
-     (set-external-state this "maxrows" rows-state)))
+   (set-external-state
+    this
+    (fn [state]
+      (let [rows-state (aget state "maxrows")
+            rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
+        (if rs
+          (aset rs meta value)
+          (let [new-row (js-obj "mxrow" (b/get-maximo-row row) meta value)]
+            (ar/conj! rows-state new-row)))
+        #js{"maxrows" rows-state}))))
   (remove-row-state-meta
    [this row meta]
-   (let [rows-state  (get-external-state this "maxrows")
-         row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-     (js-delete row meta)
-     (set-external-state this "maxrows" rows-state)))
+   (set-external-state
+    this
+    (fn [state]
+      (let [rows-state  (aget state "maxrows")
+            row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
+        (js-delete row meta)
+        #js{"maxrows" rows-state}))))
   (add-new-row-state-data
    [this row colvals colflags]
-   (let  [rows-state  (get-external-state this "maxrows")
-          new-maximo-row  (b/get-maximo-row row)
-          rows-count (ar/count rows-state)]
-     (if (and
-          (> 0 rows-count)
-          (<= (js/parseInt new-maximo-row) (-> rows-state (aget (- rows-count 1)) (aget "mxrow") (js/parseInt)) ))
-       (ar/insert-before! rows-state new-maximo-row #js{:mxrow new-maximo-row :data colvals :flags colflags})
-       (ar/conj! rows-state #js{:mxrow new-maximo-row :data colvals :flags colflags} ))
-     (set-external-state this "maxrows" rows-state)))
+   (set-external-state
+    this
+    (fn [state]
+      (let  [rows-state  (aget state "maxrows")
+             new-maximo-row  (b/get-maximo-row row)
+             rows-count (ar/count rows-state)]
+        (if (and
+             (> 0 rows-count)
+             (<= (js/parseInt new-maximo-row) (-> rows-state (aget (- rows-count 1)) (aget "mxrow") (js/parseInt)) ))
+          (ar/insert-before! rows-state new-maximo-row #js{:mxrow new-maximo-row :data colvals :flags colflags})
+          (ar/conj! rows-state #js{:mxrow new-maximo-row :data colvals :flags colflags} ))
+        #js{"maxrows" rows-state}))))
   (del-row-state-data
    [this row]
-   (let  [
-          rows-state  (get-external-state this "maxrows")
-          new-maximo-row (b/get-maximo-row row)]
-     (when rows-state
-       (ar/remove-at! rows-state (u/first-ind-in-arr rows-state #(= (aget % "mxrow") new-maximo-row )))
-       (set-external-state this "maxrows" rows-state))))
+   (set-external-state
+    this
+    (fn [state]
+      (let  [rows-state  (aget state "maxrows")
+             new-maximo-row (b/get-maximo-row row)]
+        (when rows-state
+          (ar/remove-at! rows-state (u/first-ind-in-arr rows-state #(= (aget % "mxrow") new-maximo-row )))
+          #js{"maxrows" rows-state})))))
   UI
   (^override render-row
    [this row]
@@ -691,11 +750,14 @@
    (set-wrapped-state this "maxfields" #js[]));;same as for section
   (^override add-rendered-child
    [this rendered-child child]
-   (let [column (b/get-column child)
-         new-field-state (get-new-field-state child)
-         ex-fields (safe-arr-clone (get-wrapped-state this "maxfields"))]
-     (ar/conj! ex-fields new-field-state)
-     (set-wrapped-state this "maxfields" ex-fields)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [column (b/get-column child)
+            new-field-state (get-new-field-state child)
+            ex-fields (safe-arr-clone (aget state "maxfields"))]
+        (ar/conj! ex-fields new-field-state)
+        #js{"maxfields" ex-fields}))))
   Row
   (^override create-field
    [this col-metadata]
@@ -731,43 +793,61 @@
   GL
   (^override get-gl-dialog-holder
    [this chooseF]
-   (set-wrapped-state this "chooseF" chooseF))
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"chooseF" chooseF})))
   (^override display-gl-picker
    [this dialog gl-container picker-cols pickedF]
-   (set-wrapped-state this "pickerlist" #js{:glcontainer gl-container :pickercols picker-cols :pickerf pickedF}))
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"pickerlist" #js{:glcontainer gl-container :pickercols picker-cols :pickerf pickedF}})))
   (^override display-gl-segment
    [this dialog segmentNo segmentsLength segmentValue segmentName segmentDelimiter active]
-   (let [_ex-segments (get-wrapped-state this "segments")
-         ex-segments (if (and _ex-segments (not= 0 (ar/count _ex-segments))) _ex-segments (js/Array. segmentsLength))
-         _ex-segment (aget ex-segments (js/parseInt segmentNo))
-         ex-segment (if _ex-segment _ex-segment (js-obj))]
-     (aset ex-segment "segmentName" segmentName)
-     (aset ex-segment "segmentValue" segmentValue)
-     (aset ex-segment "segmentDelimiter" segmentDelimiter)
-     (aset ex-segments (js/parseInt segmentNo) ex-segment)
-     (set-wrapped-state this "segments" ex-segments)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [_ex-segments (aget state "segments")
+            ex-segments (if (and _ex-segments (not= 0 (ar/count _ex-segments))) _ex-segments (js/Array. segmentsLength))
+            _ex-segment (aget ex-segments (js/parseInt segmentNo))
+            ex-segment (if _ex-segment _ex-segment (js-obj))]
+        (aset ex-segment "segmentName" segmentName)
+        (aset ex-segment "segmentValue" segmentValue)
+        (aset ex-segment "segmentDelimiter" segmentDelimiter)
+        (aset ex-segments (js/parseInt segmentNo) ex-segment)
+        #js{"segments" ex-segments}))))
   (^override get-picker-placeholder
    [control dialog])
   (^override clear-gl-segments
    [this dialog])
   (^override highlight-gl-segment 
    [this dialog segment-no]
-   (let [ex-segments (get-wrapped-state this "segments")
-         ex-segment (aget ex-segments (js/parseInt segment-no))]
-     (aset ex-segment "highlighted" true)
-     (set-wrapped-state this "segments" ex-segments)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [ex-segments (aget state "segments")
+            ex-segment (aget ex-segments (js/parseInt segment-no))]
+        (aset ex-segment "highlighted" true)
+        #js{"segments" ex-segments}))))
   (^override unhighlight-gl-segments
    [this dialog]
-   (let [ex-segments (get-wrapped-state this "segments")]
-     (loop-arr [s ex-segments]
-               (aset s "highlighted" false))
-     (set-wrapped-state this "segments" ex-segments)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [ex-segments (aget state "segments")]
+        (loop-arr [s ex-segments]
+                  (aset s "highlighted" false))
+        #js{"segnents" ex-segments}))))
   (^override listen-segment
    [this segment segmentNo  callbackF]
-   (let [ex-segments (get-wrapped-state this "segments")
-         ex-segment (aget ex-segments (js/parseInt segmentNo))]
-     (aset ex-segment "listener" callbackF)
-     (set-wrapped-state this "segments" ex-segments)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [ex-segments (aget state "segments")
+            ex-segment (aget ex-segments (js/parseInt segmentNo))]
+        (aset ex-segment "listener" callbackF)
+        #js{"segments" ex-segments}))))
   )
 
 (def-comp WorkflowControl [appContainer processName] b/WorkflowControl
@@ -785,27 +865,34 @@
    )
   (^override set-wf-title
    [this title]
-   (set-wrapped-state this "title" title)
-   (set-wrapped-state this "actions" #js{})
-   )
+   (set-wrapped-state this (fn [state] #js){"title" title "actions" #js{}}))
   (^override add-wf-action
    [this f label key]
-   (let [_ex-actions (get-wrapped-state this "actions")
-         ex-actions (if _ex-actions _ex-actions #js{})]
-     (aset ex-actions key #js{:actionFunction f :label label})
-     (set-wrapped-state this "actions" ex-actions)))
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [_ex-actions (aget state "actions")
+            ex-actions (if _ex-actions _ex-actions #js{})]
+        (aset ex-actions key #js{:actionFunction f :label label})
+        #js{"actions" ex-actions}))))
   (^override get-memo-display-container
    [control])
   (^override get-memo-grid
    [this memocont columns]
-   (set-wrapped-state this "memo" #js{:container memocont :columns columns}))
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"memo" #js{:container memocont :columns columns}} )))
   (^override add-wf-memo-grid
    [control memo-grid])
   (^override init-wf-memo-grid
    [this memo-grid])
   (^override get-wf-section
    [this cont objectName secFields]
-   (set-wrapped-state this "section" #js{:container cont :objectName objectName :fields (clj->js secFields)}))
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"section" #js{:container cont :objectName objectName :fields (clj->js secFields)}})))
   (^override add-wf-section
    [this section]
    ;;this is a good place to indicate that the control is open
@@ -814,6 +901,10 @@
    [this section])
   (^override set-warnings
    [this warnings errorBody errorTitle]
-   (set-wrapped-state this "warnings" warnings)
-   (set-wrapped-state this "error" #js {:errorBody errorBody :errorTitle errorTitle}))
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"warnings" warnings
+          "error" #js {:errorBody errorBody :errorTitle errorTitle}
+          })))
   )
