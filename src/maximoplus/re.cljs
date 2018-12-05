@@ -558,8 +558,8 @@
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
    (let [st (c/get-state this :re)
          re-state #js{}]
-     (doseq [k (keys st)]
-       (let [v (get st k )]
+     (doseq [k (js-keys st)]
+       (let [v (aget st k )]
          (when (= k "maxrows")
            (before-move-externals this v))
          (aset re-state k v)))
@@ -636,7 +636,8 @@
    (set-external-state
     this
     (fn [state]
-      (let  [rows-state  (aget state "maxrows")
+      (let  [_rows-state  (aget state "maxrows")
+             rows-state (if _rows-state _rows-state #js[])
              new-maximo-row  (b/get-maximo-row row)
              rows-count (ar/count rows-state)]
         (if (and
