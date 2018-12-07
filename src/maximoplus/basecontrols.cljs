@@ -2518,7 +2518,9 @@
     "fetched-row" (fn [r]
                     (on-fetched-row this r)
                     )
-    "fetch-finished" (fn [r] (on-fetch-finished this))
+    "fetch-finished" (fn [r]
+                       (when (empty? @(c/get-state container :fetch-queue))
+                         (on-fetch-finished this)))
     "update-mboflag" (fn [e]
                        (when-let [dr (get-data-row this (get e :rownum))]
                          (on-set-readonly dr (c/str->bool (get e :readonly)))))
