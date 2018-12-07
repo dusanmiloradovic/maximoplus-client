@@ -507,7 +507,7 @@
    (set-wrapped-state
     this
     (fn [state]
-      {"paginator"
+      #js{"paginator"
        #js{:fromrow fromRow :torow toRow :numrows numRows}})))
   (^override highlight-grid-row
    [this row]
@@ -530,7 +530,7 @@
    (reset! (aget this "children") [])
    (set-external-state
     this
-    (fn [state] {"maxrows" #js[]}) ))
+    (fn [state] #js{"maxrows" #js[]}) ))
 ;;  (build-row
 ;;   [control rowcontrol]
 ;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
