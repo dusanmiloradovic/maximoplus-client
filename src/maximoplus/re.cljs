@@ -601,9 +601,7 @@
                                 ;;"rowSelectedAction" (fn [_] (b/selected-action maximo-row))
                                 )]
               (aset ndata type colvals)
-              (.log js/console "^^^^^^^^^^^^^^^^^^^^")
               (ar/conj! rows-state ndata)
-              (.log js/console rows-state)
               )
             (if (object-empty? row-data)
               (aset rs type colvals)
@@ -678,7 +676,6 @@
   ControlData
   (init-data-from-nd
    [control start-row]
-   (u/debug "!!!!fetch start " (.now js/Date))
    (c/toggle-state control :fetching true)
    ))
 
