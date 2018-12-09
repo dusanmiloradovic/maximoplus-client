@@ -279,7 +279,8 @@
       "dialogs"
       #js{:type "gl"
           :field that
-          :orgid orgid}))
+          :orgid orgid
+          :closeAction clac}))
    )
   Reactive
   (get-new-field-state
