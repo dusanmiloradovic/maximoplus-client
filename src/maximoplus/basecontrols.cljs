@@ -3164,30 +3164,35 @@
                cont (c/get-container field)
                dfrd (promise-chan)]
            (c/toggle-state this :deferred dfrd)
-           (p/then
-            (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
-              (p/get-resolved-promise orgid)
-              (let [cad (ComponentAdapter. cont ["orgid"])]
-                (specify! cad
-                  UI
-                  (on-set-max-value [this column value]
-                    (when (= "ORGID" column)
-                      (p/callback orgid-prom value)))
-                  MessageProcess
-                  (on-fetched-row [this row]
-                    (let  [val (-> row :data (get "ORGID") )];;debug
-                      (p/callback orgid-prom val))))
-               ;; (render-deferred cad) componentadapter not a visual component!
-                (init-data cad)
-                orgid-prom))
-            (fn [orgid]
-              (c/set-states this
-                            {:iscontainer false
-                             :receiver true
-                             :glcont (GLContainer. orgid)
-                             :active-segment (atom 0)
-                             })
-              (go (put! dfrd "ok")))))))
+
+           (if-not (c/get-local-data-all-attrs (c/get-id cont) 0)
+             ;;there is no container data, can't initialize the control
+             (u/debug "No data for the container. Can't initialize the gl dialog.")
+             
+             (p/then
+              (if-not  (empty? orgid) ;;if orgid is supplied by user, use it, otherwise get the orgid from the container first
+                (p/get-resolved-promise orgid)
+                (let [cad (ComponentAdapter. cont ["orgid"])]
+                  (specify! cad
+                    UI
+                    (on-set-max-value [this column value]
+                      (when (= "ORGID" column)
+                        (p/callback orgid-prom value)))
+                    MessageProcess
+                    (on-fetched-row [this row]
+                      (let  [val (-> row :data (get "ORGID") )];;debug
+                        (p/callback orgid-prom val))))
+                  ;; (render-deferred cad) componentadapter not a visual component!
+                  (init-data cad)
+                  orgid-prom))
+              (fn [orgid]
+                (c/set-states this
+                              {:iscontainer false
+                               :receiver true
+                               :glcont (GLContainer. orgid)
+                               :active-segment (atom 0)
+                               })
+                (go (put! dfrd "ok"))))))))
   UI
   (^override render
    [this]

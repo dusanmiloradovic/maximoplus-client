@@ -279,8 +279,8 @@
       "dialogs"
       #js{:type "gl"
           :field that
-          :orgid orgid}))
-   )
+          :orgid orgid
+          })))
   Reactive
   (get-new-field-state
    [this]

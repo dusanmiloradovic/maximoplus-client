@@ -120,7 +120,7 @@
 
                  ]}}]
              }
-  :jvm-opts ["-Xms12g" "-Xmx16g"]
+;;  :jvm-opts ["-Xms12g" "-Xmx16g"]
   )
 
 (require 'cemerick.pomegranate.aether)
