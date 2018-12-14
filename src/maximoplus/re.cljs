@@ -858,7 +858,7 @@
   (wf-finished
    [this]
    ;;should just close the workflow control
-   (set-wrapped-state this (fn [state] #js{"finished" #js true}));;this will notify react component to close the wf dialog
+   (set-wrapped-state this (fn [state] #js{"finished" true}));;this will notify react component to close the wf dialog
    (.call (-> this (aget "wrapped") (aget "closeDialog")) (aget this "wrapped"));;for the react template this will not do anything, closing will be done explicitely from the control itself
    
    )
