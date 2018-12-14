@@ -864,7 +864,7 @@
    )
   (cancel-wf
    [this]
-   (set-wrapped-state this (fn [state] #js{"finished" #js true}))
+   (set-wrapped-state this (fn [state] #js{"finished"  true}))
    (.call (-> this (aget "wrapped") (aget "closeDialog")) (aget this "wrapped"))
    )
   (^override set-wf-title
