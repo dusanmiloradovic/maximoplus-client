@@ -2820,31 +2820,32 @@
    ((get-errback-handler wfControl)[[(keyword error-code) error-text  error-group error-key] nil nil]))
   CommandProcess
   (^override pre-process-command-callback [this e]
-             (let [act (-> e (get 0) ( get "actions"))
-                   nextAction (-> e (get 0) (get "nextAction"))
-                   nextApp (-> e (get 0) (get "nextApp"))
-                   nextTab (-> e (get 0) (get "nextTab"))
-                   atInteractionNode (-> e (get 0) (get "atInteractionNode"))
-                   ]
-               (aset this "warnings" (-> e (get 0) ( get "warnings")))
-               (aset this "title" (-> e (get 0) ( get "title")))
-               (aset this "body"  (-> e (get 0) ( get "body")))
-               (if (= "empty" act)
-                 (do
-                   (if atInteractionNode
-                     (if (= "ROUTEWF" nextAction)
-                       (route-wf wfControl)
-                       (do
-                         (when (or nextApp nextTab nextAction)
+   (when-not (c/get-state wfControl :wf-finished)
+     (let [act (-> e (get 0) ( get "actions"))
+           nextAction (-> e (get 0) (get "nextAction"))
+           nextApp (-> e (get 0) (get "nextApp"))
+           nextTab (-> e (get 0) (get "nextTab"))
+           atInteractionNode (-> e (get 0) (get "atInteractionNode"))
+           ]
+       (aset this "warnings" (-> e (get 0) ( get "warnings")))
+       (aset this "title" (-> e (get 0) ( get "title")))
+       (aset this "body"  (-> e (get 0) ( get "body")))
+       (if (= "empty" act)
+         (do
+           (if atInteractionNode
+             (if (= "ROUTEWF" nextAction)
+               (route-wf wfControl)
+               (do
+                 (when (or nextApp nextTab nextAction)
                                         ;for some reason when it gets the exception, it goes to the interaction node
-                           (handle-interaction wfControl nextApp nextTab nextAction))
-                         (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))))
-                     (do
-                       (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))
-                       (wf-finished wfControl))) )
-                 (do 
-                   (aset this "objectName" (-> e (get 0) (get "actions") (get 1)))
-                   (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title")))))))
+                   (handle-interaction wfControl nextApp nextTab nextAction))
+                 (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))))
+             (do
+               (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))
+               (wf-finished wfControl))) )
+         (do 
+           (aset this "objectName" (-> e (get 0) (get "actions") (get 1)))
+           (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))))))))
 
 (def-comp WorkflowControl [appContainer processName] VisualComponent
   (fn* []
