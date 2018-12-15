@@ -1193,7 +1193,7 @@
                  (c/get-state this :colAttrs))
   )
 
-(mm/def-comp ListContainer [mbocont column] MboContainer
+(mm/def-comp ListContainer [mbocont column qbe] MboContainer
   (^override fn* []
    (this-as
        this
@@ -1209,7 +1209,7 @@
                       :deferred deferred
                       }
                      )
-       (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column
+       (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column qbe
                    (fn [ok] (go (put! deferred ok))) nil))
      (add-child mbocont this)))
   Offline
@@ -1435,7 +1435,7 @@
   (show-list [this columns]
              (let [ctrl (get-parent this)
                    container (aget ctrl "container")
-                   diag  (get-list-dialog this (ListContainer. container (get-column this)) columns)
+                   diag  (get-list-dialog this (ListContainer. container (get-column this) false) columns)
                    ]
                (when diag
                  (aset diag "parent-field" this))))
@@ -2765,7 +2765,7 @@
    [this]
    (let [column (:attributeName metadata)
          container (c/get-container this)
-         listcon (ListContainer. container column)]
+         listcon (ListContainer. container column false)]
      (c/toggle-state this :list-container listcon)
      (mm/p-deferred
       listcon 
@@ -3012,6 +3012,13 @@
      virt-name
      (:attributeName metadata)))
   (^override local-value [this])
+  (^override show-list [this columns]
+   (let [ctrl (get-parent this)
+         container (aget ctrl "container")
+         diag  (get-list-dialog this (ListContainer. container (get-column this) true) columns)
+         ]
+     (when diag
+       (aset diag "parent-field" this))))
   (^override change-maximo-value
              [this value]
              (let  [ctrl (.getParent this)
@@ -3376,7 +3383,7 @@
   [container column list-columns value-column]
   (mm/p-deferred 
    container
-   (let [lc (ListContainer. container column)]
+   (let [lc (ListContainer. container column false)]
      (c/set-offline-enabled lc true)
      (..
       (c/register-columns lc list-columns nil nil)
