@@ -2767,24 +2767,26 @@
          container (c/get-container this)
          listcon (ListContainer. container column)]
      (c/toggle-state this :list-container listcon)
-     (mm/p-deferred listcon 
-                    (let [rfn
-                          (fn[]
-                            (after-fetch listcon
-                                         (fn [ok]
-                                           (if-let [lv (get-field-local-value listcon (.toUpperCase pickerkeycol))]
-                                             (do
-                                               (set-value
-                                                container
-                                                column
-                                                lv
-                                                (fn[_] 
-                                                  (u/debug "picker list ok")
-                                                  )
-                                                (fn [err] ((get-errback-handler this)  err))))
-                                             (u/debug "picker list is null not sure why")))))
-                          picker-list (build-picker-list this column listcon pickerkeycol pickercol norows rfn)]
-                      (add-picker-list-internal this picker-list)))))
+     (mm/p-deferred
+      listcon 
+      (let [rfn
+            (fn[]
+              (after-fetch
+               listcon
+               (fn [ok]
+                 (if-let [lv (get-field-local-value listcon (.toUpperCase pickerkeycol))]
+                   (do
+                     (set-value
+                      container
+                      column
+                      lv
+                      (fn[_] 
+                        (u/debug "picker list ok")
+                        )
+                      (fn [err] ((get-errback-handler this)  err))))
+                   (u/debug "picker list is null not sure why")))))
+            picker-list (build-picker-list this column listcon pickerkeycol pickercol norows rfn)]
+        (add-picker-list-internal this picker-list)))))
   (destroy-picker-list
    [this]);;for the components that get a hold on the list to override this
   Field
@@ -2792,12 +2794,14 @@
    [this value]
                                         ;here it can be assumed that the value is equal to the key in  the picker list. Therefore I will pick the one with the correct key and unpick all others. The implementation may be different on case by case basis
    (aset this "picked" value)
-   (when-let [picker-list (get-picker-list this)]
-     (doseq [dr (get-data-rows picker-list)]
-       (let [row-key-value (get-field-local-value dr (.toUpperCase pickerkeycol))]
-                    (if (= row-key-value value)
-                      (pick-row picker-list dr)
-                      (unpick-row picker-list dr))))))
+   (if (= value "") ;;clearing of the section
+     (changed-row this nil)
+     (when-let [picker-list (get-picker-list this)]
+       (doseq [dr (get-data-rows picker-list)]
+         (let [row-key-value (get-field-local-value dr (.toUpperCase pickerkeycol))]
+           (if (= row-key-value value)
+             (pick-row picker-list dr)
+             (unpick-row picker-list dr)))))))
   (^override changed-row
    [this row]
    ;;I dont know if this is necessary

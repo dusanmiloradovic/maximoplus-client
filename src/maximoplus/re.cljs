@@ -627,7 +627,8 @@
     (fn [state]
       (let [rows-state  (aget state "maxrows")
             row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-        (js-delete row meta)
+        (when row
+          (js-delete row meta))
         #js{"maxrows" rows-state}))))
   (add-new-row-state-data
    [this row colvals colflags]
@@ -908,7 +909,7 @@
    (set-wrapped-state
     this
     (fn [state]
-      #js{"warnings" warnings
+      #js{"warnings" (clj->js warnings)
           "error" #js {:errorBody errorBody :errorTitle errorTitle}
           })))
   )
