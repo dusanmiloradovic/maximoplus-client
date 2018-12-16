@@ -78,15 +78,15 @@
                                       :non-standard-jsdoc :off}
                    }}
                  ]}}]
-             :test
+             :rn
              [{  :cljsbuild
                {:builds
                 [
                  {:source-paths ["src" "src-repl"],
                   :compiler
                   {:pretty-print true,
-                   :output-to "public/javascript/main.js",
-                   :output-dir "public/javascript",
+                   :output-to "public/javascript/react-native/main.js",
+                   :output-dir "public/javascript/react-native",
                    :target :nodejs
 ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
