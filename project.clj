@@ -27,7 +27,7 @@
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
                    :language-out :ecmascript5
-;;                   :parallel-build true
+                   ;;                   :parallel-build true
                    :optimizations :advanced
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
@@ -72,7 +72,7 @@
                    :language-in :ecmascript5
                    :language-out :ecmascript5
                    :optimizations :advanced
-;;                   :parallel-build true
+                   ;;                   :parallel-build true
                    :source-map "public/javascript/maximoplus-core/source-map.js.map"
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
@@ -88,7 +88,7 @@
                    :output-to "public/javascript/react-native/main.js",
                    :output-dir "public/javascript/react-native",
                    :target :nodejs
-;;                   :parallel-build true
+                   ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
                    :language-out :ecmascript5-strict
@@ -99,8 +99,29 @@
 
 
                  ]}}]
+             :rnprod
+             [{  :cljsbuild
+               {:builds
+                [
+                 {:source-paths ["src" "src-repl"],
+                  :compiler
+                  {:pretty-print true,
+                   :output-to "public/javascript/react-native-prod/main.js",
+                   :output-dir "public/javascript/react-native-prod",
+                   :target :nodejs
+                   ;;                   :parallel-build true
+                   :closure-output-charset "US-ASCII"
+                   :language-in :ecmascript5
+                   :language-out :ecmascript5-strict
+                   :optimizations :advanced
+                   :closure-warnings {:externs-validation :off
+                                      :non-standard-jsdoc :off}
+                   }}
+
+
+                 ]}}]
              :whitespace
-                          [{  :cljsbuild
+             [{  :cljsbuild
                {:builds
                 [
                  {:source-paths ["src" "src-repl"],
@@ -108,7 +129,7 @@
                   {:pretty-print true,
                    :output-dir "public/javascript/maximoplus-core",
                    :output-to "public/javascript/maximoplus-core/main.js",
-;;                   :parallel-build true
+                   ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
                    :language-in :ecmascript5
                    :language-out :ecmascript5-strict
@@ -120,7 +141,7 @@
 
                  ]}}]
              }
-;;  :jvm-opts ["-Xms12g" "-Xmx16g"]
+  ;;  :jvm-opts ["-Xms12g" "-Xmx16g"]
   )
 
 (require 'cemerick.pomegranate.aether)
