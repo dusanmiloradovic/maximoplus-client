@@ -562,7 +562,13 @@
        (let [v (aget st k )]
          (when (= k "maxrows")
            (before-move-externals this v))
-         (aset re-state k v)))
+         (aset re-state k (if-not (= k "maxrows")
+                            v
+                            (ar/cat
+                             (if-let [wr-s (get-wrapped-state this "maxrows")]
+                               wr-s
+                               #js[])
+                             v)))))
      (set-wrapped-state
       this
       (fn [state] re-state)))
@@ -635,6 +641,8 @@
    (set-external-state
     this
     (fn [state]
+      (println "set-external-state ")
+      (println state)
       (let  [_rows-state  (aget state "maxrows")
              rows-state (if _rows-state _rows-state #js[])
              new-maximo-row  (b/get-maximo-row row)
