@@ -641,8 +641,6 @@
    (set-external-state
     this
     (fn [state]
-      (println "set-external-state ")
-      (println state)
       (let  [_rows-state  (aget state "maxrows")
              rows-state (if _rows-state _rows-state #js[])
              new-maximo-row  (b/get-maximo-row row)
