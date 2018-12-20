@@ -2475,6 +2475,7 @@
        (mm/c! this "fetch" fetch-data  container x (if previous-disprow (- (inc numrows) previous-disprow) numrows)))))
   (on-reset [this]
             (clear-data-rows this)
+            (c/toggle-state this :norows norows)
             (init-data this)
             (update-paginator-internal this))
   (on-set-control-index
