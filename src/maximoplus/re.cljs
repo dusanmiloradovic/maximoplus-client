@@ -381,7 +381,8 @@
   (^override set-field-enabled
    [this field enabled]
    (let [column (b/get-column field)]
-         (set-field-state this  column "enabled" enabled)))
+     (set-field-state this  column "enabled" enabled)
+     (set-field-state this column "readonly" (not enabled))))
   (^override set-field-required
    [this field required]
    (let [column (b/get-column field)]
