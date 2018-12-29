@@ -1368,7 +1368,7 @@
        (= "DATETIME" maxType) (show-date-time-lookup this)
        :default (if-let [columns (get-list-columns this)]
                   (show-list this columns)
-                  (u/debug "No lookup for the columne")))))
+                  (u/debug "No lookup for the column")))))
   (show-smartfill-list [this smartfillContainer]
                        (when-let [ columns  (get-list-columns this)]
                          (get-list-dialog this smartfillContainer columns)))
