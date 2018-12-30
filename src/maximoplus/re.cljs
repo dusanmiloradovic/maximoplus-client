@@ -920,3 +920,43 @@
           "error" #js {:errorBody errorBody :errorTitle errorTitle}
           })))
   )
+
+(def-comp ComponentAdapter [container columns norows] b/ComponentAdapter
+  (^override fn* []
+   (this-as this (googbase this container columns norows)))
+  UI
+  (clear-control
+   [this]
+   (set-wrapped-state
+    this
+    (fn [state] #js{"maxrows" #js[]}) ))
+  (on-set-max-value
+   [this column value])
+  MessageProcess
+  (on-set-control-index [this row])
+  (on-fetched-row
+   [this row]
+   (let [_xrow (:row row)
+         data (:data row)
+         flags (:flags row)]
+     (set-wrapped-state
+      this
+      (fn [state]
+        (let [jsdata (u/to-js-obj data)
+              jsflags (u/to-js-obj flags)
+              rows-state (aget state "maxrows")
+              rs (-> rows-state
+                     (u/first-in-arr
+                      #(= _xrow (aget % "mxrow"))))
+              _record #js{"mxrow" _xrow
+                         "data" jsdata
+                         "flags" jsflags}]
+          (if-not rs
+            (ar/conj! rows-state _record)
+            (do
+              (aset rs "data" jsdata)
+              (aset rs "flags" jsflags)))
+          #js{"maxrows" rows-state})))))
+  (on-fetch-finished
+   [this])
+)

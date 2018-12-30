@@ -1080,7 +1080,7 @@
        (kk!  this "init" c/register-person-mboset
              (fn [ok] (go (put! deferred ok))) nil)))))
 
-(def-comp ComponentAdapter [container columns] BaseComponent
+(def-comp ComponentAdapter [container columns norows] BaseComponent
   (fn* []
        (this-as this
          (let [cb-handler (get-callback-handler this)
@@ -1100,7 +1100,7 @@
   ControlData
   (init-data
    [this]
-   (initControlDataRows this (if-let [nrs (aget this "noRows")] nrs 1))
+   (initControlDataRows this (if norows norows 1))
    )
   UI
   (set-enabled [this enable])
