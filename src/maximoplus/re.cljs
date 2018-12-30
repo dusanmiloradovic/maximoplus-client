@@ -933,7 +933,14 @@
   (on-set-max-value
    [this column value])
   MessageProcess
-  (on-set-control-index [this row])
+  (on-set-control-index
+   [this row]
+   (set-wrapped-state
+    this
+    (fn [state]
+      #js{"currow" row}
+      ))
+   )
   (on-fetched-row
    [this row]
    (let [_xrow (:row row)
@@ -944,13 +951,14 @@
       (fn [state]
         (let [jsdata (u/to-js-obj data)
               jsflags (u/to-js-obj flags)
-              rows-state (aget state "maxrows")
+              _rows-state (aget state "maxrows")
+              rows-state (if _rows-state _rows-state #js[])
               rs (-> rows-state
                      (u/first-in-arr
                       #(= _xrow (aget % "mxrow"))))
               _record #js{"mxrow" _xrow
-                         "data" jsdata
-                         "flags" jsflags}]
+                          "data" jsdata
+                          "flags" jsflags}]
           (if-not rs
             (ar/conj! rows-state _record)
             (do
@@ -959,4 +967,4 @@
           #js{"maxrows" rows-state})))))
   (on-fetch-finished
    [this])
-)
+  )
