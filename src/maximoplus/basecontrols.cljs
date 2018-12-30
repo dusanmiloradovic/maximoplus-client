@@ -1654,7 +1654,8 @@
   (skip-select-action [this skip]) ; checkbox calls this, so jsut plug it in artificially (it is used for grid rows)
   (get-field
    [this column]
-   ((c/get-state this :column-map) (.toUpperCase column)))
+   (let [column-map (c/get-state this :column-map)]
+     (when column-map (column-map (.toUpperCase column)))))
   (create-field
    [this column-metadata]
    (let [col-metadata  column-metadata
