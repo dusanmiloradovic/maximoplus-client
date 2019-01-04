@@ -680,7 +680,7 @@
    (set-row-state-meta this row "picked" true))
   (^override unpick-row
    [this row]
-   (remove-row-state-meta this row "picked"))
+   (set-row-state-meta this row "picked" false))
   ControlData
   (init-data-from-nd
    [control start-row]
