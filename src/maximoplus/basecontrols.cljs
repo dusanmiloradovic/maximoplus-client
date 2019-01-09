@@ -1414,17 +1414,21 @@
             )
   (change-maximo-value
    [this value]
+   ;;if value is of type js/date, alwayws format it to Maximo date type
    (let [ctrl (get-parent this)
          container (aget ctrl "container")
          cid (c/get-id container)
          column (:attributeName metadata )
          curr-row (get-currow container)
          smartfill? (aget this "canSmartFill")
+         _value (if (instance? js/Date value)
+                  (c/formatToMaximoDate value)
+                  value)
          ]
                                         ;TODO smartfill will not work in the offline mode. It shouldn't be hard to implement it, but definitely this is low priority
      (if (and smartfill? (not= "" value) (not @c/is-offline)) 
-       (smart-fill-with-lookup container this value)
-       (kc! this "set-value" c/set-value-with-offline column value))))
+       (smart-fill-with-lookup container this _value)
+       (kc! this "set-value" c/set-value-with-offline column _value))))
   (get-list-dialog [this listContainer columns]
                    (get-field-list-dialog (get-parent this) this listContainer columns)
                    )
