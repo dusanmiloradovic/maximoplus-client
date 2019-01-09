@@ -331,9 +331,9 @@
   ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
 
 (defn ^:export formatToMaximoDate [js-date]
-  (let [day (.getUTCDate js-date)
-        month (.getUTCMonth js-date)
-        year (.getUTCFullYear js-date)
+  (let [day (.getDate js-date)
+        month (.getMonth js-date)
+        year (.getFullYear js-date)
         ]
     (str (goog.string/padNumber day 2) "-" (months month) "-" year)))
 
