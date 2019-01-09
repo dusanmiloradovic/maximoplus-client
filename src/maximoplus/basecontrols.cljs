@@ -347,8 +347,8 @@
 
 (defn fetch-reset-rels [cont cb errb]
   (doseq [relco (get-rel-containers cont)]
-               (when (c/is-main-peer (c/get-id relco))
-                 (re-register-and-reset relco cb errb))))
+    (when (c/is-main-peer (c/get-id relco))
+      (re-register-and-reset relco cb errb))))
 
 (defn- add-control-column [control ind column metadata]
   (let [columns (aget control "columns")
@@ -398,8 +398,8 @@
   (fn [command]
     (c/remove-prepare-action control command)
     ( (if-let [cbh (get-first-in-hierarchy control "finishCall")]
-             cbh
-             (aget c/globalFunctions "globalFinishCallHandler"))
+        cbh
+        (aget c/globalFunctions "globalFinishCallHandler"))
      command
      control)))
 
@@ -407,8 +407,8 @@
   [control]
   (fn [[max-err-vec goog-xhr-code http-code]]
     (let [_errh (if-let [errh (get-first-in-hierarchy control "errbackHandler")]
-             errh
-             (aget c/globalFunctions "globalErrorHandler"))]
+                  errh
+                  (aget c/globalFunctions "globalErrorHandler"))]
       (if-not max-err-vec
         (.call _errh control "Network Error" "NETWORK" goog-xhr-code http-code)
         (let [[mx-error err err-group err-code] max-err-vec]
@@ -416,9 +416,9 @@
 
 (defn- get-callback-handler
   [control]
-   (if-let [cbh (get-first-in-hierarchy control "callbackHandler")]
-             cbh
-             (fn [_])) ;;no need for global callback, makes no sense, we have global finish handler
+  (if-let [cbh (get-first-in-hierarchy control "callbackHandler")]
+    cbh
+    (fn [_])) ;;no need for global callback, makes no sense, we have global finish handler
   )
 
 (defn ^:export initControlDataRows 
@@ -498,8 +498,8 @@
    (let [cch (aget this "command-channel")
          da1 (c/get-state this :deferred)
          da2 (if (or (= command "init") (not da1));;wait for deferred (usually the constructor), unless in constructor 
-                @c/page-init-channel
-                da1)]
+               @c/page-init-channel
+               da1)]
      (p-deferred-on da2
                     (go (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
@@ -583,7 +583,7 @@
    this)
   Foundation
   (^override get-prefix [this]
-             mboname)
+   mboname)
   (dispose [this]
            (c/unregister-control-with-offline (c/get-id this)))
   MessageProcess
@@ -633,19 +633,19 @@
    (->
     (off/get-change-tree (get-offline-objects-tree this))
     (p/then (fn [changes]
-            (->(prewalk (fn [n]
-                          (if-not (map? n)
-                            n
-                            (if-let [on (:object-name n)]
-                              (assoc n :relationship (aget (@c/container-registry (aget c/rel-map-reverse on)) "rel"))
-                              n))) changes) clj->js u/create-json)))))
+              (->(prewalk (fn [n]
+                            (if-not (map? n)
+                              n
+                              (if-let [on (:object-name n)]
+                                (assoc n :relationship (aget (@c/container-registry (aget c/rel-map-reverse on)) "rel"))
+                                n))) changes) clj->js u/create-json)))))
   (post-offline-changes [this cb errb]
                         (->
                          (get-offline-changes this)
                          (p/then (fn [changes]
-                                 (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+                                   (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
                          (p/then (fn [res]
-                                 (offline-post-finished this (aget res 0))))))
+                                   (offline-post-finished this (aget res 0))))))
   (save-offline-changes 
    [this cb errb]
    (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)
@@ -768,10 +768,10 @@
                     (fetch-data this   rownum (inc (- nrs rownum)) callback errback)
                     (move-to-row this rownum callback errback)
                     ;;no need to wait on promises, both fetch-data and move-to-row use internally command pipeline, and will be executed just when the previous one has finished with callback
-;;                    (->
-;;                     (kk! this "addNewRow" c/add-at-index-with-offline rownum callback errback)
-;;                     (p/then (fn [ok] (fetch-data this   rownum (inc (- nrs rownum)) callback errback)))
-;;                     (p/then (fn [ok] (move-to-row this rownum callback errback))))
+                    ;;                    (->
+                    ;;                     (kk! this "addNewRow" c/add-at-index-with-offline rownum callback errback)
+                    ;;                     (p/then (fn [ok] (fetch-data this   rownum (inc (- nrs rownum)) callback errback)))
+                    ;;                     (p/then (fn [ok] (move-to-row this rownum callback errback))))
                     ))
   (move-to-row
    [this rownum cb errb]
@@ -781,7 +781,7 @@
               (c/get-state this :currrow))
   (get-local-data [this rownum]
                   (let [_rn (if rownum (js/parseInt rownum) (get-currow this))]
-                     (c/get-local-data-all-attrs (c/get-id this) _rn)))
+                    (c/get-local-data-all-attrs (c/get-id this) _rn)))
   (get-qbe [this cb errb]
            (kk! this "getQbe"
                 c/get-qbe-with-offline
@@ -796,12 +796,12 @@
   (mbo-command
    [this command argControl callback errback]
    (this-as
-    this
-    (kk! this command c/run-mbo-command  command argControl callback errback)))
+       this
+     (kk! this command c/run-mbo-command  command argControl callback errback)))
   (mboset-command
    [this command argControl callback errback]
    (this-as this
-            (kk! this command c/run-mboset-command  command argControl callback  errback)))
+     (kk! this command c/run-mboset-command  command argControl callback  errback)))
   Receivable
   (get-receive-functions
    [this]
@@ -819,7 +819,7 @@
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
-                           (re-register-and-reset _cnt nil nil))
+                (re-register-and-reset _cnt nil nil))
               (on-reset this))
     }
    ))
@@ -878,7 +878,7 @@
    (mm/kk-branch-nocb! mbocont this "register" 
                        c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
-;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
+   ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
 
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
@@ -906,11 +906,11 @@
          dd1 (c/get-state mbocont :deferred)
          dd2 (c/get-state this :deferred)
          dd (if (or (= command "init") (not dd2))
-                dd1
-                dd2
-                )]
+              dd1
+              dd2
+              )]
      (p-deferred-on dd
-                 (go (put! cch [command command-f command-cb command-errb]))))))
+                    (go (put! cch [command command-f command-cb command-errb]))))))
 
 ;;uniqueid will be optional. That will be used instead of uniquembocontainer when we want to establish the hierarchy like the parent container (with setOwner in mbo), right now just for GraphQL. The point is that we need to preserve the access paths same as for the parent, so it will not give access denied exception
 (def-comp SingleMboContainer [mbocont contuniqueid] RelContainer
@@ -1163,9 +1163,9 @@
                (render this)
                (on-render-internal this);not to be extended by the user
                (on-render this)
-;               (when-let [dispd (c/get-state this :displayed)]
+                                        ;               (when-let [dispd (c/get-state this :displayed)]
                                         ;                 (p/callback dispd "done"))
-               ;don't automatically call displayed, this will be a separate function for setting it, so controls can notify when it is actually displayed. In react it will be done from the separate function, for the plain web rendering it will be done in render
+                                        ;don't automatically call displayed, this will be a separate function for setting it, so controls can notify when it is actually displayed. In react it will be done from the separate function, for the plain web rendering it will be done in render
                ))
   (mark-as-displayed
    [this]
@@ -1466,26 +1466,26 @@
   )
 
 (def-comp CheckBox [metadata] TextField
-  ;since this is the abstract checkbox, used both for the native and the HTML5 components, there will be nothing particullarly checkboxy here - the only thing is that the change will be done after the move to row is finished- becuase change event will be triggered when the actual moving to another row starts, we have to wait until is done before the value is set.
+                                        ;since this is the abstract checkbox, used both for the native and the HTML5 components, there will be nothing particullarly checkboxy here - the only thing is that the change will be done after the move to row is finished- becuase change event will be triggered when the actual moving to another row starts, we have to wait until is done before the value is set.
   (^override fn* []
    (this-as this
      (googbase this metadata)))
   UI
   (^override on-render
-             [this]
-             (let [parent (get-parent this)
-                   pparent (get-parent parent)]
-               (if pparent ; that is if this is the grid
-                 (add-ui-listeners this {:change (fn [ev]
-                                                   (after-move pparent
-                                                               (change-maximo-value
-                                                                this
-                                                                (get-ui-event-value this :change ev))))})
-                 (add-ui-listeners this {:change (fn [ev]
-                                                   (change-maximo-value
-                                                    this
-                                                    (get-ui-event-value this :change ev)))})
-                 ))))
+   [this]
+   (let [parent (get-parent this)
+         pparent (get-parent parent)]
+     (if pparent ; that is if this is the grid
+       (add-ui-listeners this {:change (fn [ev]
+                                         (after-move pparent
+                                                     (change-maximo-value
+                                                      this
+                                                      (get-ui-event-value this :change ev))))})
+       (add-ui-listeners this {:change (fn [ev]
+                                         (change-maximo-value
+                                          this
+                                          (get-ui-event-value this :change ev)))})
+       ))))
 
 (def-comp VirtualActionField [metadata] TextField
   (^override fn* []
@@ -1493,27 +1493,27 @@
      (googbase this metadata)))
   UI
   (^override on-render
-             [this]
-             (let [parent (get-parent this)
-                   pparent (get-parent parent)]
-             (listen-action this
-                            (fn [ev]
-                              (let [action (:action metadata)]
-                                (if pparent
-                                  (when-let [vrs (c/get-state pparent :virtual-deferreds)]
-                                        
-                                    (let [deferred (p/get-deferred)]
-                                      (.push vrs deferred)
-                                      (mm/p-deferred-on deferred (action this))))
-                                  (action this)))))
-             (mm/loop-arr [_acc (:custom-actions metadata)]
-                          (let [listenF (aget _acc 0)
-                                actF (aget _acc 1)
-                                deferred (aget _acc 2)]
-                            (add-action this listenF actF deferred)))
-             (when-let [custom-transform (c/get-column-attribute this (get-column this) "custom-transform")]
-               (let [tr-func (aget custom-transform 0)]
-                 (tr-func this))))))
+   [this]
+   (let [parent (get-parent this)
+         pparent (get-parent parent)]
+     (listen-action this
+                    (fn [ev]
+                      (let [action (:action metadata)]
+                        (if pparent
+                          (when-let [vrs (c/get-state pparent :virtual-deferreds)]
+                            
+                            (let [deferred (p/get-deferred)]
+                              (.push vrs deferred)
+                              (mm/p-deferred-on deferred (action this))))
+                          (action this)))))
+     (mm/loop-arr [_acc (:custom-actions metadata)]
+                  (let [listenF (aget _acc 0)
+                        actF (aget _acc 1)
+                        deferred (aget _acc 2)]
+                    (add-action this listenF actF deferred)))
+     (when-let [custom-transform (c/get-column-attribute this (get-column this) "custom-transform")]
+       (let [tr-func (aget custom-transform 0)]
+         (tr-func this))))))
 
 (def-comp Section [container columns] VisualComponent
   (fn* []
@@ -1531,10 +1531,10 @@
                           :deferred deferred})
            (c/register-columns container  vcols
                                (fn [ok]
-;;                                 (println "registering columns finished for section!")
-                  (cb-handler)
-                  (go (put! deferred ok)))
-                err-handler)
+                                 ;;                                 (println "registering columns finished for section!")
+                                 (cb-handler)
+                                 (go (put! deferred ok)))
+                               err-handler)
            (add-child container this))))
   Component
   (get-container
@@ -1573,8 +1573,8 @@
           colmap
           (let [col (first columns)
                 col-metadata  (c/get-attribute-metadata-with-col-attrs
-                                        this
-                                        col)
+                               this
+                               col)
                 field (create-field this col-metadata)
                 _ (add-child this field)
                 rendered-field (render-deferred field)]
@@ -1893,7 +1893,7 @@
   (on-render
    [this]
    (p-deferred-on (c/get-state this :displayed)
-     (listen-row this (fn [_] (selected-action this))))
+                  (listen-row this (fn [_] (selected-action this))))
    )
   (set-enabled
    [this enable]
@@ -1914,8 +1914,8 @@
               (let [container (aget this "container")]
                 (skip-select-action this true)
                 (c/move-to-with-offline (c/get-id container) (get-maximo-row this)
-                           (fn [_]
-                             (c/set-value-with-offline (c/get-id container) "_SELECTED"  (if selected "Y" "N"))))))
+                                        (fn [_]
+                                          (c/set-value-with-offline (c/get-id container) "_SELECTED"  (if selected "Y" "N"))))))
   (is-deleted
    [this]
    (c/get-state this :deleted)
@@ -1976,8 +1976,8 @@
   (add-default-lookups
    [this columnz]
    (mm/p-deferred-on  (c/get-state this :displayed)
-     (doseq [f (get-fields this columnz)]
-       (add-lookup-internal f))))
+                      (doseq [f (get-fields this columnz)]
+                        (add-lookup-internal f))))
   (create-field
    [this col-metadata]
    (let [tp (aget col-metadata "maxType")
@@ -2016,19 +2016,19 @@
         mxrows (if guard (filter (first guard) _mxrows) _mxrows)]
     (reduce f mxrows)))
 
-;(defn- get-f-row [grid f & guard]
-;  (when-let [drs (get-data-rows grid)]
-;    (loop [drs drs rez nil]
-;      (if (empty? drs)
-;        rez
-;        (let [mxrow (aget (first drs) "mxrow" )]
-;          (recur (inc i)
-;                 (let [satisfies (if rez (f rez mxrow) mxrow)
-;                       _sat (if guard 
-;                              ((first guard) satisfies)
-;                              true
-;                              )]
-;                   (if _sat satisfies rez))))))))
+                                        ;(defn- get-f-row [grid f & guard]
+                                        ;  (when-let [drs (get-data-rows grid)]
+                                        ;    (loop [drs drs rez nil]
+                                        ;      (if (empty? drs)
+                                        ;        rez
+                                        ;        (let [mxrow (aget (first drs) "mxrow" )]
+                                        ;          (recur (inc i)
+                                        ;                 (let [satisfies (if rez (f rez mxrow) mxrow)
+                                        ;                       _sat (if guard 
+                                        ;                              ((first guard) satisfies)
+                                        ;                              true
+                                        ;                              )]
+                                        ;                   (if _sat satisfies rez))))))))
 
 (defn- get-first-row-bigger-than
   [grid rownum]
@@ -2089,14 +2089,14 @@
                     (c/add-virtual-column-to-metadata this (.toUpperCase column)   metadata))))
   UI
   (^override render
-             [this]
-             (c/set-states this
-                           {:table (main-grid-frame this)
-                            :header-row (header-row this)
-                            :qbe-row (qbe-row-internal this)
-                            })
-             (p-deferred-on (c/get-state this :displayed)
-                            (c/toggle-state this :grid-toolbar (grid-toolbar this))))
+   [this]
+   (c/set-states this
+                 {:table (main-grid-frame this)
+                  :header-row (header-row this)
+                  :qbe-row (qbe-row-internal this)
+                  })
+   (p-deferred-on (c/get-state this :displayed)
+                  (c/toggle-state this :grid-toolbar (grid-toolbar this))))
   (render-row ;it has the property label row set for the label row
    [this row]
    (throw (js/Error. "renderRow not implemented")))
@@ -2155,7 +2155,7 @@
    (set-row-flags row flags))
   (mark-grid-row-as-selected
    [this row selected]
-  ;; (mark-row-as-selected row selected)
+   ;; (mark-row-as-selected row selected)
    (doseq [r (get-data-rows this)]
      (unhighlight-grid-row this r))
    (if selected
@@ -2321,11 +2321,11 @@
    [this]
    (mm/c! this "fetch" add-new-row-at container (js/parseInt (get-new-addrow-num this)) ))
   (^override move-control-to-row
-             [this rownum];TODO probaj ovo da uklopis sa mm/c!, da moze da radi i da poziva cb i errb kao i da moze da se pozove callback direktno
-             (c/move-to-with-offline (c/get-id container) rownum
-                                     (fn[e]
-                                       (let [row-to (first e)]
-                                         (c/toggle-state this :highlighted row-to)))))
+   [this rownum];TODO probaj ovo da uklopis sa mm/c!, da moze da radi i da poziva cb i errb kao i da moze da se pozove callback direktno
+   (c/move-to-with-offline (c/get-id container) rownum
+                           (fn[e]
+                             (let [row-to (first e)]
+                               (c/toggle-state this :highlighted row-to)))))
   (move-control-next [this]
                      (let [curr-row (get-currow container)
                            fmr (get-firstmaxrow this)
@@ -2333,7 +2333,7 @@
                            ]
                        (when (= curr-row (+ fmr nrs -1))
                          (c/toggle-state this :first-maxrow (inc fmr))
-)
+                         )
                        (move-control-to-row this (inc curr-row))))
   
   (move-control-prev [this]
@@ -2343,7 +2343,7 @@
                        (when-not (= 0 curr-row)
                          (when (= curr-row fmr)
                            (c/toggle-state this :first-maxrow (dec fmr))
-)
+                           )
                          (move-control-to-row this (dec curr-row)))))
   (shift-to [this rownum]
             (let [^number fmr (get-firstmaxrow this)
@@ -2352,10 +2352,10 @@
               (clear-data-rows this)
               (when (>= _rownum (+ fmr nrs))
                 (c/toggle-state this :first-maxrow (- _rownum (dec nrs)))
-)
+                )
               (when (< _rownum fmr)
                 (c/toggle-state this :first-maxrow _rownum)
-)
+                )
               (mm/c! this "fetch" fetch-data  container (get-firstmaxrow this) nrs)
               (move-control-to-row this rownum)))
   (fetch-more [this numrows]
@@ -2391,10 +2391,10 @@
    [this column transformF]
    (c/add-col-attr this column "custom-transform" transformF)
    (doseq [dr (get-data-rows this)]
-                (let [f (get-field dr column)]
-                  (p-deferred-on (c/get-state f :displayed)
-                                 (when-let [ff (aget transformF 0)]
-                                   (ff f))))))
+     (let [f (get-field dr column)]
+       (p-deferred-on (c/get-state f :displayed)
+                      (when-let [ff (aget transformF 0)]
+                        (ff f))))))
   (remove-field-transform 
    [this column]
    (let [transformF (c/get-column-attribute this column "custom-transform")]
@@ -2409,14 +2409,14 @@
                                         ;ovo treba da obuhvati sve ovo odozdole, tako da 
    (let [deferred (aget this "deferred")]
      (mm/p-deferred-on deferred
-       (let [custom-actions
-             (if-let [cas (c/get-column-attribute this column "custom-actions")]
-               cas
-               (js/Array.)
-               )]
-         (ar/conj! custom-actions (js/Array. listenF  actionF deferred))
-         (c/add-col-attr this column "custom-actions" custom-actions)
-         ))
+                       (let [custom-actions
+                             (if-let [cas (c/get-column-attribute this column "custom-actions")]
+                               cas
+                               (js/Array.)
+                               )]
+                         (ar/conj! custom-actions (js/Array. listenF  actionF deferred))
+                         (c/add-col-attr this column "custom-actions" custom-actions)
+                         ))
      (let [drs (get-data-rows this)]
        (doseq [dr drs]
          (add-grid-field-action this dr (get-field dr column) listenF actionF deferred)))))
@@ -2465,8 +2465,8 @@
   (on-update-control-data
    [this rownum column value]
    (doseq [dr (get-data-rows this)]
-                (when (= (js/parseInt  (get-maximo-row dr))  (js/parseInt rownum))
-                  (set-grid-row-value this dr column value)))) 
+     (when (= (js/parseInt  (get-maximo-row dr))  (js/parseInt rownum))
+       (set-grid-row-value this dr column value)))) 
   (on-add-at-index
    [this x]
    (let [^number first-maxrow (get-maxrow this 0)
@@ -2508,8 +2508,8 @@
                (mm/c! this "fetch" fetch-data  container (inc last-row) (- row (dec last-row)))))
            (do
              (doseq [dr (get-data-rows this)]
-                          (when (> (get-maximo-row dr) (+ row (dec norows)))
-                            (remove-child this dr)))
+               (when (> (get-maximo-row dr) (+ row (dec norows)))
+                 (remove-child this dr)))
              (when-not (aget container "fetching")
                (mm/c! this "fetch" fetch-data  container row (- first-maxrow row)))))))))
   Component
@@ -2605,12 +2605,12 @@
    [this  start-row]
    (c/set-states this {:first-maxrow start-row
                        :highlighted start-row
-                      })
+                       })
    (mm/c! this "fetch" init-data-with-off  container start-row (get-numrows this)))
   (init-data-from
    [this  start-row]
    (p-deferred this
-     (init-data-from-nd this start-row)))
+               (init-data-from-nd this start-row)))
   (init-data
    [this]
    (p-deferred this 
@@ -2621,7 +2621,7 @@
    (pick row))
   (unpick-row
    [this row]
-    (unpick row)))
+   (unpick row)))
 
 (defn internal-return-selectable-grid
   [dialog listContainer field dialogcols]
@@ -2642,7 +2642,7 @@
           (dispose listContainer)
           )
         (fn [err] ((get-errback-handler dialog)  err)))))))
-       
+
 
 (defn internal-return-qbe-grid;in the new 1.1 version the dialog will not be closed automatically when it is not clicked on the checkbox
   [dialog listContainer field dialogcols]
@@ -2728,27 +2728,27 @@
   (get-parent-field [this]
                     field)
   (default-action [this]
-    (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) (get-column field) 
-                         (fn [__] 
-                           (c/unregister-control-with-offline (c/get-id listContainer)
-                                                 (fn [___]
-                                                   (init-qbe-values (.getParent field))
-                                                   (set-focus field)
-                                                   (close-action this))))))
+                  (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) (get-column field) 
+                                       (fn [__] 
+                                         (c/unregister-control-with-offline (c/get-id listContainer)
+                                                                            (fn [___]
+                                                                              (init-qbe-values (.getParent field))
+                                                                              (set-focus field)
+                                                                              (close-action this))))))
   (close-action [this]
                 (c/unregister-control-with-offline (c/get-id listContainer)
-                                      (fn [e]
-                                        (set-field-focus (get-parent field) field)
-                                        (close-list-dialog this)))))
+                                                   (fn [e]
+                                                     (set-field-focus (get-parent field) field)
+                                                     (close-list-dialog this)))))
 
 
 
 ;;the new AbstractPicker will just use Grid for the internal list. Users will override the highlight-selected-row and unhighlihgt-selected-row to display the picked and unpicked row. The only thing left to be done is the error handler of the field, it should get the old value from the local and pick the conforming one from the list
 (def-comp AbstractPicker [metadata pickerkeycol pickercol norows] TextField
   (^override fn* []
-             (this-as this
-                      (googbase this metadata)
-                      (aset this "column" (:attributeName metadata))))
+   (this-as this
+     (googbase this metadata)
+     (aset this "column" (:attributeName metadata))))
   UI
   (on-render
    [this]
@@ -2766,7 +2766,7 @@
    (c/set-states this {:picker-list picker-list}))
   (display-picker-header [control metadata]); for overriding
   (build-picker-list [this column listcon pickerkeycol pickercol norows selectableF]
-                   (throw (js/Error. "buildPickerList not yet implemented, should return the subclass of AbstractPickerList")))
+                     (throw (js/Error. "buildPickerList not yet implemented, should return the subclass of AbstractPickerList")))
   (display-picker-list-internal
    [this]
    (let [column (:attributeName metadata)
@@ -2821,8 +2821,8 @@
 
 (mm/def-comp WorkflowCommandContainer [wfControl command args] CommandContainer
   (^override fn* []
-             (let [appCont (aget wfControl "appContainer")]
-               (this-as this (mm/googbase this appCont command args))))
+   (let [appCont (aget wfControl "appContainer")]
+     (this-as this (mm/googbase this appCont command args))))
   App
   (^override errback-handler
    [this error-text error-code error-group error-key]
@@ -3026,20 +3026,23 @@
      (when diag
        (aset diag "parent-field" this))))
   (^override change-maximo-value
-             [this value]
-             (let  [ctrl (.getParent this)
-                    container (aget ctrl "container")
-                    cid (.getId container)
-                    qbe-prep (:qbePrepend metadata)
-                    column (if qbe-prep 
-                             (str (:virtualName metadata) "/" qbe-prep "/" (:attributeName metadata))
-                             (:attributeName metadata))
-                    ]
-               (c/set-qbe-with-offline cid column value
-                          (fn[_] (c/get-qbe-with-offline cid
-                                            (fn[e]
-                                              (aset this "qbe" value)
-                                              (set-field-value this value))))))))
+   [this value]
+   (let  [ctrl (.getParent this)
+          container (aget ctrl "container")
+          cid (.getId container)
+          qbe-prep (:qbePrepend metadata)
+          column (if qbe-prep 
+                   (str (:virtualName metadata) "/" qbe-prep "/" (:attributeName metadata))
+                   (:attributeName metadata))
+          _value (if (instance? js/Date value)
+                   (c/formatToMaximoDate value)
+                   value)
+          ]
+     (c/set-qbe-with-offline cid column _value
+                             (fn[_] (c/get-qbe-with-offline cid
+                                                            (fn[e]
+                                                              (aset this "qbe" _value)
+                                                              (set-field-value this _value))))))))
 
 ;;to add the qbePrepend, first init the QbeSection:
 ;; var q = new QbeSection(cont,["ponum","description"]);
@@ -3143,8 +3146,8 @@
                          :segments (atom (vec (replicate (count (first e)) "")))};;empty vector of segments
                         )
           (c/set-segment (c/get-id this) @(c/get-state this :segments)  0 orgid
-                                              (fn [ee] (go (put! d ee)))))
-                             (fn [e] (go (put! d e))))))) 
+                         (fn [ee] (go (put! d ee)))))
+        (fn [e] (go (put! d e))))))) 
   GL
   (get-gl-value [this]
                 (let [segments @(c/get-state this :segments)
@@ -3216,8 +3219,8 @@
    [this]
    (let [gl-cont (c/get-state this :glcont)
          gl-dialog (get-gl-dialog-holder this 
-                                  (fn [_] 
-                                    (change-maximo-value field (get-gl-value gl-cont))))
+                                         (fn [_] 
+                                           (change-maximo-value field (get-gl-value gl-cont))))
          selectF (fn [row ret]
                    (let [val (c/get-local-data (c/get-id gl-cont) (get-maximo-row row) "COMPVALUE")]
                      (set-segment-value gl-cont @(c/get-state this :active-segment) val)
@@ -3237,9 +3240,9 @@
   (get-gl-dialog-holder
    [this chooseF]
    (not-implemented))
-   (clear-gl-segments
-    [this dialog]
-    (not-implemented))
+  (clear-gl-segments
+   [this dialog]
+   (not-implemented))
   (highlight-gl-segment 
    [this dialog segment-no]
    (not-implemented))
@@ -3314,54 +3317,54 @@
     (..
      (get-row-count container nil nil)
      (then 
-       (fn [e]
-         (let [cnt (get e 0)]
-           (.then (fetch-data container 0 cnt nil nil) (fn [_] cnt)))))
+      (fn [e]
+        (let [cnt (get e 0)]
+          (.then (fetch-data container 0 cnt nil nil) (fn [_] cnt)))))
      (then
-       (fn [cnt]
-         (if rel-containers ;fetch from the previos block will put data offline, from here we recursively go to rel containers
-           (loop [i 0 rez (p/get-resolved-promise "starting")] 
-             (if (>= i cnt)
-               rez
-               (let [_uid (aget (get-local-data container i) "_uniqueid")
-                     uid (.toString _uid)
-                     _cnt (UniqueMboContainer. (aget container "mboname") uid)
-                     _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
-                     _prm (..
-                           rez
-                           (then 
-                            (fn [_] (c/register-columns _cnt (c/get-registered-columns (c/get-id orig-container)) nil nil)))
-                           (then
-                            (fn [_] (fetch-data _cnt 0 1 nil nil)))
-                           (then
-                            (fn [_] (move-to-row _cnt 0 nil nil)))) 
-                     fl (fn [r]
-                          (let [rel-name (aget r "rel")
-                                rcont (RelContainer. _cnt rel-name)
-                                _ (c/set-offline-enabled-nodel rcont true)
-                                _prm-rel  (..
-                                           _prm
-                                           (then
-                                            (fn[_] (c/register-columns rcont (c/get-registered-columns (c/get-id r)) nil nil))))]
-                            (.then _prm-rel (fn [] 
+      (fn [cnt]
+        (if rel-containers ;fetch from the previos block will put data offline, from here we recursively go to rel containers
+          (loop [i 0 rez (p/get-resolved-promise "starting")] 
+            (if (>= i cnt)
+              rez
+              (let [_uid (aget (get-local-data container i) "_uniqueid")
+                    uid (.toString _uid)
+                    _cnt (UniqueMboContainer. (aget container "mboname") uid)
+                    _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
+                    _prm (..
+                          rez
+                          (then 
+                           (fn [_] (c/register-columns _cnt (c/get-registered-columns (c/get-id orig-container)) nil nil)))
+                          (then
+                           (fn [_] (fetch-data _cnt 0 1 nil nil)))
+                          (then
+                           (fn [_] (move-to-row _cnt 0 nil nil)))) 
+                    fl (fn [r]
+                         (let [rel-name (aget r "rel")
+                               rcont (RelContainer. _cnt rel-name)
+                               _ (c/set-offline-enabled-nodel rcont true)
+                               _prm-rel  (..
+                                          _prm
+                                          (then
+                                           (fn[_] (c/register-columns rcont (c/get-registered-columns (c/get-id r)) nil nil))))]
+                           (.then _prm-rel (fn [] 
 
-                                              (offl rcont r (inc level))))))
-                     rel-promises (map fl rel-containers)]
-                 (recur (inc i) (..
-                                 _prm
-                                 (then
-                                  (fn [_] (p/prom-all rel-promises)))
-                                 (then
-                                  (fn [_] 
-                                    (.dispose _cnt)
-                                    )))))))
-           (do
-             (when-not (= 0 level)
-               (.dispose container)
-               )))
-         "done")))))
+                                             (offl rcont r (inc level))))))
+                    rel-promises (map fl rel-containers)]
+                (recur (inc i) (..
+                                _prm
+                                (then
+                                 (fn [_] (p/prom-all rel-promises)))
+                                (then
+                                 (fn [_] 
+                                   (.dispose _cnt)
+                                   )))))))
+          (do
+            (when-not (= 0 level)
+              (.dispose container)
+              )))
+        "done")))))
 
-;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
+                                        ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
 (defn ^:export notifyOfflineMoveFinished
   [message]
   (js/alert message))
@@ -3374,15 +3377,15 @@
     (fn []
       (c/set-offline-move-in-progress false)
       ))
-;   (then
-;    (fn[res]
-;      (notifyOfflineMoveFinished res)//there is no need of notification, we have promise to be 
-;      ))
-;   (thenCatch
-;    (fn [err]
-;      (u/debug err)
-;      ))//no need to notify anything, we have the promise
-))
+                                        ;   (then
+                                        ;    (fn[res]
+                                        ;      (notifyOfflineMoveFinished res)//there is no need of notification, we have promise to be 
+                                        ;      ))
+                                        ;   (thenCatch
+                                        ;    (fn [err]
+                                        ;      (u/debug err)
+                                        ;      ))//no need to notify anything, we have the promise
+   ))
 
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
@@ -3441,7 +3444,7 @@
                               (.toString)))
                    (recur (inc i) )))))))))
 
-;this is helper function for looping the main container with unique child containers. Could also be done with macro, but the only benefit would be not passing the function , i.e passing the s-expresssions
+                                        ;this is helper function for looping the main container with unique child containers. Could also be done with macro, but the only benefit would be not passing the function , i.e passing the s-expresssions
 (defn loop-unique-conts
   [container unique-ids-prom fnc & enable-offline?]
   (..
@@ -3506,11 +3509,11 @@
 (defn ^:export multiWFPrefetch
   [app-container process-name]
   (loop-unique-conts app-container
-   (get-unique-ids-container-prom app-container)
-   (fn [cont]
-     (..
-      (mm/kk-nocb! cont "prefetch" c/prefetch-wf-for-offline process-name)
-      (then
-       (fn [evt]
-         (c/insert-prefetch-offline (c/get-id cont) (get-unique-id cont)  evt)))))))
+                     (get-unique-ids-container-prom app-container)
+                     (fn [cont]
+                       (..
+                        (mm/kk-nocb! cont "prefetch" c/prefetch-wf-for-offline process-name)
+                        (then
+                         (fn [evt]
+                           (c/insert-prefetch-offline (c/get-id cont) (get-unique-id cont)  evt)))))))
 
