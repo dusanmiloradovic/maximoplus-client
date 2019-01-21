@@ -785,7 +785,7 @@
    [this columns-meta]
    (doseq [[column mkv]  (js->clj columns-meta)]
      (doseq [[k v] mkv]
-       (b/add-meta this column k v))))
+       (b/add-meta this column (keyword k) v))))
   Dialog
   (^override get-field-list-dialog
    [this field list-container dialog-cols]
