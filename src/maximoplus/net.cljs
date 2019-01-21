@@ -157,8 +157,12 @@
            (when params (-> params  js->clj)))]
     (str (serverRoot) "/server/binary-content?" (param-list p))))
 
+;;we can assume this function will be called from the javascript only, so we need to trasnform the errback payload to javascript
 (defn ^:export upload [container method params data callback errback progress-callback]
-  (send-post (getUploadURL container method params true) data callback errback progress-callback))
+  (send-post (getUploadURL container method params true) data
+             callback
+             (fn [[[mx err err-group err-code] _] _ _]
+               (errback err))  progress-callback))
 
 (defn ^:export set-server-root
   [url]
