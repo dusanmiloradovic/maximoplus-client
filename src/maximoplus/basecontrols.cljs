@@ -645,7 +645,7 @@
                          (p/then (fn [changes]
                                    (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
                          (p/then (fn [res]
-                                   (offline-post-finished this (aget res 0))))))
+                                   (offline-post-finished this (first res))))))
   (save-offline-changes 
    [this cb errb]
    (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)
@@ -745,7 +745,7 @@
              (-> ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
               (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
               (p/then (fn [res]
-                        (offline-post-finished this (aget  res 0))
+                        (offline-post-finished this (first res))
                         (aset this "offlinePosting" false)
                         (when cb (cb (aget res 0)))))))
            (fetch-data this start numrows cb errb)))
