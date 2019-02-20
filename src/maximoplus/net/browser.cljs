@@ -169,7 +169,10 @@
                            (callback data))))
     (.addEventListener ev-s "error"
                        (fn [error]
-                         (error-callback error)))))
+                         ;;SSE doesn't give any specifics of the error, so error handler is not appropriate. Only time I saw it happning is on logout
+                         (u/debug "SSE error, probably session end")
+                        ; (error-callback error)
+                         ))))
 
 (defn sse-stop
   []
