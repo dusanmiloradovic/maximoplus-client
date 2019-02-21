@@ -637,7 +637,10 @@
                             (if-not (map? n)
                               n
                               (if-let [on (:object-name n)]
-                                (assoc n :relationship (aget (@c/container-registry (aget c/rel-map-reverse on)) "rel"))
+                                (assoc n :relationship
+                                       (aget (@c/container-registry
+                                              (aget c/rel-map-reverse on))
+                                             "rel"))
                                 n))) changes) clj->js u/create-json)))))
   (post-offline-changes [this cb errb]
                         (->
@@ -657,7 +660,7 @@
   (offline-post-finished 
    [this res]
    (u/debug "OFFLINE POST FINISHED")
-   (u/debug res))
+   (println (u/transit-read res)))
   (move-to-uniqueid 
    [this uniqueid cb errb]
    (kk! this "moveto" c/move-to-uniqueid uniqueid cb errb))
