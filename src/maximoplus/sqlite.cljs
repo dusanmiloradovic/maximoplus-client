@@ -353,6 +353,7 @@
     update-attrs)))
 
 (defmethod sql-oper :select [k]
+  (println k)
   (let [object-name (:name k)
         start-row (:start k)
         numrows (:rows k)
@@ -360,7 +361,6 @@
         where (:where k);;javascript where
         qbe (:qbe k) ;;qbe will be used for sql where
         [qbe-where qbe-binds] (get-qbe-where qbe)
-        _ (u/debug "qbe" qbe ".." qbe-where ".." qbe-binds)
         order-by (:order-by k)
         ]
     (when-not object-name (throw (js/Error. "No object name")))

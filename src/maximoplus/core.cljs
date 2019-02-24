@@ -921,6 +921,8 @@
     (let [[rownum dta flg] (get-fetched-row-data rd-evt)]
       (put-object-data! control-name rownum dta)
       (put-object-flags! control-name rownum flg)
+      (println (keys @object-data))
+      (println rel-map)
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid"))
