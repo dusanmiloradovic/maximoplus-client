@@ -13,7 +13,7 @@
 
 (def dialect (atom "WEBSQL"))
 
-(def json-store-column "JSON_STORE");MAYBE a better name is required
+(def json-store-column "JSON_STORE");MAYBE a better name is requiredc
 
 ;;the only difference I see is the open database
 
@@ -353,7 +353,6 @@
     update-attrs)))
 
 (defmethod sql-oper :select [k]
-  (println k)
   (let [object-name (:name k)
         start-row (:start k)
         numrows (:rows k)

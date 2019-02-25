@@ -707,8 +707,6 @@
                                          (let [_conts (:containers acc)
                                                conts (if _conts _conts [(-> acc :object-name)])]
                                            (assoc acc :containers (conj conts (-> n :object-name)))))))]
-    (println "GETTING the change TREE")
-    (println tree)
     (->
      (p/prom-all (doall (map db/get-changed-object-values offline-objs)))
      (p/then (fn [vals]

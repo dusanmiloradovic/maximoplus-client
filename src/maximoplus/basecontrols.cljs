@@ -622,8 +622,6 @@
                  (kk-nocb! this "init" c/register-mainset mboname))
   (get-offline-objects-tree
    [this]
-   (println "RELMAP")
-   (println c/rel-map)
    (let [ret
          {:object-name (aget c/rel-map (c/get-id this))}
          relcos (vec (filter (fn [x] (c/is-offline-enabled x)) (get-rel-containers this)))]
@@ -1536,7 +1534,6 @@
                           :deferred deferred})
            (c/register-columns container  vcols
                                (fn [ok]
-                                 ;;                                 (println "registering columns finished for section!")
                                  (cb-handler)
                                  (go (put! deferred ok)))
                                err-handler)

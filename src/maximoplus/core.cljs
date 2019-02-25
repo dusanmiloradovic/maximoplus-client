@@ -457,14 +457,14 @@
       (aset rel-map name r-obj-name)
       (aset rel-map-reverse r-obj-name name))))
 
-(mm/defcmd register-main-mboset
+(mm/defcmd-with-prepare register-main-mboset
   [control-name main-object]
+  (add-relationship control-name main-object nil)
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
-      (add-relationship control-name main-object nil)
       (add-peer-control nil control-name)
       (toggle-state control-name :mainmboset true)
                                         ;the purpose of this flag is to register the controls when going from offline to online, if the controls were not really registered before, just offline , or if it was registered online, and then session expired when offline. Library will send the register commands automatically starting with the main set and then going recursivelly for all the rel containers
@@ -616,10 +616,10 @@
       (add-peer-control nil list-name)
       (add-peer-control already-reg list-name))))
 
-(mm/defcmd register-list [list-name mbocontainer-name column-name force-qbe?]
-  (fn [evt] (process-register-list-callback-event list-name evt)
-    (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
-      (add-relationship list-name (str "list_" (.toUpperCase cont-obj-name) "_" (.toUpperCase column-name)) nil))))
+(mm/defcmd-with-prepare register-list [list-name mbocontainer-name column-name force-qbe?]
+  (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
+    (add-relationship list-name (str "list_" (.toUpperCase cont-obj-name) "_" (.toUpperCase column-name)) nil))
+  (fn[evt] (process-register-list-callback-event list-name evt)))
 
 (defn exist-offline-list? [mbocontainer-name column-name]
   (offline/exist-table? (str "list_" (.toUpperCase (aget rel-map mbocontainer-name)) "_" (.toUpperCase column-name) )))
@@ -773,7 +773,6 @@
       ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
 					;      (u/debug "add at end " {"row" (first rd-evt) "data" (second rd-evt)})
-;;      (println rd-evt)
       rd-evt
       ))
   )
@@ -921,8 +920,6 @@
     (let [[rownum dta flg] (get-fetched-row-data rd-evt)]
       (put-object-data! control-name rownum dta)
       (put-object-flags! control-name rownum flg)
-      (println (keys @object-data))
-      (println rel-map)
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid"))
@@ -1513,13 +1510,13 @@
   [control]
   (-> (@object-data control) :metadata second :mboPersistent))
 
-(mm/defcmd register-mboset-with-one-mbo [control-name parent-control uniqueid]
+(mm/defcmd-with-prepare register-mboset-with-one-mbo [control-name parent-control uniqueid]
+  (add-relationship control-name (aget rel-map parent-control) nil)
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
           ]
                                         ;      (u/debug (str "registering of  mboset with one mbo got ok"))
-      (add-relationship control-name (aget rel-map parent-control) nil)
       (add-peer-control nil control-name))))
 
 (defn offline-register-mboset-with-one-mbo [control-name parent-control uniqueid cb errb]
@@ -1545,12 +1542,11 @@
       ))
   )
 
-(mm/defcmd register-mboset-byrel [control-name rel-name parent-control]
+(mm/defcmd-with-prepare register-mboset-byrel [control-name rel-name parent-control]
+  (add-relationship control-name rel-name parent-control)
   (fn [evt]
     (let [resp (nth evt 0)
-          already-reg (nth resp 0)
-          ]
-      (add-relationship control-name rel-name parent-control)
+          already-reg (nth resp 0)]
       (if (= "none" already-reg)
         (add-peer-control nil control-name)
         (add-peer-control already-reg control-name)))))
@@ -1757,26 +1753,25 @@
       )))
 
 
-(mm/defcmd register-inbox-mboset
+(mm/defcmd-with-prepare register-inbox-mboset
   [control-name]
+  (add-relationship control-name "wfassignment" nil);just for the offline, i have yet to see how it will work once it is offline
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
-      (add-relationship control-name "wfassignment" nil);just for the offline, i have yet to see how it will work once it is offline
       )))
 
-(mm/defcmd register-person-mboset
+(mm/defcmd-with-prepare register-person-mboset
   [control-name]
+  (add-relationship control-name "person" nil)
   (fn [evt]
     (let [resp (nth evt 0)
-          already-reg (nth resp 0)
-          ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
+          already-reg (nth resp 0)]
       (add-peer-control nil control-name)
-      (add-relationship control-name "person" nil);just for the offline, i have yet to see how it will work once it is offline
+;just for the offline, i have yet to see how it will work once it is offline
       )))
 
                                         ;here we have the same logic like in register-mainset. ALl the other dependent containers depend on mboocontainer, and for them page-init-deferred had always been already fired. InboxContainer doesn't depend on AppContainer
