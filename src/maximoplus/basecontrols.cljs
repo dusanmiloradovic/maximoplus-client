@@ -606,7 +606,9 @@
                                   (get-offline-changes this)
                                   (p/then (fn [changes]
                                             (aset this "pendingOfflineChanges" changes)
-                                            (c/delete-raw-offline-data (c/get-id this))))))))))))))
+                                            ;;                                            (c/delete-raw-offline-data (c/get-id this))
+                                            ;;difficult to synchronize with writing, reset will clear the offline data
+                                            ))))))))))))
   (set-offline-enabled-nodel
    [this flag]
    (c/toggle-state this :offlineenabled flag))

@@ -300,7 +300,7 @@
 ;;    (when-not (@table-columns-cache object-name)
     ;;      (swap! table-columns-cache assoc object-name (get-table-columns object-name)))
     ;; not clear why we have it here, leave it as a reminder, and remove after the testing
-    
+    (u/debug "##PUT" object-name " and " data)
     (put data object-name)))
 
 
@@ -376,6 +376,7 @@
   (let [object-name (:name k)
         [qbe-where qbe-binds] (get-qbe-where (:qbe k))
         ]
+    (u/debug "##deleting for " object-name " and " qbe-where " and " qbe-binds)
     [[(str "delete from " object-name (when qbe-where (str " where " qbe-where)))
       (if qbe-binds (clj->js qbe-binds)  #js[])]])
   )
@@ -422,7 +423,7 @@
                    (let [a (first arr)
                          prm (p/get-promise
                               (fn [_resolve _reject]
-;;                                (u/debug "^^^^^" (first a) ".." (second a))
+                                (u/debug "^^^^^" (first a) ".." (second a))
                                 (.executeSql tx (first a) (second a)
                                              (fn [tx ok] (_resolve ok)))))]
                      (recur (rest arr) (conj rez prm))))))

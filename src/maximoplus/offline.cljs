@@ -121,7 +121,7 @@
 
 (defn moveToOfflineInternal
   [table-name control-data]
-  (println "moving to offline" table-name)
+;;  (println "moving to offline" table-name)
   (when (and control-data (get control-data "uniqueid"))
     (do-offline
 ;;     (fn [_]

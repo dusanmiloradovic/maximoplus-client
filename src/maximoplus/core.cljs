@@ -2027,6 +2027,7 @@
 (defn delete-offline-data-internal
   "when there is no parent id it means clear the compolete table"
   [control-name parentid]
+  (u/debug "DELETE OFFLINE DATA INTERNAL")
   (->
    (if-let [rel-containers (get-state control-name :rel-containers)]
      (->
