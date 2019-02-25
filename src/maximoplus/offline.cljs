@@ -121,6 +121,7 @@
 
 (defn moveToOfflineInternal
   [table-name control-data]
+  (println "moving to offline" table-name)
   (when (and control-data (get control-data "uniqueid"))
     (do-offline
 ;;     (fn [_]
@@ -149,7 +150,7 @@
   (moveToOfflineInternal (str control-name "_flags") control-data))
 
 
-(defn table-count
+(defn ^:export table-count
   "we need the parentid as a parameter becuase this simulates the original maximo data"
   [table-name parentid]
   (do-offline
@@ -159,6 +160,14 @@
       [(merge {:type :select :name table-name} condition)] true true))
    (fn [res]
      (.-length (aget res 0)))))
+
+(defn ^:export debug-table
+  [table-name]
+  (.log js/console (str "Debug rable " table-name))
+  (..
+   (dml [{:type :select :name table-name}])
+   (then (fn [res]
+           (.log js/console res)))))
 
 
 (defn insert-qbe

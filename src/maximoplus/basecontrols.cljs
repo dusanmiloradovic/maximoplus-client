@@ -745,9 +745,9 @@
              (aset this "offlinePosting" true)
              (js-delete this "pendingOfflineChanges" )
              (fetch-data this start numrows nil errb)
-             (-> ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
+             (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
               (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
-              (p/then (fn [res]
+              (then (fn [res]
                         (offline-post-finished this (first res))
                         (aset this "offlinePosting" false)
                         (when cb (cb (aget res 0)))))))
