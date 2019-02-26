@@ -169,6 +169,11 @@
    (then (fn [res]
            (.log js/console res)))))
 
+(defn prepare-to-delete
+  [table-name]
+  ;;when the init data is done on the object, the changes may be posted to Maximo, and then the new data is inserted. It may happen that we have duplicate data (old and new) after this. This function designates row to be deleted by deleting its rownum
+  (dml [{:type :update :name table-name :updateObject {"rownum" "X"}}])
+  )
 
 (defn insert-qbe
   [table-name _qbe]

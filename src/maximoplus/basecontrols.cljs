@@ -751,14 +751,13 @@
              (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
               (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
               (then (fn [res]
-                      (c/delete-raw-offline-data (c/get-id this))
-                      res))
-              (then (fn [res]
-                      (fetch-data this start numrows nil errb)
-                      (offline-post-finished this (first res))
-                      (aset this "offlinePosting" false)
-                      (when cb (cb (aget res 0)))
-                      ))))
+                      (.then
+                       (c/delete-raw-offline-data (c/get-id this))
+                       (fn [_]
+                         (fetch-data this start numrows nil errb)
+                         (offline-post-finished this (first res))
+                         (aset this "offlinePosting" false)
+                         (when cb (cb (aget res 0)))))))))
            (fetch-data this start numrows cb errb)))
        (fetch-data this start numrows cb errb))))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
