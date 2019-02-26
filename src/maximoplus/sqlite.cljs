@@ -250,11 +250,9 @@
 
 (defn get-put-statement
   [data object-name]
-  (u/debug "%%Getting the put statement for " object-name)
   [(->
     (get-insert-into object-name)
     (p/then (fn [[cols insert-s values-s]]
-              (u/debug "Got the put statement" insert-s)
               [(str insert-s " values " values-s)
                (clj->js (get-insert-data-seq (remove-quotes-for-columns cols) data))]
               )))])
