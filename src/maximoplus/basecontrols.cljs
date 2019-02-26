@@ -596,19 +596,18 @@
    (off/enable-offline)
    (mm/do-offline
     (fn []
-      (p-deferred this
-                  (when-not @c/is-offline
-                    (->
-                     (c/exist-table? (c/get-id this) :raw)
-                     (p/then (fn [ex?]
-                               (when ex?
-                                 (->
-                                  (get-offline-changes this)
-                                  (p/then (fn [changes]
-                                            (aset this "pendingOfflineChanges" changes)
-                                            ;;                                            (c/delete-raw-offline-data (c/get-id this))
-                                            ;;difficult to synchronize with writing, reset will clear the offline data
-                                            ))))))))))))
+      (p-deferred
+       this
+       (when-not @c/is-offline
+         (->
+          (c/exist-table? (c/get-id this) :raw)
+          (p/then
+           (fn [ex?]
+             (when ex?
+               (->
+                (get-offline-changes this)
+                (p/then (fn [changes]
+                          (aset this "pendingOfflineChanges" changes)))))))))))))
   (set-offline-enabled-nodel
    [this flag]
    (c/toggle-state this :offlineenabled flag))
@@ -662,7 +661,9 @@
   (offline-post-finished 
    [this res]
    (u/debug "OFFLINE POST FINISHED")
-   (println (u/transit-read res)))
+   (println res)
+   ;;(println (u/transit-read res))
+   )
   (move-to-uniqueid 
    [this uniqueid cb errb]
    (kk! this "moveto" c/move-to-uniqueid uniqueid cb errb))
@@ -746,13 +747,18 @@
            (do
              (aset this "offlinePosting" true)
              (js-delete this "pendingOfflineChanges" )
-             (fetch-data this start numrows nil errb)
+             
              (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
               (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
               (then (fn [res]
-                        (offline-post-finished this (first res))
-                        (aset this "offlinePosting" false)
-                        (when cb (cb (aget res 0)))))))
+                      (c/delete-raw-offline-data (c/get-id this))
+                      res))
+              (then (fn [res]
+                      (fetch-data this start numrows nil errb)
+                      (offline-post-finished this (first res))
+                      (aset this "offlinePosting" false)
+                      (when cb (cb (aget res 0)))
+                      ))))
            (fetch-data this start numrows cb errb)))
        (fetch-data this start numrows cb errb))))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor

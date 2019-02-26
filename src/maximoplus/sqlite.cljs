@@ -169,58 +169,71 @@
 
 
 
+(def create-table-lock (atom {}))
+
 (defmethod sql-oper :create [k]
   (let [object-name (:name k)
         key (:key k)
         key-type (if-let [k (:keyType k)] k "integer")
         index-columns (:index-columns k)
         columns-meta (:columns-meta k)
-        d (get-new-columns-lock object-name)]
-    (->
-     (get-table-columns object-name)
-     (p/then
-      (fn [columns]
-        ;;        (u/debug ":create for object " object-name)
-        (u/debug ":create for " object-name " got columns")
-        (.log js/console (clj->js columns))
-        (if-not columns ;;new table
-          (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
-            (.log js/console create-string)
-            (p/get-promise
-             (fn [resolve reject]
-               (.transaction
-                (get-database)
-                (fn [tx]
-                  (.executeSql
-                   tx
-                   create-string
-                   #js[]
-                   (fn [tx res]
-                     (p/then (get-table-columns object-name)
-                             (fn [cols]
-                               (u/debug ":create " object-name " finished")
-                               (p/callback d cols)
-                               (resolve cols))))
-                   (fn [tx err]
-                     (p/callback d err)
-                     (reject err))))))))
-          (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
-            (p/get-promise
-             (fn [resolve reject]
-               (.transaction
-                (get-database)
-                (fn [tx]
-                  (doseq [s alter-table-string]
-                    (.executeSql tx s #js[])))
-                (fn [err]
-                  (p/callback d err)
-                  (reject err))
-                (fn []
-                  (p/then (get-table-columns object-name)
-                          (fn [cols]
-                            (u/debug ":alter table " object-name " finished")
-                            (p/callback d cols)
-                            (resolve cols))))))))))))))
+        d (get-new-columns-lock object-name)
+        create-lock (if-let [tl (@create-table-lock object-name)]
+                      tl
+                      (p/get-resolved-promise "ok")
+                      )]
+    (swap!
+     create-table-lock
+     assoc
+     object-name
+     (->
+      create-lock
+      (p/then
+       (fn [_]
+         (get-table-columns object-name)))
+      (p/then
+       (fn [columns]
+         ;;        (u/debug ":create for object " object-name)
+         (u/debug ":create for " object-name " got columns")
+         (.log js/console (clj->js columns))
+         (if-not columns ;;new table
+           (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
+             (.log js/console create-string)
+             (p/get-promise
+              (fn [resolve reject]
+                (.transaction
+                 (get-database)
+                 (fn [tx]
+                   (.executeSql
+                    tx
+                    create-string
+                    #js[]
+                    (fn [tx res]
+                      (p/then (get-table-columns object-name)
+                              (fn [cols]
+                                (u/debug ":create " object-name " finished")
+                                (p/callback d cols)
+                                (resolve cols))))
+                    (fn [tx err]
+                      (p/callback d err)
+                      (reject err))))))))
+           (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
+             (p/get-promise
+              (fn [resolve reject]
+                (.transaction
+                 (get-database)
+                 (fn [tx]
+                   (doseq [s alter-table-string]
+                     (.executeSql tx s #js[])))
+                 (fn [err]
+                   (p/callback d err)
+                   (reject err))
+                 (fn []
+                   (p/then (get-table-columns object-name)
+                           (fn [cols]
+                             (u/debug ":alter table " object-name " finished")
+                             (p/callback d cols)
+                             (resolve cols)))))))))))))))
 
 (def ^:dynamic BULK_INSERT_LIMIT 500) ;;limit set by SQlite itself
 
