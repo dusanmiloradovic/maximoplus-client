@@ -21,15 +21,36 @@
   (reset! databaseName db-name)
   )
 
-(def create-lock (atom {}))
+(def columns-lock (atom {}))
 
-(defn get-create-lock
+(declare get-table-columns)
+
+(defn get-new-columns-lock
   [table-name]
-  (if-let [lck (@create-lock table-name)]
-    lck
-    (let [d (p/get-deferred)]
-      (swap! create-lock assoc table-name d)
-      d)))
+  ;; For create and alter statements, always get a new one unless the old one hs not been released yet
+  (let [cl (@columns-lock table-name)]
+    (if (or (not cl) (p/has-fired? cl))
+      (let [d (p/get-deferered)]
+        (swap! columns-lock assoc table-name d)
+        d)
+      cl)))
+
+(defn get-columns-lock
+  [table-name]
+  (if-let [cl (@columns-lock table-name)]
+    cl
+    (let [nl (get-new-columns-lock)]
+      (->
+       (get-table-columns table-name)
+       (fn [cols]
+         (when cols
+           (p/callback nl cols))))
+      nl
+      )))
+
+;;Instead of the create-lock which is difficult to synchronize, I will create the columns-lock. If the table doens't exist, once it is created the promise will be populated with the list of columns. If it does, it will query the sqlite, find the columns and populate the promise.
+;;One more important case is altering the table. In that case, the new promise has to be created
+
 
 (defn get-database
   []
@@ -45,8 +66,6 @@
 
 (defmulti sql-oper (fn [operation] (:type operation)))
 
-
-(def table-columns-cache (atom {}))
 
 (defn get-object-names
   []
@@ -81,34 +100,26 @@
      (.transaction
       (get-database)
       (fn [tx]
-        (.executeSql tx
-                     "SELECT name, sql FROM sqlite_master WHERE type='table' AND name = ?"
-                     #js[table-name]
-                     (fn[tx results]
-                       (let [rows (-> results (aget "rows"))]
-                         (if (> (alength rows) 0)
-                           (let [row (aget rows 0)
-                                 _sql (aget row "sql")
-                                 col-string (replace _sql #"^.+\((.+)\).*" "$1")
-                                 splitted (split col-string #",\s?")]
-                             (resolve
-                              (map
-                               (fn[s] (-> s (clojure.string/split " ") first))
-                               splitted)))
-                           (resolve nil))))
-                     (fn [tx err]
-                       (.log js/console err)
-                       ;;dont reject, probably no table is there
-                       (resolve nil))))))))
-
-(defn get-table-columns-from-cache
-  [table-name]
-  (if-let [tcols (@table-columns-cache table-name)]
-    (p/get-resolved-promise tcols)
-    (-> (get-create-lock table-name)
-        (p/then
-         (fn [_]
-           (get-table-columns table-name))))))
+        (.executeSql
+         tx
+         "SELECT name, sql FROM sqlite_master WHERE type='table' AND name = ?"
+         #js[table-name]
+         (fn[tx results]
+           (let [rows (-> results (aget "rows"))]
+             (if (> (alength rows) 0)
+               (let [row (aget rows 0)
+                     _sql (aget row "sql")
+                     col-string (replace _sql #"^.+\((.+)\).*" "$1")
+                     splitted (split col-string #",\s?")]
+                 (resolve
+                  (map
+                   (fn[s] (-> s (clojure.string/split " ") first))
+                   splitted)))
+               (resolve nil))))
+         (fn [tx err]
+           (.log js/console err)
+           ;;dont reject, probably no table is there
+           (resolve nil))))))))
 
 (defn get-data-type
   [column-meta]
@@ -163,59 +174,52 @@
         key-type (if-let [k (:keyType k)] k "integer")
         index-columns (:index-columns k)
         columns-meta (:columns-meta k)
-        d (get-create-lock object-name)
-        is-deferred? (not (p/has-fired? d))]
-    (u/debug ":create " object-name " starting")
-    (swap! create-lock assoc
-           object-name
-           (->
-            (if is-deferred? (p/get-resolved-promise "startit") d) ;;it may be already set by another function, and it is waiting on the deferred. We have to resolve that deferred once the table was created, but not block the creation itself
-            (p/then (fn [_]
-                      (get-table-columns object-name)))
-            (p/then
-             (fn [columns]
-               ;;        (u/debug ":create for object " object-name)
-               (u/debug ":create for " object-name " got columns")
-               (.log js/console (clj->js columns))
-               (if-not columns ;;new table
-                 (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
-                   (.log js/console create-string)
-                   (p/get-promise
-                    (fn [resolve reject]
-                      (.transaction
-                       (get-database)
-                       (fn [tx]
-                         (.executeSql
-                          tx
-                          create-string
-                          #js[]
-                          (fn [tx res]
-                            (p/then (get-table-columns object-name)
-                                    (fn [cols]
-                                      (u/debug ":create " object-name " finished")
-                                      (swap! table-columns-cache assoc object-name cols)
-                                      (when is-deferred? (p/callback d cols))
-                                      (resolve cols))))
-                          (fn [tx err]
-                            (when is-deferred? (p/callback d err))
-                            (reject err))))))))
-                 (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
-                   (p/get-promise
-                    (fn [resolve reject]
-                      (.transaction
-                       (get-database)
-                       (fn [tx]
-                         (doseq [s alter-table-string]
-                           (.executeSql tx s #js[])))
-                       (fn [err]
-                         (when is-deferred? (p/callback d err))
-                         (reject err))
-                       (fn []
-                         (p/then (get-table-columns object-name)
-                                 (fn [cols]
-                                   (swap! table-columns-cache assoc object-name cols)
-                                   (when is-deferred? (p/callback d cols))
-                                   (resolve cols)))))))))))))))
+        d (get-new-columns-lock object-name)]
+    (->
+     (get-table-columns object-name)
+     (p/then
+      (fn [columns]
+        ;;        (u/debug ":create for object " object-name)
+        (u/debug ":create for " object-name " got columns")
+        (.log js/console (clj->js columns))
+        (if-not columns ;;new table
+          (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
+            (.log js/console create-string)
+            (p/get-promise
+             (fn [resolve reject]
+               (.transaction
+                (get-database)
+                (fn [tx]
+                  (.executeSql
+                   tx
+                   create-string
+                   #js[]
+                   (fn [tx res]
+                     (p/then (get-table-columns object-name)
+                             (fn [cols]
+                               (u/debug ":create " object-name " finished")
+                               (p/callback d cols)
+                               (resolve cols))))
+                   (fn [tx err]
+                     (when is-deferred? (p/callback d err))
+                     (reject err))))))))
+          (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
+            (p/get-promise
+             (fn [resolve reject]
+               (.transaction
+                (get-database)
+                (fn [tx]
+                  (doseq [s alter-table-string]
+                    (.executeSql tx s #js[])))
+                (fn [err]
+                  (when is-deferred? (p/callback d err))
+                  (reject err))
+                (fn []
+                  (p/then (get-table-columns object-name)
+                          (fn [cols]
+                            (u/debug ":alter table " object-name " finished")
+                            (p/callback d cols)
+                            (resolve cols))))))))))))))
 
 (def ^:dynamic BULK_INSERT_LIMIT 500) ;;limit set by SQlite itself
 
@@ -229,7 +233,7 @@
 (defn get-insert-into
   [object-name]
   (->
-   (get-table-columns-from-cache object-name)
+   (get-columns-lock object-name)
    (p/then (fn [cols]
            [cols
             (str "insert or replace into " object-name "("
@@ -245,14 +249,16 @@
 
 (defn get-put-statement
   [data object-name]
+  (u/debug "%%Getting the put statement for " object-name)
   [(->
     (get-create-lock object-name)
     (p/then (fn []
               (get-insert-into object-name)))
     (p/then (fn [[cols insert-s values-s]]
-            [(str insert-s " values " values-s)
-             (clj->js (get-insert-data-seq (remove-quotes-for-columns cols) data))]
-            )))])
+              (u/debug "Got the put statement" insert-s)
+              [(str insert-s " values " values-s)
+               (clj->js (get-insert-data-seq (remove-quotes-for-columns cols) data))]
+              )))])
 
 (defn get-multiple-put-statements
   [data object-store]
@@ -297,10 +303,6 @@
 (defmethod sql-oper :put [k]
   (let [object-name (:name k)
         data (:data k)]
-;;    (when-not (@table-columns-cache object-name)
-    ;;      (swap! table-columns-cache assoc object-name (get-table-columns object-name)))
-    ;; not clear why we have it here, leave it as a reminder, and remove after the testing
-    (u/debug "##PUT" object-name " and " data)
     (put data object-name)))
 
 
@@ -376,7 +378,7 @@
   (let [object-name (:name k)
         [qbe-where qbe-binds] (get-qbe-where (:qbe k))
         ]
-    (u/debug "##deleting for " object-name " and " qbe-where " and " qbe-binds)
+;;    (u/debug "##deleting for " object-name " and " qbe-where " and " qbe-binds)
     [[(str "delete from " object-name (when qbe-where (str " where " qbe-where)))
       (if qbe-binds (clj->js qbe-binds)  #js[])]])
   )
@@ -423,7 +425,7 @@
                    (let [a (first arr)
                          prm (p/get-promise
                               (fn [_resolve _reject]
-                                (u/debug "^^^^^" (first a) ".." (second a))
+;;                                (u/debug "^^^^^" (first a) ".." (second a))
                                 (.executeSql tx (first a) (second a)
                                              (fn [tx ok] (_resolve ok)))))]
                      (recur (rest arr) (conj rez prm))))))
