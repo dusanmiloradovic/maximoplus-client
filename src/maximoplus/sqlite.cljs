@@ -30,7 +30,7 @@
   ;; For create and alter statements, always get a new one unless the old one hs not been released yet
   (let [cl (@columns-lock table-name)]
     (if (or (not cl) (p/has-fired? cl))
-      (let [d (p/get-deferered)]
+      (let [d (p/get-deferred)]
         (swap! columns-lock assoc table-name d)
         d)
       cl)))
@@ -39,12 +39,13 @@
   [table-name]
   (if-let [cl (@columns-lock table-name)]
     cl
-    (let [nl (get-new-columns-lock)]
+    (let [nl (get-new-columns-lock table-name)]
       (->
        (get-table-columns table-name)
-       (fn [cols]
-         (when cols
-           (p/callback nl cols))))
+       (p/then
+        (fn [cols]
+          (when cols
+            (p/callback nl cols)))))
       nl
       )))
 
@@ -201,7 +202,7 @@
                                (p/callback d cols)
                                (resolve cols))))
                    (fn [tx err]
-                     (when is-deferred? (p/callback d err))
+                     (p/callback d err)
                      (reject err))))))))
           (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
             (p/get-promise
@@ -212,7 +213,7 @@
                   (doseq [s alter-table-string]
                     (.executeSql tx s #js[])))
                 (fn [err]
-                  (when is-deferred? (p/callback d err))
+                  (p/callback d err)
                   (reject err))
                 (fn []
                   (p/then (get-table-columns object-name)
@@ -251,9 +252,7 @@
   [data object-name]
   (u/debug "%%Getting the put statement for " object-name)
   [(->
-    (get-create-lock object-name)
-    (p/then (fn []
-              (get-insert-into object-name)))
+    (get-insert-into object-name)
     (p/then (fn [[cols insert-s values-s]]
               (u/debug "Got the put statement" insert-s)
               [(str insert-s " values " values-s)
