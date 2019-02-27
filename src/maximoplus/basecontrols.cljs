@@ -739,27 +739,27 @@
               (when errb (errb err)))))))
   (init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
-   (if (or (not (c/is-offline-enabled this))  @c/is-offline );don't try to post offline when offline
-     (fetch-data this start numrows cb errb)
-     (if-not (aget this "offlinePosting")
-       (let [pending (aget this "pendingOfflineChanges")]
-         (if (and pending (not= "null" pending))
-           (do
-             (aset this "offlinePosting" true)
-             (js-delete this "pendingOfflineChanges" )
-             
-             (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
-              (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
-              (then (fn [res]
-                      (.then
-                       (c/delete-raw-offline-data (c/get-id this))
-                       (fn [_]
-                         (fetch-data this start numrows nil errb)
-                         (offline-post-finished this (first res))
-                         (aset this "offlinePosting" false)
-                         (when cb (cb (aget res 0)))))))))
-           (fetch-data this start numrows cb errb)))
-       (fetch-data this start numrows cb errb))))
+   (when
+       (and
+        (c/is-offline-enabled this)
+        (not (aget this "offlinePosting"))
+        (not @c/is-offline);don't try to post offline when offline
+        )
+     (let [pending (aget this "pendingOfflineChanges")]
+       (when (and pending (not= "null" pending))
+         (aset this "offlinePosting" true)
+         (js-delete this "pendingOfflineChanges" )
+         (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
+          (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
+          (then (fn [res]
+                  (.then
+         ;;          (c/delete-raw-offline-data (c/get-id this))
+                   (fn [_]
+                     (offline-post-finished this (first res))
+                     (aset this "offlinePosting" false)
+        ;;             (when cb (cb (aget res 0)))
+                     ))))))))
+   (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
          (kk! this "reset" c/reset-with-offline  cb errb))
