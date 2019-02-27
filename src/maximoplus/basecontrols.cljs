@@ -643,13 +643,17 @@
                                               (aget c/rel-map-reverse on))
                                              "rel"))
                                 n))) changes) clj->js u/create-json)))))
-  (post-offline-changes [this cb errb]
-                        (->
-                         (get-offline-changes this)
-                         (p/then (fn [changes]
-                                   (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
-                         (p/then (fn [res]
-                                   (offline-post-finished this (first res))))))
+  (post-offline-changes
+   [this cb errb]
+
+   (->
+    (off/prepare-to-delete (c/rel-map (c/get-id this)))
+    (p/then (fn [_]
+              (get-offline-changes this)))
+    (p/then (fn [changes]
+              (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+    (p/then (fn [res]
+              (offline-post-finished this (first res))))))
   (save-offline-changes 
    [this cb errb]
    (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)
@@ -751,14 +755,12 @@
          (js-delete this "pendingOfflineChanges" )
          (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
           (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
-          (then (fn [res]
-                  (.then
-         ;;          (c/delete-raw-offline-data (c/get-id this))
-                   (fn [_]
-                     (offline-post-finished this (first res))
-                     (aset this "offlinePosting" false)
-        ;;             (when cb (cb (aget res 0)))
-                     ))))))))
+          (then
+           (fn [res]
+             (offline-post-finished this (first res))
+             (aset this "offlinePosting" false)
+             ;;             (when cb (cb (aget res 0)))
+             ))))))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
