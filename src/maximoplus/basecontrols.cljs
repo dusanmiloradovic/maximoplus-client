@@ -735,22 +735,25 @@
         )
      (aset this "offlinePosting" true)
      (->
-      (off/exist-table? (c/get-id this) :raw)
+      (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
       (p/then
        (fn [ex?]
          (when ex?
-           (->
-            (off/prepare-to-delete (aget c/rel-map (c/get-id this)))
-            (p/then (fn [_]
-                      (get-offline-changes this)))
-            (p/then (fn [changes]
-                      (println "Posting the changes")
-                      (println changes)
-                      (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
-            (p/then (fn [res]
-                      (offline-post-finished this (first res))
-                      (aset this "offlinePosting" false)
-                      (off/delete-old-records (aget c/rel-map (c/get-id this)))))))))))
+           (let [table-name (aget c/rel-map (c/get-id this))]
+             (->
+              (off/prepare-to-delete table-name )
+              (p/then (fn [_]
+                        (get-offline-changes this)))
+              (p/then (fn [changes]
+                        (println "Posting the changes")
+                        (println changes)
+                        (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+              (p/then (fn [res]
+                        (println "About to delete " table-name)
+                        (off/debug-table table-name)
+                        (offline-post-finished this (first res))
+                        (aset this "offlinePosting" false)
+                        (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]

@@ -393,6 +393,8 @@
       (if qbe-binds (clj->js qbe-binds)  #js[])]])
   )
 
+
+
 (defmethod sql-oper :update [k]
   (let [object-name (:name k)
         update-f (:update k)
