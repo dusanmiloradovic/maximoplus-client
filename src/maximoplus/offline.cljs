@@ -172,20 +172,36 @@
 (defn prepare-to-delete
   [table-name]
   ;;when the init data is done on the object, the changes may be posted to Maximo, and then the new data is inserted. It may happen that we have duplicate data (old and new) after this. This function designates row to be deleted by deleting its rownum
-  (dml [{:type :update :name table-name :updateObject {"rownum" -1}}])
-  )
+  (->
+   (db/exist-object? table-name)
+   (p/then
+    (fn [ex?]
+      (when ex?
+        (dml [{:type :update :name table-name :updateObject {"rownum" -1}}]))))))
 
-(defn insert-qbe
-  [table-name _qbe]
-  (do-offline
-   (fn [_] (db/select {:name "objectQbe" :key table-name :key-name "objectName"}))
-    (fn [res]
-              (if (empty? res)
-                (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" _qbe}}] true )
-                (db/update {:name "objectQbe" :key table-name :key-name "objectName"
-                            :update (fn[x]
-                                      (js-delete x "offlineqbe")
-                                      (aset x "qbe" _qbe) x) })))))
+(defn delete-old-records
+  [table-name]
+  ;;once the offline posting is finished, delete the old records
+  (->
+   (db/exist-object? table-name)
+   (p/then
+    (fn [ex?]
+      (when ex?
+        (dml [{:type :delete :name table-name
+               :qbe {"rownum" ["=" -1]}
+               }])))))
+
+  (defn insert-qbe
+    [table-name _qbe]
+    (do-offline
+     (fn [_] (db/select {:name "objectQbe" :key table-name :key-name "objectName"}))
+     (fn [res]
+       (if (empty? res)
+         (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" _qbe}}] true )
+         (db/update {:name "objectQbe" :key table-name :key-name "objectName"
+                     :update (fn[x]
+                               (js-delete x "offlineqbe")
+                               (aset x "qbe" _qbe) x) }))))))
 
 (defn insert-order-by
   [table-name orderby]

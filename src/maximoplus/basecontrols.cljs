@@ -593,21 +593,7 @@
   (set-offline-enabled
    [this flag]
    (c/toggle-state this :offlineenabled flag)
-   (off/enable-offline)
-   (mm/do-offline
-    (fn []
-      (p-deferred
-       this
-       (when-not @c/is-offline
-         (->
-          (c/exist-table? (c/get-id this) :raw)
-          (p/then
-           (fn [ex?]
-             (when ex?
-               (->
-                (get-offline-changes this)
-                (p/then (fn [changes]
-                          (aset this "pendingOfflineChanges" changes)))))))))))))
+   (off/enable-offline))
   (set-offline-enabled-nodel
    [this flag]
    (c/toggle-state this :offlineenabled flag))
@@ -647,9 +633,7 @@
    [this cb errb]
 
    (->
-    (off/prepare-to-delete (c/rel-map (c/get-id this)))
-    (p/then (fn [_]
-              (get-offline-changes this)))
+    (get-offline-changes this)
     (p/then (fn [changes]
               (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
     (p/then (fn [res]
@@ -749,18 +733,24 @@
         (not (aget this "offlinePosting"))
         (not @c/is-offline);don't try to post offline when offline
         )
-     (let [pending (aget this "pendingOfflineChanges")]
-       (when (and pending (not= "null" pending))
-         (aset this "offlinePosting" true)
-         (js-delete this "pendingOfflineChanges" )
-         (.. ;;i removed after-fetch because the kk! is guaranteed to wait for fetch-data to finish
-          (kk! this "postOfflineChanges" c/post-offline-changes pending  cb errb)
-          (then
-           (fn [res]
-             (offline-post-finished this (first res))
-             (aset this "offlinePosting" false)
-             ;;             (when cb (cb (aget res 0)))
-             ))))))
+     (aset this "offlinePosting" true)
+     (->
+      (off/exist-table? (c/get-id this) :raw)
+      (p/then
+       (fn [ex?]
+         (when ex?
+           (->
+            (off/prepare-to-delete (aget c/rel-map (c/get-id this)))
+            (p/then (fn [_]
+                      (get-offline-changes this)))
+            (p/then (fn [changes]
+                      (println "Posting the changes")
+                      (println changes)
+                      (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+            (p/then (fn [res]
+                      (offline-post-finished this (first res))
+                      (aset this "offlinePosting" false)
+                      (off/delete-old-records (aget c/rel-map (c/get-id this)))))))))))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
