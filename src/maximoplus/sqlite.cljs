@@ -144,7 +144,7 @@
                                 data-type (get-data-type v)]
                             (if attr-name (str ",\"" attr-name "\" " data-type) "")))
                       columns-meta))
-            ", parentid integer default 0, rownum integer default 0, readonly integer default 0, new integer default 0, changed integer default 0, changedValue text"
+            ", parentid integer default 0, rownum integer default 0, readonly integer default 0, new integer default 0, changed integer default 0, changedValue text, tabsess text"
             )
            (str ", " json-store-column " text")
            ))))

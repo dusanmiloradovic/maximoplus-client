@@ -4,6 +4,7 @@
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
    [maximoplus.db :as db :refer [ddl dml]]
+   [maximoplus.net :as net :refer [get-tabsess]]
    )
   (:use [clojure.string :only [join replace split blank?]]
         [clojure.set :only [difference]])
@@ -33,18 +34,11 @@
   (->
    (db/exist-object? "objectMeta")
    (p/then (fn [ex?]
-           (when-not ex?
-             (ddl [{:type :create :name "objectMeta" :key "objectName" :keyType "text"}]))))
-   (p/then (fn [_]
-           (db/exist-object? "objectQbe")))
-   (p/then (fn [ex?]
-           (when-not ex?
-             (ddl [{:type :create :name "objectQbe" :key "objectName" :keyType "text"}]))))
-   (p/then (fn [_]
-           (db/exist-object? "workflowPrefetch")))
-   (p/then (fn [ex?]
-           (when-not ex?
-             (ddl [{:type :create :name "workflowPrefetch" :key "uniqueid"}]))))))
+             (when-not ex?
+               (ddl [{:type :create :name "objectMeta" :key "objectName" :keyType "text"}
+                     {:type :create :name "objectQbe" :key "objectName" :keyType "text"}
+                     {:type :create :name "workflowPrefetch" :key "uniqueid"}
+                     {:type :create :name "offlineChanges" :key "changeId"}]))))))
 
 (def db-ready
   (->
@@ -133,8 +127,8 @@
      (fn [_]
          (dml
         [{:type :put :name table-name :data (if-not (get control-data "parentid")
-                                              (assoc control-data "parentid" -1)
-                                              control-data)}]
+                                              (assoc control-data "parentid" -1 "tabsess" (get-tabsess))
+                                              (assoc control-data "tabsess"(get-tabsess)))}]
         ))
 ;;     (fn [_]
 ;;       (.log js/console (str "********ending moving to offline " table-name)))
@@ -863,4 +857,4 @@
                                        {:type :put :name (str object-name "_flags") :data _flgs}])))))))))))))
 
 
-(defn upsert)
+
