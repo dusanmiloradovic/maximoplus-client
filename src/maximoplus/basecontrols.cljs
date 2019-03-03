@@ -725,35 +725,8 @@
             (fn [err]
               (swap! fq (fn[s] (remove #(= % new-fetch) s)))
               (when errb (errb err)))))))
-  (init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
+  (init-data-with-off
    [this start numrows cb errb]
-   (when
-       (and
-        (c/is-offline-enabled this)
-        (not (aget this "offlinePosting"))
-        (not @c/is-offline);don't try to post offline when offline
-        )
-     (aset this "offlinePosting" true)
-     (->
-      (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
-      (p/then
-       (fn [ex?]
-         (when ex?
-           (let [table-name (aget c/rel-map (c/get-id this))]
-             (->
-              (off/prepare-to-delete table-name )
-              (p/then (fn [_]
-                        (get-offline-changes this)))
-              (p/then (fn [changes]
-                        (println "Posting the changes")
-                        (println changes)
-                        (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
-              (p/then (fn [res]
-                        (println "About to delete " table-name)
-                        (off/debug-table table-name)
-                        (offline-post-finished this (first res))
-                        (aset this "offlinePosting" false)
-                        (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
@@ -846,6 +819,34 @@
   (use-stored-query
    [this queryName]
    (c/use-stored-query (c/get-id this) queryName))
+  (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
+   [this start numrows cb errb]
+   (when
+       (and
+        (c/is-offline-enabled this)
+        (not (aget this "offlinePosting"))
+        (not @c/is-offline);don't try to post offline when offline
+        )
+     (aset this "offlinePosting" true)
+     (->
+      (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
+      (p/then
+       (fn [ex?]
+         (when ex?
+           (let [table-name (aget c/rel-map (c/get-id this))]
+             (->
+              (get-offline-changes this)
+              (p/then (fn [changes]
+                        (println "Posting the changes")
+                        (println changes)
+                        (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+              (p/then (fn [res]
+                        (println "About to delete " table-name)
+                        (off/debug-table table-name)
+                        (offline-post-finished this (first res))
+                        (aset this "offlinePosting" false)
+                        (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
+   (fetch-data this start numrows cb errb))
   App
   (access-to-option [this option callback errback]
                     (kk! this "access" c/access-to-option  option callback errback))

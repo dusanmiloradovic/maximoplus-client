@@ -11,7 +11,10 @@
 
 (def database (atom nil))
 
-(def dialect (atom "WEBSQL"))
+(def dialect (atom
+              (if (aget js/window "sqlitePlugin")
+                "SQLITE"
+                "WEBSQL")))
 
 (def json-store-column "JSON_STORE");MAYBE a better name is requiredc
 
