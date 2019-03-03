@@ -183,7 +183,7 @@
     (fn [ex?]
       (when ex?
         (dml [{:type :delete :name table-name
-               :where (fn [r] (not= (aget r "tabsess") (get-tabsess)))}]))))))
+               :qbe {"tabsess" ["!=" (get-tabsess)]}}]))))))
 
 (defn insert-qbe
   [table-name _qbe]

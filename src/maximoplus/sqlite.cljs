@@ -391,7 +391,7 @@
   (let [object-name (:name k)
         [qbe-where qbe-binds] (get-qbe-where (:qbe k))
         ]
-;;    (u/debug "##deleting for " object-name " and " qbe-where " and " qbe-binds)
+;;   (u/debug "##deleting for " object-name " and " qbe-where " and " qbe-binds)
     [[(str "delete from " object-name (when qbe-where (str " where " qbe-where)))
       (if qbe-binds (clj->js qbe-binds)  #js[])]])
   )
