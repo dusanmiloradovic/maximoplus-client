@@ -185,6 +185,7 @@
                       tl
                       (p/get-resolved-promise "ok")
                       )]
+    (println "calling create with the columns meta" columns-meta)
     (swap!
      create-table-lock
      assoc
@@ -197,11 +198,11 @@
       (p/then
        (fn [columns]
          ;;        (u/debug ":create for object " object-name)
-         (u/debug ":create for " object-name " got columns")
-         (.log js/console (clj->js columns))
+;;         (u/debug ":create for " object-name " got columns")
+  ;;       (.log js/console (clj->js columns))
          (if-not columns ;;new table
            (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
-             (.log js/console create-string)
+;;             (.log js/console create-string)
              (p/get-promise
               (fn [resolve reject]
                 (.transaction
@@ -214,7 +215,7 @@
                     (fn [tx res]
                       (p/then (get-table-columns object-name)
                               (fn [cols]
-                                (u/debug ":create " object-name " finished")
+;;                                (u/debug ":create " object-name " finished")
                                 (p/callback d cols)
                                 (resolve cols))))
                     (fn [tx err]
@@ -234,7 +235,9 @@
                  (fn []
                    (p/then (get-table-columns object-name)
                            (fn [cols]
-                             (u/debug ":alter table " object-name " finished")
+                             ;;                             (u/debug ":alter table " object-name " finished")
+                             (println "******************ALTER")
+                             (println cols)
                              (p/callback d cols)
                              (resolve cols)))))))))))))))
 
@@ -249,9 +252,11 @@
 
 (defn get-insert-into
   [object-name]
+  (println "getting the insert into for " object-name)
   (->
    (get-columns-lock object-name)
    (p/then (fn [cols]
+             (println "got the insert into cols " cols)
            [cols
             (str "insert or replace into " object-name "("
                  (join "," cols ) ")")
@@ -414,7 +419,7 @@
 ;;same goes to the select-by-key
 (defmethod sql-oper :select-by-key [k]
 ;;  (.log js/console (clj->js k))
-  (u/debug "SQL:" (assoc k :type :select :qbe {(:key-name k) ["="  (:key k)]}))
+;;  (u/debug "SQL:" (assoc k :type :select :qbe {(:key-name k) ["="  (:key k)]}))
   (sql-oper (assoc k :type :select :qbe {(:key-name k) ["="  (:key k)]})))
 
 (defmethod sql-oper :select-all [k]

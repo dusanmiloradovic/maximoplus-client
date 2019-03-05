@@ -71,7 +71,7 @@
 
 (defn moveMeta
   [object-name object-meta]
-  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
+;;  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
   (let [prom (p/get-deferred)]
     (swap! object-promises assoc object-name prom)
     (do-offline
@@ -88,11 +88,16 @@
             (p/then (fn [_]
                       (dml
                        [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true))))
-           (db/update {:key object-name :name "objectMeta" :key-name "objectName" :update (fn [meta](aset meta "columnsMeta" object-meta) meta) }))))
+           (db/update {:key object-name
+                       :name "objectMeta"
+                       :key-name "objectName"
+                       :update (fn [meta]
+                                 (aset meta "columnsMeta" (clj->js object-meta))
+                                 meta) }))))
      (fn [_] 
-       (.log js/console (str  "meta move has finished for" object-name))
+;;       (.log js/console (str  "meta move has finished for" object-name))
        (when-not (p/has-fired? prom )
-         (.log js/console "firing object promise!!!!!!!!!")
+;;         (.log js/console "firing object promise!!!!!!!!!")
          (p/callback prom))))))
 
 (defn column-in-meta?
@@ -107,7 +112,7 @@
 
 (defn clearTable
   [control-name]
-  (.log js/console (str "calling the clear table for" control-name))
+;;  (.log js/console (str "calling the clear table for" control-name))
   (dml [{:type :delete :name control-name :where (fn [_] true)}])
   )
 
@@ -183,6 +188,8 @@
     (fn [ex?]
       (when ex?
         (dml [{:type :delete :name table-name
+               :qbe {"tabsess" ["!=" (get-tabsess)]}}
+              {:type :delete :name (str table-name "_flags")
                :qbe {"tabsess" ["!=" (get-tabsess)]}}]))))))
 
 (defn insert-qbe
@@ -371,9 +378,11 @@
 
 (defn delete-for-parent
   [rel-name parent-id & raw?]
-  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
+;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
   (do-offline 
-   (fn [_] (.log js/console (str "******starting delete for parent for " rel-name)))
+   (fn [_]
+     ;;(.log js/console (str "******starting delete for parent for " rel-name))
+     )
    (fn [_] (db/exist-object? rel-name))
    (fn [ok]
      (if ok
@@ -386,7 +395,9 @@
                  true
                  (= parent-id (aget % "parentid"))) }] true)
        (p/get-resolved-promise "no table")))
-   (fn [_] (.log js/console (str "******ending delete for parent for " rel-name)))))
+   (fn [_]
+     ;;(.log js/console (str "******ending delete for parent for " rel-name))
+     )))
 
 
                                         ;move the function from core.cljs to here because it has to be atomic, otherwise inserts that come after delete may be deleted
@@ -397,7 +408,7 @@
 (defn updateObjectMeta
   "for keeping other metadata other than column meta"
   [table-name attribute value]
-  (.log js/console (str "updating object meta " table-name " " attribute "=" value))
+;;  (.log js/console (str "updating object meta " table-name " " attribute "=" value))
   (do-offline
    (fn [_]
      (db/select {:key table-name :name "objectMeta" :key-name "objectName"}))
@@ -742,8 +753,8 @@
                   n
                   )))))
      (p/then (fn [data-tree]
-             (u/debug "data tree")
-             (u/debug data-tree)
+;;             (u/debug "data tree")
+  ;;           (u/debug data-tree)
              (letfn [(mpt [_tree]
                           (let [_dta _tree
                                 _chdta

@@ -1972,7 +1972,7 @@
    [this colvals]
    (u/debug colvals)
    (doseq [k (keys colvals)]
-     (u/debug k)
+;;     (u/debug k)
      (set-row-value this k (get colvals k))))
   (set-row-flags
    [this colflags]
