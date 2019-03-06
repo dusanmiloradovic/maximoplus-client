@@ -1921,7 +1921,11 @@
   "Lists will not be prepared with the offlinePrepare. User will have the option to run the manual load of the value lists"
   [object-name]
   (let [rel-name (aget rel-map object-name)]
-    (offlineMetaMove rel-name (-> object-name get-control-metadata ))))
+    (->
+     (offlineMetaMove rel-name (-> object-name get-control-metadata ))
+     (p/then (fn [ok]
+               (offline/bulk-update-data-and-flags rel-name (@object-data object-name))
+               )))))
 
 (defn ^:export offlineMetaMove
   [relName meta]

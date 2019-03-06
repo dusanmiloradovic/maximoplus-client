@@ -71,6 +71,7 @@
   (-get-column-names [this object-name])
   (-get-changed-object-values [this object-name])
   (-get-return-list-value [this list-table-name rownum])
+  (-update-after-alter [this object-name data])
   )
 
 
@@ -194,6 +195,8 @@
                           (let [return-column (-> res (aget 0) (aget "returnColumn") (.toUpperCase))
                                 ret-obj (-> res (aget 1))]
                             (aget ret-obj return-column)))))))))
+  (-update-after-alter [this object-name data]
+    (u/debug "update-after-alter not implemented for indexeddb!"))
   )
 
 ;;WebSql and Sqlite are the same, setting the dialect will handle the difference
@@ -363,6 +366,8 @@
                (dml1 {:name list-table-name :type :select-by-key :key id :key-name "uniqueid"})
                (p/then (fn [_res]
                          (aget (first _res) return-column))))))))))))
+  (-update-after-alter [this object-name data]
+    (sqlite/update-after-alter object-name data))
   )
 
 (def engine  (atom nil))
@@ -467,6 +472,11 @@
 (defn get-return-list-value
   [list-table-name rownum]
   (-get-return-list-value @engine list-table-name rownum))
+
+(defn update-after-alter
+  [table-name data]
+  (-update-after-alter @engine table-name data)
+  )
 
 (defn test-it
   []

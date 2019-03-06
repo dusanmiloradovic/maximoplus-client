@@ -868,3 +868,18 @@
 
 
 
+(defn bulk-update-data-and-flags
+  [table-name cache-data]
+  ;;when alter table has been done, the new columns have been added without the data. The easiest fix is to repopulate data from the cache
+  (loop [dta-u [] flags-u [] cache-data cache-data]
+    (if (empty? cache-data)
+      (db/update-after-alter table-name {:data dta-u :flags flags-u})
+      (let [[rownum {data :data flags :flags}] (first cache-data)]
+        (recur
+         (if data
+           (conj dta-u {:type :update :name table-name :qbe {"rownum" ["=" rownum]} :updateObject (dissoc data "_uniqueid" "_selected")})
+           dta-u)
+         (if flags
+           (conj flags-u {:type :update :name (str table-name "_flags") :qbe {"rownum" ["=" rownum]} :updateObject (dissoc flags :mboflag)})
+           flags-u)
+         (rest cache-data))))))

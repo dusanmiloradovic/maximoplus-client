@@ -95,7 +95,9 @@
   (->
    (get-object-names)
    (p/then (fn [names]
-           (some (fn [x] (= (aget x "name") object-name)) names)))))
+             (some (fn [x] (= (aget x "name") object-name)) names)))))
+
+(def columns-cache (atom {}))
 
 (defn get-table-columns
   [table-name]
@@ -114,11 +116,12 @@
                (let [row (aget rows 0)
                      _sql (aget row "sql")
                      col-string (replace _sql #"^.+\((.+)\).*" "$1")
-                     splitted (split col-string #",\s?")]
-                 (resolve
-                  (map
-                   (fn[s] (-> s (clojure.string/split " ") first))
-                   splitted)))
+                     splitted (split col-string #",\s?")
+                     columns  (map
+                               (fn[s] (-> s (clojure.string/split " ") first))
+                               splitted)]
+                 (swap! columns-cache assoc table-name columns)
+                 (resolve columns))
                (resolve nil))))
          (fn [tx err]
            (.log js/console err)
@@ -185,7 +188,6 @@
                       tl
                       (p/get-resolved-promise "ok")
                       )]
-    (println "calling create with the columns meta" columns-meta)
     (swap!
      create-table-lock
      assoc
@@ -252,17 +254,16 @@
 
 (defn get-insert-into
   [object-name]
-  (println "getting the insert into for " object-name)
   (->
    (get-columns-lock object-name)
    (p/then (fn [cols]
-             (println "got the insert into cols " cols)
-           [cols
-            (str "insert or replace into " object-name "("
-                 (join "," cols ) ")")
-            (str "("
-                 (join "," (map (fn [_] "?")  cols)) ")")]
-           ))))
+             ;;we can't use the promise directly, because we have the promise is fired when the table is created, but it can be altered in the meantime
+             [cols
+              (str "insert or replace into " object-name "("
+                   (join "," cols ) ")")
+              (str "("
+                   (join "," (map (fn [_] "?")  cols)) ")")]
+             ))))
 
 (defn remove-quotes-for-columns
   [cols]
@@ -283,7 +284,7 @@
   (loop [dta data rez []]
     (if (empty? dta)
       rez
-      (let [curr (take BULK_INSERT_LIMIT dta)]
+      (let [curr (take BULK_INSERT_LIMIT dta)] 
         (recur (drop  BULK_INSERT_LIMIT dta)
                (conj rez
                      (->
@@ -408,6 +409,7 @@
         update-f (:update k)
         [qbe-where qbe-binds] (get-qbe-where (:qbe k))
         [update-set update-binds] (get-update-statement (:updateObject k))]
+    (println update-set update-binds qbe-where qbe-binds)
     [[(str "update " object-name " set " update-set (when qbe-where (str " where " qbe-where)) ) (clj->js (concat update-binds qbe-binds))]]
     ))
 
@@ -482,3 +484,9 @@
     {:type :create :name "stolovi" :key "stoid"
      :columns-meta [{:attributeName "b"} {:attributeName "c"} {:attributeName "d"}]
      }]))
+
+(def  waiting-for-alter (atom {}))
+
+(defn update-after-alter
+  [object-name data]
+  (swap! waiting-for-alter assoc object-name data))
