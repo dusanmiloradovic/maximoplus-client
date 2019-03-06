@@ -177,6 +177,23 @@
 
 (def create-table-lock (atom {}))
 
+(def  waiting-for-alter (atom {}))
+
+(declare dml)
+
+(defn prepare-statements
+  [statements cols]
+
+  (let [_cols (map
+               (fn [s]
+                 (clojure.string/replace s "\"" "" ))
+               cols)]
+    (map (fn [s]
+           (update-in s [:updateObject]
+                      (fn [o]
+                        (select-keys o _cols))))
+         statements)))
+
 (defmethod sql-oper :create [k]
   (let [object-name (:name k)
         key (:key k)
@@ -238,8 +255,11 @@
                    (p/then (get-table-columns object-name)
                            (fn [cols]
                              ;;                             (u/debug ":alter table " object-name " finished")
-                             (println "******************ALTER")
-                             (println cols)
+                             (when-not (empty? (@waiting-for-alter object-name))
+                               (let [data (prepare-statements(:data  (@waiting-for-alter object-name)) cols)
+                                     flags (prepare-statements (:flags  (@waiting-for-alter object-name)) cols)]
+
+                                 (dml (concat data flags))))
                              (p/callback d cols)
                              (resolve cols)))))))))))))))
 
@@ -409,7 +429,6 @@
         update-f (:update k)
         [qbe-where qbe-binds] (get-qbe-where (:qbe k))
         [update-set update-binds] (get-update-statement (:updateObject k))]
-    (println update-set update-binds qbe-where qbe-binds)
     [[(str "update " object-name " set " update-set (when qbe-where (str " where " qbe-where)) ) (clj->js (concat update-binds qbe-binds))]]
     ))
 
@@ -485,7 +504,7 @@
      :columns-meta [{:attributeName "b"} {:attributeName "c"} {:attributeName "d"}]
      }]))
 
-(def  waiting-for-alter (atom {}))
+
 
 (defn update-after-alter
   [object-name data]
