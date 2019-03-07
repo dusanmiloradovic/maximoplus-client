@@ -1031,28 +1031,19 @@
 (defn rows-in-local?
   [control-name start-row no-rows]
   (when-let [locrows (@object-data control-name)]
-    (let [;reg-cols (u/vector->arr (map #(.toUpperCase %) (@registered-columns control-name)))
-          _reg-cols (@registered-columns control-name) ;performance optimization
-          reg-cols (->> _reg-cols
-                        (map #(.toUpperCase %))
-                        vec
-                        u/vector->arr)
+    (let [reg-cols (set
+                    (map #(.toUpperCase %)
+                         (@registered-columns control-name)))
           cmp-cols? (fn [_cols]
                       (when reg-cols
-                        (let [_len (.-length reg-cols)]
-                          (loop [i 0]
-                            (if (= i _len)
-                              true
-                              (if (= -1 (ar/index-of _cols (aget reg-cols i)))
-                                false
-                                (recur (inc i))))))))
-          ]
+                        (empty?
+                         (clojure.set/difference reg-cols (set _cols)))))]
       (loop [_rw start-row]
         (if (= _rw (+ start-row no-rows))
           true
           (let [_ldr (:data (get locrows _rw)) ]
             (if-not
-                (and _ldr (cmp-cols? (js-keys _ldr)))
+                (and _ldr (cmp-cols? (keys _ldr)))
               false
               (recur (inc _rw)))))))))
 
