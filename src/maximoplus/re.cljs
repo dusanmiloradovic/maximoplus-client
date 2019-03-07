@@ -429,6 +429,7 @@
   UI
   (^override draw-row [this]
    (b/mark-as-displayed this);;this will allow the listener to attach(here listener is just state)
+   ;;(b/listen-row this (fn [_] (b/selected-action this)))
    );;rendering done in react
   (^override draw-field [this]);rendering done in react
   (^override draw-fields [this]);first version of react will give us just the list, when we are ready to implement the grid, we will call this methid and make the listrow component which inherits this. we don't 
@@ -532,15 +533,15 @@
    (set-external-state
     this
     (fn [state] #js{"maxrows" #js[]}) ))
-;;  (build-row
-;;   [control rowcontrol]
-;;   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
-;;   (when-not (c/get-state control :fetching)
-;;     ;;if multi-fetch, it will be done after the fetch is finished
-;;     (b/listen-row rowcontrol
-;;                   (fn [_] (b/selected-action rowcontrol))))
-;;   rowcontrol
-;;   )
+  (build-row
+   [control rowcontrol]
+   ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
+   (when-not (c/get-state control :fetching)
+     ;;if multi-fetch, it will be done after the fetch is finished
+     (b/listen-row rowcontrol
+                   (fn [_] (b/selected-action rowcontrol))))
+   rowcontrol
+   )
   MessageProcess
   (on-fetch-finished
    [this]

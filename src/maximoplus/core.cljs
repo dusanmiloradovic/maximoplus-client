@@ -922,17 +922,17 @@
       (put-object-flags! control-name rownum flg)
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
-        (p/callback d (get dta "_uniqueid"))
-        )
+        (p/callback d (get dta "_uniqueid")))
       (when (and (not offline?)(is-offline-enabled control-name))
         "dont move to offline storage if already offline"
         (let [rel-name (aget rel-map control-name)
               o-dta (assoc dta "rownum" rownum)
               o-flags (assoc flg "rownum" rownum)]
+          (u/debug "should move to offline for rel-name " rel-name)
           (p/then
            (get-parent-uniqueid control-name)
            (fn [parent-uniqueid]
-                                        ;                     (u/debug "**moving to offline " control-name " for parent uniqueid " parent-uniqueid)
+             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
              (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
              (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
@@ -1306,15 +1306,19 @@
             _mess {:mboid mboid :currrow rownum :numrows 1}
             prev-row (get-state control :currrow)
             uid (get-local-data control-name rownum "_uniqueid")
-            _uid (if uid (p/get-resolved-promise uid) (get-new-curr-uniqueid-promise control-name rownum))
             org (get-state control :uniqueid)
             mess (if uid
                    (if-not (p/has-fired? org)
                      (do
+                       (println "resolving the promise for " control-name " with " uid)
                        (p/callback org uid)
                        _mess)
-                     (assoc _mess :uniqueid (p/get-resolved-promise uid)))
-                   (assoc _mess :uniqueid (p/get-deferred)))]
+                     (do
+                       (println "already fired getting the new promise " control-name)
+                       (assoc _mess :uniqueid (p/get-resolved-promise uid))))
+                   (do
+                     (println "no uid leave it as it is " control-name)
+                     _mess))]
         (set-states control mess)
         (change-the-id-map! control-name mboid rownum)
         (dispatch-peers! control-name "set-control-index" {:control-name control-name :mboid mboid :currrow rownum :prevrow prev-row})

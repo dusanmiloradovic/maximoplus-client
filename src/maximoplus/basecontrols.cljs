@@ -429,9 +429,14 @@
     (let [currow (get-currow container)]
       (if (or (not currow) (= -1 currow))
         (do
-          (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)
-          (mm/c! control  "fetch" fetch-data container  0 nrs)) ;fetch already has kk!
-        (mm/c! control  "fetch" fetch-data container  currow nrs)))))
+          (.then
+           (mm/c! control  "fetch" fetch-data container  0 nrs) ;fetch already has kk!
+           (fn [ok]
+             (println "fetch finished for cobtrol " (c/get-id control)))
+           )
+          (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)))
+      
+      (mm/c! control  "fetch" fetch-data container  currow nrs))))
 
 (defn get-deferred [component]
   (c/get-state component :deferred))
@@ -1781,13 +1786,19 @@
      ))
   (init-data
    [this]
-   (mm/p-deferred this
-                  (let [currow (get-currow container)]
-                    (if (or (not currow) (= -1 currow))
-                      (c/move-to-with-offline (c/get-id container) 0
-                                              (fn[e]
-                                                (init-data-from-nd this 0)))
-                      (init-data-from-nd this currow)))))
+   (mm/p-deferred
+    this
+    (let [currow (get-currow container)
+          cb-handler (get-callback-handler this)
+          err-handler (get-errback-handler this)]
+      (if (or (not currow) (= -1 currow))
+        (init-data-with-off container 0 1
+                            (fn [ok]
+                              (when cb-handler (cb-handler ok))
+                              (c/move-to-with-offline (c/get-id container) 0))
+                            (fn [err]
+                              (when err-handler (err-handler err))))
+        (init-data-from-nd this currow)))))
   MessageProcess
   (on-set-control-index
    [this row]
@@ -2618,8 +2629,16 @@
                (init-data-from-nd this start-row)))
   (init-data
    [this]
-   (p-deferred this 
-               (init-data-from-nd this 0)))
+   (p-deferred
+    this
+    (let [cb-handler (get-callback-handler this)
+          err-handler (get-errback-handler this)]
+      (init-data-with-off container 0 (get-numrows this)
+                          (fn [ok]
+                            (when cb-handler (cb-handler ok))
+                            (c/move-to-with-offline (c/get-id container) 0))
+                          (fn [err]
+                            (when err-handler (err-handler err)))))))
   Picker
   (pick-row;this will be called just for the pickers
    [this row]
