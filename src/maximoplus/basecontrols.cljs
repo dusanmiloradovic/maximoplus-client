@@ -432,7 +432,8 @@
           (.then
            (mm/c! control  "fetch" fetch-data container  0 nrs) ;fetch already has kk!
            (fn [ok]
-             (println "fetch finished for cobtrol " (c/get-id control)))
+;;             (println "fetch finished for cobtrol " (c/get-id control))
+             )
            )
           (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)))
       

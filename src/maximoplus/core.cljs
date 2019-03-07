@@ -1065,7 +1065,7 @@
             (let [dfgs (assoc
                         (get (@object-data control-name) x)
                         :row x)]
-              (println "dispatching from cahce " dfgs)
+;;              (println "dispatching from cahce " dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
           (when cb (cb "ok")))
@@ -1304,14 +1304,14 @@
             mess (if uid
                    (if-not (p/has-fired? org)
                      (do
-                       (println "resolving the promise for " control-name " with " uid)
+;;                       (println "resolving the promise for " control-name " with " uid)
                        (p/callback org uid)
                        _mess)
                      (do
-                       (println "already fired getting the new promise " control-name)
+  ;;                     (println "already fired getting the new promise " control-name)
                        (assoc _mess :uniqueid (p/get-resolved-promise uid))))
                    (do
-                     (println "no uid leave it as it is " control-name)
+    ;;                 (println "no uid leave it as it is " control-name)
                      _mess))]
         (set-states control mess)
         (change-the-id-map! control-name mboid rownum)
