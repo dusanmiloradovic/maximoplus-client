@@ -1062,10 +1062,13 @@
       (if (rows-in-local? mctl r nrs)
         (do
           (doseq [x (range  r (+ r nrs))]
-            (let [dta (-> (@object-data control-name) :data  x)]
-              (dispatch-peers! mctl "fetched-row" (assoc dta :row x))))
+            (let [dfgs (assoc
+                        (get (@object-data control-name) x)
+                        :row x)]
+              (println "dispatching from cahce " dfgs)
+              (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
-          (when cb (cb)))
+          (when cb (cb "ok")))
         (fetch-multi-rows-with-offline mctl r nrs cb errb)))))
 
 (mm/defcmd reset [control-name] (fn [x]
