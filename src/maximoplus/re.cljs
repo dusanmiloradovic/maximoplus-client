@@ -536,10 +536,10 @@
   (build-row
    [control rowcontrol]
    ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
-   (when-not (c/get-state control :fetching)
-     ;;if multi-fetch, it will be done after the fetch is finished
-     (b/listen-row rowcontrol
-                   (fn [_] (b/selected-action rowcontrol))))
+;;   (when-not (c/get-state control :fetching)
+;;     ;;if multi-fetch, it will be done after the fetch is finished
+;;     (b/listen-row rowcontrol
+;;                   (fn [_] (b/selected-action rowcontrol))))
    rowcontrol
    )
   MessageProcess
@@ -685,8 +685,11 @@
   ControlData
   (init-data-from-nd
    [control start-row]
-   (c/toggle-state control :fetching true)
-   ))
+   (c/toggle-state control :fetching true))
+  (init-data
+   [control]
+   (c/toggle-state control :fetching true))
+   )
 
 (def-comp QbeField [metadata] b/QbeField
   (^override fn* []
