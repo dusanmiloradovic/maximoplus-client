@@ -1040,7 +1040,7 @@
                          (clojure.set/difference reg-cols (set _cols)))))]
       (loop [_rw start-row]
         (if (= _rw (+ start-row no-rows))
-          true
+          false;;debug!!
           (let [_ldr (:data (get locrows _rw)) ]
             (if-not
                 (and _ldr (cmp-cols? (keys _ldr)))
@@ -1048,6 +1048,12 @@
               (recur (inc _rw)))))))))
 
 (declare fetch-multi-rows-with-offline)
+
+(defn rows-in-local-mockup?
+  [control-name start-row no-rows]
+  ;;the fetching from cache is not working properly, this is a temp solution until that is fixed
+  false
+  )
 
 (defn fetch-with-local [control-name row  no-rows & callbacks]
   (let [rows-to-fetch (if no-rows (js/parseInt  no-rows) 1)
@@ -1059,7 +1065,7 @@
         ]
     (assert (and row no-rows) "Fetching must have the starting row and the number of rows specified")
     (when-not (= -1 r)
-      (if (rows-in-local? mctl r nrs)
+      (if (rows-in-local-mockup? mctl r nrs)
         (do
           (doseq [x (range  r (+ r nrs))]
             (let [dfgs (assoc
