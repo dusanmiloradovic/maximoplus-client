@@ -1040,7 +1040,7 @@
                          (clojure.set/difference reg-cols (set _cols)))))]
       (loop [_rw start-row]
         (if (= _rw (+ start-row no-rows))
-          false;;debug!!
+          reg-cols
           (let [_ldr (:data (get locrows _rw)) ]
             (if-not
                 (and _ldr (cmp-cols? (keys _ldr)))
@@ -1065,13 +1065,15 @@
         ]
     (assert (and row no-rows) "Fetching must have the starting row and the number of rows specified")
     (when-not (= -1 r)
-      (if (rows-in-local-mockup? mctl r nrs)
+      (if-let [reg-cols (rows-in-local? mctl r nrs)] ;;returns registered cols for performance optimization
         (do
           (doseq [x (range  r (+ r nrs))]
-            (let [dfgs (assoc
-                        (get (@object-data control-name) x)
-                        :row x)]
-;;              (println "dispatching from cahce " dfgs)
+            (let [dfgs  (assoc
+                         (select-keys
+                          (get (@object-data control-name) x)
+                          reg-cols)
+                           :row x)]
+              (println "dispatching from cahce " dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
           (when cb (cb "ok")))

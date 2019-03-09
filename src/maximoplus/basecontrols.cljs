@@ -1669,6 +1669,9 @@
   (skip-select-action [this skip]) ; checkbox calls this, so jsut plug it in artificially (it is used for grid rows)
   (get-field
    [this column]
+   (when-not (= (type column) js/String)
+     (println "!!!!!!!!!!!!!!!!!!!!!!MOSA")
+     (println column))
    (let [column-map (c/get-state this :column-map)]
      (when column-map (column-map (.toUpperCase column)))))
   (create-field
