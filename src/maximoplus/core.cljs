@@ -1068,11 +1068,8 @@
       (if-let [reg-cols (rows-in-local? mctl r nrs)] ;;returns registered cols for performance optimization
         (do
           (doseq [x (range  r (+ r nrs))]
-            (let [dfgs  (assoc
-                         (select-keys
-                          (get (@object-data control-name) x)
-                          reg-cols)
-                           :row x)]
+            (let [{data :data flags :flags} (get (@object-data control-name) x)
+                  dfgs {:row x :data (select-keys data reg-cols) :flags (select-keys flags reg-cols)}]
               (println "dispatching from cahce " dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
