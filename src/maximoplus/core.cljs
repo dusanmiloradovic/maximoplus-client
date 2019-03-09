@@ -928,11 +928,11 @@
         (let [rel-name (aget rel-map control-name)
               o-dta (assoc dta "rownum" rownum)
               o-flags (assoc flg "rownum" rownum)]
-          (u/debug "should move to offline for rel-name " rel-name)
+  ;;        (u/debug "should move to offline for rel-name " rel-name)
           (p/then
            (get-parent-uniqueid control-name)
            (fn [parent-uniqueid]
-             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
+;;             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
              (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
              (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
@@ -1070,7 +1070,6 @@
           (doseq [x (range  r (+ r nrs))]
             (let [{data :data flags :flags} (get (@object-data control-name) x)
                   dfgs {:row x :data (select-keys data reg-cols) :flags (select-keys flags reg-cols)}]
-              (println "dispatching from cahce " dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
           (when cb (cb "ok")))
