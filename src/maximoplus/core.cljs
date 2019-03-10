@@ -2188,3 +2188,12 @@
   (aset globalFunctions key f))
 
 
+(defn empty-data-tree?
+  [tree]
+  ;; this is helper for offline. tree has :children and :data. If all the data nodes are empty, the tree is empty
+  (and (empty? (:data tree))
+       (reduce
+        (fn [a b]
+          (and a b))
+        (map empty-data-tree? (:children tree))))
+  )

@@ -625,23 +625,28 @@
    [this]
    (->
     (off/get-change-tree (get-offline-objects-tree this))
-    (p/then (fn [changes]
-              (->(prewalk (fn [n]
-                            (if-not (map? n)
-                              n
-                              (if-let [on (:object-name n)]
-                                (assoc n :relationship
-                                       (aget (@c/container-registry
-                                              (aget c/rel-map-reverse on))
-                                             "rel"))
-                                n))) changes) clj->js u/create-json)))))
+    (p/then
+     (fn [changes]
+       (let [ch-tree
+             (prewalk
+              (fn [n]
+                (if-not (map? n)
+                  n
+                  (if-let [on (:object-name n)]
+                    (assoc n :relationship
+                           (aget (@c/container-registry
+                                  (aget c/rel-map-reverse on))
+                                 "rel"))
+                    n))) changes)]
+         (-> ch-tree clj->js u/create-json))))))
   (post-offline-changes
    [this cb errb]
 
    (->
     (get-offline-changes this)
     (p/then (fn [changes]
-              (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+              (when-not (empty? changes)
+                (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
     (p/then (fn [res]
               (offline-post-finished this (first res))))))
   (save-offline-changes 
@@ -845,7 +850,8 @@
               (p/then (fn [changes]
                         (println "Posting the changes")
                         (println changes)
-                        (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb)))
+                        (when-not (empty? changes)
+                          (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
               (p/then (fn [res]
                         (println "About to delete " table-name)
                         (off/debug-table table-name)
