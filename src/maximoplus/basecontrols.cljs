@@ -638,7 +638,8 @@
                                   (aget c/rel-map-reverse on))
                                  "rel"))
                     n))) changes)]
-         (-> ch-tree clj->js u/create-json))))))
+         (when-not (c/empty-data-tree? ch-tree)
+           (-> ch-tree clj->js u/create-json)))))))
   (post-offline-changes
    [this cb errb]
 
@@ -848,12 +849,9 @@
              (->
               (get-offline-changes this)
               (p/then (fn [changes]
-                        (println "Posting the changes")
-                        (println changes)
                         (when-not (empty? changes)
                           (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
               (p/then (fn [res]
-                        (println "About to delete " table-name)
                         (off/debug-table table-name)
                         (offline-post-finished this (first res))
                         (aset this "offlinePosting" false)
