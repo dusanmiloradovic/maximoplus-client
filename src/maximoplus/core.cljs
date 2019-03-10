@@ -1049,12 +1049,6 @@
 
 (declare fetch-multi-rows-with-offline)
 
-(defn rows-in-local-mockup?
-  [control-name start-row no-rows]
-  ;;the fetching from cache is not working properly, this is a temp solution until that is fixed
-  false
-  )
-
 (defn fetch-with-local [control-name row  no-rows & callbacks]
   (let [rows-to-fetch (if no-rows (js/parseInt  no-rows) 1)
         mctl (get-connected-control control-name)
