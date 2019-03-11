@@ -3433,7 +3433,7 @@
          (get-row-count lc nil nil)))
       (then
        (fn [e]
-         (let [cnt (aget e 0)]
+         (let [cnt (get e 0)]
            (fetch-data lc 0 cnt nil nil))))
       (then
        (fn [_]
