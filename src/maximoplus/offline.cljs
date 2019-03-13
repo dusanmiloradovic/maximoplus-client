@@ -191,12 +191,13 @@
       (when ex?
         (->
          (preloaded? table-name)
-         (fn [_preloaded?]
-           (when-not _preloaded?
-             (dml [{:type :delete :name table-name
-                    :qbe {"tabsess" ["!=" (get-tabsess)]}}
-                   {:type :delete :name (str table-name "_flags")
-                    :qbe {"tabsess" ["!=" (get-tabsess)]}}])))))))))
+         (p/then
+          (fn [_preloaded?]
+            (when-not _preloaded?
+              (dml [{:type :delete :name table-name
+                     :qbe {"tabsess" ["!=" (get-tabsess)]}}
+                    {:type :delete :name (str table-name "_flags")
+                     :qbe {"tabsess" ["!=" (get-tabsess)]}}]))))))))))
 
 (defn insert-qbe
   [table-name _qbe]

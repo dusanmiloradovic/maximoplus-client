@@ -327,6 +327,7 @@
       [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName"}]
       true true)
      (p/then (fn [res]
+         ;;      (println "get-object-meta" res ".." (-> res first) "..." (-> res first first))
                (when-not (empty? res)
                  (-> res first first (aget sqlite/json-store-column) u/read-json ))))))
   (-get-column-names
