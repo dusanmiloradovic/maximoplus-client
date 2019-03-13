@@ -329,7 +329,8 @@
      (p/then (fn [res]
          ;;      (println "get-object-meta" res ".." (-> res first) "..." (-> res first first))
                (when-not (empty? res)
-                 (-> res first first (aget sqlite/json-store-column) u/read-json ))))))
+                 (when-let [obj (-> res first first)]
+                   (-> obj (aget sqlite/json-store-column) u/read-json )))))))
   (-get-column-names
     [this object-name]
     (->

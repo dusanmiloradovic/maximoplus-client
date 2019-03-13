@@ -190,7 +190,7 @@
     (fn [ex?]
       (when ex?
         (->
-         (preloaded? table-name)
+         (preloaded? (.toUpperCase table-name))
          (p/then
           (fn [_preloaded?]
             (when-not _preloaded?
@@ -907,7 +907,8 @@
     (p/then
      (db/get-object-meta table-name)
      (fn [meta]
-       (aget meta "preloaded")))
+       (when meta
+         (aget meta "preloaded"))))
     (p/get-resolved-promise false)))
   
    
