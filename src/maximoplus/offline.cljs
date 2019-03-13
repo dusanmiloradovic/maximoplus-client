@@ -178,19 +178,25 @@
     (fn [ex?]
       (when ex?
         (dml [{:type :update :name table-name :updateObject {"rownum" -1}}]))))))
+(declare preloaded?)
 
 (defn delete-old-records
   [table-name]
   ;;once the offline posting is finished, delete the old records
+  ;;unless it is marked as preloaded
   (->
    (db/exist-object? table-name)
    (p/then
     (fn [ex?]
       (when ex?
-        (dml [{:type :delete :name table-name
-               :qbe {"tabsess" ["!=" (get-tabsess)]}}
-              {:type :delete :name (str table-name "_flags")
-               :qbe {"tabsess" ["!=" (get-tabsess)]}}]))))))
+        (->
+         (preloaded? table-name)
+         (fn [_preloaded?]
+           (when-not _preloaded?
+             (dml [{:type :delete :name table-name
+                    :qbe {"tabsess" ["!=" (get-tabsess)]}}
+                   {:type :delete :name (str table-name "_flags")
+                    :qbe {"tabsess" ["!=" (get-tabsess)]}}])))))))))
 
 (defn insert-qbe
   [table-name _qbe]
