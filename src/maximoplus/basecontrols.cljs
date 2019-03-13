@@ -3422,29 +3422,37 @@
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
   [container column list-columns value-column]
-  (mm/p-deferred 
-   container
-   (let [lc (ListContainer. container column false)]
-     (c/set-offline-enabled lc true)
-     (..
-      (c/register-columns lc list-columns nil nil)
-      (then
-       (fn [_]
-         (get-row-count lc nil nil)))
-      (then
-       (fn [e]
-         (let [cnt (get e 0)]
-           (fetch-data lc 0 cnt nil nil))))
-      (then
-       (fn [_]
-         (c/add-list-offline-return-column (c/get-id lc) value-column)))
-      (then
-       (fn [_]
-         (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
-      (then
-       (fn [e]
-         (.dispose lc)
-         "ok"))))))
+  (let [table-name (aget c/rel-map (c/get-id container))
+        list-table-name (str "list_" table-name "_" (.toUpperCase column))]
+    (mm/p-deferred 
+     container
+     (->
+      (off/preloaded? list-table-name)
+      (p/then
+       (fn [preloaded?]
+         (when-not preloaded?
+           (let [lc (ListContainer. container column false)]
+             (c/set-offline-enabled lc true)
+             (..
+              (c/register-columns lc list-columns nil nil)
+              (then
+               (fn [_]
+                 (get-row-count lc nil nil)))
+              (then
+               (fn [e]
+                 (let [cnt (get e 0)]
+                   (fetch-data lc 0 cnt nil nil))))
+              (then
+               (fn [_]
+                 (c/add-list-offline-return-column (c/get-id lc) value-column)))
+              (then
+               (fn [_]
+                 (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
+              (then
+               (fn [e]
+                 (.dispose lc)
+                 (off/mark-as-preloaded list-table-name)
+                 "ok")))))))))))
 
 (defn ^:export listToOfflineIfNotExist
   [container column list-columns value-column]

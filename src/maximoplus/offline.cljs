@@ -883,3 +883,24 @@
            (conj flags-u {:type :update :name (str table-name "_flags") :qbe {"rownum" ["=" rownum]} :updateObject (dissoc flags :mboflag)})
            flags-u)
          (rest cache-data))))))
+
+(defn mark-as-preloaded
+  [table-name]
+  ;;when listToOffline is called, we will mark the flag on metadata. It is assumed that it will not be changed. I will provide the separate methid to clean the meta for all the lists,  if there is need to reload the offline dta
+  (updateObjectMeta table-name "preloaded" true))
+
+(defn unmark-as-preloaded
+  [table-name]
+  (updateObjectMeta table-name "preloaded" nil))
+
+(defn preloaded?
+  [table-name]
+  ;;can be list or the preloaded container
+  (if table-name;;maybe list table has not been created yet
+    (p/then
+     (db/get-object-meta table-name)
+     (fn [meta]
+       (aget meta "preloaded")))
+    (p/get-resolved-promise false)))
+  
+   
