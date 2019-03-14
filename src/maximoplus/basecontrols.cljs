@@ -3402,22 +3402,16 @@
   (js/alert message))
 
 (defn  ^:export toOffline [container]
-  (c/set-offline-move-in-progress true)
-  (..
-   (offl container container 0)
-   (then
-    (fn []
-      (c/set-offline-move-in-progress false)
-      ))
-                                        ;   (then
-                                        ;    (fn[res]
-                                        ;      (notifyOfflineMoveFinished res)//there is no need of notification, we have promise to be 
-                                        ;      ))
-                                        ;   (thenCatch
-                                        ;    (fn [err]
-                                        ;      (u/debug err)
-                                        ;      ))//no need to notify anything, we have the promise
-   ))
+  (if @offline-move-in-progress
+    (c/globalErrorHandler "Offline move already in progress");;TODO i18n
+    (do
+      (c/set-offline-move-in-progress true)
+      (..
+       (offl container container 0)
+       (then
+        (fn []
+          (c/set-offline-move-in-progress false)
+          (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
 
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
