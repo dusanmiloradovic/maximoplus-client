@@ -910,5 +910,11 @@
        (when meta
          (aget meta "preloaded"))))
     (p/get-resolved-promise false)))
+
+(defn get-preloaded-lists
+  []
+  ;;get all the preloaded lists
+  (db/select)
+  )
   
    

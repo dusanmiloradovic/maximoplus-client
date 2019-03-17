@@ -341,6 +341,8 @@
   )
 
 
+
+
 (defn not-implemented
   []
   (throw (js/Error. "Not implemented")))
@@ -3412,6 +3414,21 @@
         (fn []
           (c/set-offline-move-in-progress false)
           (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
+
+(defn ^:export clearOfflinePreloaded
+  [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
+  (let [table-name (aget c/rel-map (c/get-id container))
+        chl (get-children container)]
+    (off/unmark-as-preloaded table-name)
+    (doseq [c chl]
+      (clearOfflinePreloaded c))))
+
+(defn ^:export reloadPreloadedLists
+  []
+  (db/select )
+  
+  )
+
 
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"

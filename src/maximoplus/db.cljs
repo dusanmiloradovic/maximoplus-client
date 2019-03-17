@@ -258,8 +258,7 @@
                    filtered)))))))
   (-select
     [this object]
-    (let [updf (:update object)
-          key-name (:key-name object);;we don't have this info for sqlite, must provide it manually
+    (let [key-name (:key-name object);;we don't have this info for sqlite, must provide it manually
           qbe-where (if  key-name
                       {key-name ["=" (:key object)]}
                       (:qbe object))
