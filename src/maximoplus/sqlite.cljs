@@ -352,7 +352,7 @@
 
 (defn get-qbe-where
   [qbe]
-  (when qbe
+  (when-not (empty? qbe)
     (let [bf (fn [k op v]
                (if (sequential? v)
                  (let [[s b]

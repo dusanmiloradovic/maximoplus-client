@@ -914,7 +914,17 @@
 (defn get-preloaded-lists
   []
   ;;get all the preloaded lists
-  (db/select)
-  )
+  (->
+   (db/select {:qbe {}
+               :name "objectMeta"})
+   (p/then
+    (fn [res]
+      (map #(aget % "objectName")
+           (filter
+            (fn [r]
+              (and
+               (aget r "preloaded")
+               (.startsWith (aget r "objectName") "list_")))
+            res))))))
   
    

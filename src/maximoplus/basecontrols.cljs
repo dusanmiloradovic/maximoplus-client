@@ -3404,8 +3404,8 @@
   (js/alert message))
 
 (defn  ^:export toOffline [container]
-  (if @offline-move-in-progress
-    (c/globalErrorHandler "Offline move already in progress");;TODO i18n
+  (if @c/offline-move-in-progress
+    (c/globalErrorHandler "Offline move already in progress" nil nil nil);;TODO i18n
     (do
       (c/set-offline-move-in-progress true)
       (..
@@ -3425,9 +3425,12 @@
 
 (defn ^:export reloadPreloadedLists
   []
-  (db/select )
-  
-  )
+  (->
+   (off/get-preloaded-lists)
+   (p/then (fn [res]
+             (println res)
+             (println c/rel-map-reverse))))
+   )
 
 
 (defn ^:export listToOffline
