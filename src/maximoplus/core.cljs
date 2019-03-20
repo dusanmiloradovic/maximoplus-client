@@ -522,6 +522,7 @@
    (offline/get-column-names object-name)
    (p/then
     (fn [existing-columns]
+      (println existing-columns)
       (if-not 
           (empty?
            (clojure.set/difference (set (map #(.toUpperCase %) columns))
@@ -531,11 +532,13 @@
          (offline/get-object-meta object-name)
          (p/then
           (fn [metadata]
-            (overwrite-metadata control-name (get  metadata "columnsMeta"))
-            (cb (get  metadata "columnsMeta"))))))))
+            (let [cmeta (js->clj (aget metadata "columnsMeta"))]
+              (overwrite-metadata control-name cmeta)
+              (cb cmeta))))))))
    (p/then-catch
-    (fn [err] (when errb (errb err)) err)
-    )))
+    (fn [err] (when errb
+                (errb err))
+      err))))
 
 (mm/offline-alt add-control-columns-with-offline add-control-columns offline-add-control-columns [control-name columns])
 
