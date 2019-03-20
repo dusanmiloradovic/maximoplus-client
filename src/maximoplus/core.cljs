@@ -522,7 +522,6 @@
    (offline/get-column-names object-name)
    (p/then
     (fn [existing-columns]
-      (println existing-columns)
       (if-not 
           (empty?
            (clojure.set/difference (set (map #(.toUpperCase %) columns))
