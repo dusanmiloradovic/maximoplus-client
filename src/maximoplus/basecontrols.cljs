@@ -3423,6 +3423,14 @@
     (doseq [c chl]
       (clearOfflinePreloaded c))))
 
+(defn ^:export clearOfflinePreloadedLists
+  [container col-name]
+  (let [table-name (str "list_"
+                        (.toUpperCase (aget c/rel-map (c/get-id contanier)))
+                        "_"
+                        (.toUpperCase col-name))]
+    (off/unmark-as-preloaded table-name)))
+
 (defn ^:export reloadPreloadedLists
   []
   (->
@@ -3432,10 +3440,16 @@
              (println c/rel-map-reverse))))
    )
 
+(defn ^:export addOfflineListReturnColumn
+  [container column value-column]
+  (c/add-list-offline-return-column
+   (c/get-id container)
+   column
+   value-column))
 
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
-  [container column list-columns value-column]
+  [container column list-columns value-column force?]
   (let [table-name (aget c/rel-map (c/get-id container))
         list-table-name (str "list_" (.toUpperCase table-name) "_" (.toUpperCase column))]
     (mm/p-deferred 
@@ -3444,11 +3458,14 @@
       (off/preloaded? list-table-name)
       (p/then
        (fn [preloaded?]
-         (when-not preloaded?
+         (when (or (not preloaded?) force?)
            (let [lc (ListContainer. container column false)]
              (c/set-offline-enabled lc true)
              (..
               (c/register-columns lc list-columns nil nil)
+              (then
+               (fn [_]
+                 (off/delete-old-records list-table-name)))
               (then
                (fn [_]
                  (get-row-count lc nil nil)))
@@ -3467,16 +3484,6 @@
                  (.dispose lc)
                  (off/mark-as-preloaded list-table-name)
                  "ok")))))))))))
-
-(defn ^:export listToOfflineIfNotExist
-  [container column list-columns value-column]
-  (mm/p-deferred container
-                 (..
-                  (c/exist-offline-list? (c/get-id container) column)
-                  (then (fn [ex?]
-                          (when-not ex?
-                            (listToOffline container column list-columns value-column)))))))
-
 
 (defn get-unique-ids-container-prom
   [container]

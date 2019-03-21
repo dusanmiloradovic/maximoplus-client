@@ -2133,9 +2133,14 @@
 
 (defn add-list-offline-return-column
   "during the offline list select we have to pick one of the columns to update the value of the field, in the online mode this is done by the server"
-  [list-name attribute-name]
-  (offline/updateObjectMeta (aget rel-map list-name) "returnColumn" attribute-name)
-  )
+  ([list-name return-column]
+   (offline/updateObjectMeta (aget rel-map list-name) "returnColumn" return-column))
+  ([container-name lookup-column return-column]
+   (let [list-name (str "list_"
+                        (.toUpperCase (aget rel-map container-name))
+                        "_"
+                        (.toUpperCase lookup-column))]
+     (offline/updateObjectMeta list-name "returnColumn" return-column))))
 
                                         ;replay the offline workflow if the steps are finished for all the finished offline workflows. For the currently active record it doesn't have to be finished, we can continue
 (defn replay-wf-from-offline
