@@ -412,7 +412,7 @@
   [control-name rel]
   )
 
-(defn updateObjectMeta
+(defn updateObj<ectMeta
   "for keeping other metadata other than column meta"
   [table-name attribute value]
 ;;  (.log js/console (str "updating object meta " table-name " " attribute "=" value))

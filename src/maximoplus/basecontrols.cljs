@@ -3426,7 +3426,7 @@
 (defn ^:export clearOfflinePreloadedLists
   [container col-name]
   (let [table-name (str "list_"
-                        (.toUpperCase (aget c/rel-map (c/get-id contanier)))
+                        (.toUpperCase (aget c/rel-map (c/get-id container)))
                         "_"
                         (.toUpperCase col-name))]
     (off/unmark-as-preloaded table-name)))
