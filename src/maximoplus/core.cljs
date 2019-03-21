@@ -744,6 +744,7 @@
       )))
 
 (defn offline-set-value [control-name rel-name attribute value cb errb]
+  (println rel-map)
   (let [currow (get-state control-name :currrow)]
     (dispatch-upd control-name currow attribute value)
     (->
@@ -2146,14 +2147,12 @@
 (defn add-list-offline-return-column
   "during the offline list select we have to pick one of the columns to update the value of the field, in the online mode this is done by the server"
   ([list-name return-column]
-   (println "1. adding return column to " list-name " and " return-column)
    (offline/updateObjectMeta (aget rel-map list-name) "returnColumn" return-column))
   ([container-name lookup-column return-column]
    (let [list-name (str "list_"
                         (.toUpperCase (aget rel-map container-name))
                         "_"
                         (.toUpperCase lookup-column))]
-     (println "2. adding return column to " list-name " and " return-column)
      (offline/updateObjectMeta list-name "returnColumn" return-column))))
 
                                         ;replay the offline workflow if the steps are finished for all the finished offline workflows. For the currently active record it doesn't have to be finished, we can continue
