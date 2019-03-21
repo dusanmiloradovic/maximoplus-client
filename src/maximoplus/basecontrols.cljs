@@ -2691,12 +2691,25 @@
      (cons "_SELECTED" (seq dialogcols)) ;dialogcols
      (fn[]
        (let [_selected (get-field-local-value listContainer "_SELECTED")
-             new-sel (if (and _selected (= _selected "Y")) "N" "Y")]
-         (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
-                       (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
-                                                   (fn[_]
-                                                     (init-qbe-values parentC)
-                                                     (set-focus field))))))))))
+             new-sel (if (and _selected (= _selected "Y")) "N" "Y")
+             cont-table (aget c/rel-map listContainer)]
+         (if @c/is-offline
+           (c/offline-set-value
+            (c/get-id listContainer)
+            cont-table
+            "_SELECTED"
+            new-sel
+            (fn [_]
+              (->
+               (off/get-qbe-from-select-list cont-table)
+               (fn [qbe]
+                 (println qbe)))
+              ))
+           (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
+                         (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
+                                                     (fn[_]
+                                                       (init-qbe-values parentC)
+                                                       (set-focus field)))))))))))
 
 (mm/def-comp AbstractListDialog [container listContainer field dialogcols] VisualComponent
   (fn* []

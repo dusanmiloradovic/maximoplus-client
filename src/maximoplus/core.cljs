@@ -672,6 +672,18 @@
 
 (mm/defcmd set-qbe-from-list [mbocontainer-name list-name column-name])
 
+(defn offline-set-qbe-from-list [mbocontainer-name list-name column-name cb errb]
+  (->
+   (offline/getReturnListValue (aget rel-map list-name) (get-state list-name :currrow))
+   (p/then
+    (fn [val]
+      ;;the difference here is that qbe may consist of multiple values, so when user picks two lines, qbe should read them both (_selected flag is Y)
+      (offline-set-value mbocontainer-name (aget rel-map mbocontainer-name) column-name val nil errb)))
+   (p/then
+    (fn [val]
+      (when cb (cb val))
+      val))))
+
 (declare get-connected-control)
 
 (defn is-virtual? [column-name]
@@ -2134,12 +2146,14 @@
 (defn add-list-offline-return-column
   "during the offline list select we have to pick one of the columns to update the value of the field, in the online mode this is done by the server"
   ([list-name return-column]
+   (println "1. adding return column to " list-name " and " return-column)
    (offline/updateObjectMeta (aget rel-map list-name) "returnColumn" return-column))
   ([container-name lookup-column return-column]
    (let [list-name (str "list_"
                         (.toUpperCase (aget rel-map container-name))
                         "_"
                         (.toUpperCase lookup-column))]
+     (println "2. adding return column to " list-name " and " return-column)
      (offline/updateObjectMeta list-name "returnColumn" return-column))))
 
                                         ;replay the offline workflow if the steps are finished for all the finished offline workflows. For the currently active record it doesn't have to be finished, we can continue
