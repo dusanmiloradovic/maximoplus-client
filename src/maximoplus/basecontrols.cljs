@@ -2702,9 +2702,10 @@
             (fn [_]
               (->
                (off/get-qbe-from-select-list cont-table)
-               (fn [qbe]
-                 (println qbe)))
-              ))
+               (p/then
+                (fn [qbe]
+                  (println qbe)))))
+            nil)
            (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
                          (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
                                                      (fn[_]

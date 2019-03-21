@@ -942,7 +942,7 @@
    (p/then
     (fn [return-column]
       (->
-       (dml1 {:type select :object list-name :qbe {"_SELECTED" "Y"}})
+       (dml1 {:type :select :object list-name :qbe {"_SELECTED" "Y"}})
        (p/then
         (fn [res]
           (clojure.string/join
