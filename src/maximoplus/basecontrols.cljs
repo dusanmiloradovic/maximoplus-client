@@ -2705,8 +2705,10 @@
                (off/get-qbe-from-select-list cont-table)
                (p/then
                 (fn [qbe]
-                  (offline-set-value (c/get-id container) table-name column qbe nil nil )
-                  (offline-set-qbe (c/get-id container) column qbe nil nil)))))
+                  (c/offline-set-qbe
+                   (c/get-id container) column qbe
+                   (fn [_]
+                     (set-row-value parentC column qbe)) nil)))))
             nil)
            (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
                          (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
