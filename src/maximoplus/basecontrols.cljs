@@ -2692,7 +2692,8 @@
      (fn[]
        (let [_selected (get-field-local-value listContainer "_SELECTED")
              new-sel (if (and _selected (= _selected "Y")) "N" "Y")
-             cont-table (aget c/rel-map listContainer)]
+             cont-table (aget c/rel-map (c/get-id listContainer))
+             table-name (aget c/rel-map (c/get-id container))]
          (if @c/is-offline
            (c/offline-set-value
             (c/get-id listContainer)
@@ -2704,7 +2705,8 @@
                (off/get-qbe-from-select-list cont-table)
                (p/then
                 (fn [qbe]
-                  (println qbe)))))
+                  (offline-set-value (c/get-id container) table-name column qbe nil nil )
+                  (offline-set-qbe (c/get-id container) column qbe nil nil)))))
             nil)
            (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
                          (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 

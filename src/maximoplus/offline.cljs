@@ -930,10 +930,10 @@
 (defn get-return-column
   [list-name]
   (->
-   (dml1 {:type :select-by-key :name "objectMeta" :key list-name :key-name "objectName"})
+   (db/get-object-meta list-name)
    (p/then
     (fn [res]
-      (-> res (aget 0) (aget "returnColumn") (.toUpperCase))))))
+      (-> res  (aget "returnColumn") (.toUpperCase))))))
 
 (defn get-qbe-from-select-list
   [list-name]
@@ -942,7 +942,7 @@
    (p/then
     (fn [return-column]
       (->
-       (dml1 {:type :select :object list-name :qbe {"_SELECTED" "Y"}})
+       (dml1 {:type :select :name list-name :qbe {"_SELECTED" ["=" "Y"]}})
        (p/then
         (fn [res]
           (clojure.string/join
