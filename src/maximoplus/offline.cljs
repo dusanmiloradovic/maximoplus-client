@@ -201,7 +201,7 @@
 
 (defn insert-qbe
   [table-name _qbe]
-  (let [qbe (clj->js _qbe)]
+  (let [qbe (clj->js (u/vec-to-map _qbe))]
     (do-offline
      (fn [_] (db/select {:name "objectQbe" :key table-name :key-name "objectName"}))
      (fn [res]
@@ -228,17 +228,14 @@
   (->
    (db/select {:name "objectQbe" :key table-name :key-name "objectName"})
    (p/then (fn [res]
-           (let [existing (aget res 0)
-                 exis-qbe (if existing
-                            (if-let [exs-offlineqbe  (aget existing "qbe")]
+             (let [exis-qbe (if-let [exs-offlineqbe  (aget (first res) "qbe")]
                               exs-offlineqbe
                               #js {}
-                              )
-                            #js {})]
-             (aset exis-qbe (.toUpperCase column-name) qbe)
-             (if (empty? res)
-               (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" exis-qbe}}] true )
-               (db/update {:name "objectQbe" :key table-name :key-name "objectName" :update (fn[x] (aset x "qbe" exis-qbe) x)} )))))))
+                              )]
+               (aset exis-qbe (.toUpperCase column-name) qbe)
+               (if (empty? res)
+                 (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" exis-qbe}}] true )
+                 (db/update {:name "objectQbe" :key table-name :key-name "objectName" :update (fn[x] (aset x "qbe" exis-qbe) x)} )))))))
 
 (defn get-qbe
   "this is read in offline mode"
@@ -249,7 +246,7 @@
     (fn [res]
       (if (empty? res)
         []
-        (let [qbeo (aget res "qbe")
+        (let [qbeo (aget (first res) "qbe")
               qbe (->> qbeo js->clj (into []) (apply concat) vec)]
           [qbe]
           ))))))
