@@ -201,15 +201,15 @@
 
 (defn insert-qbe
   [table-name _qbe]
-  (do-offline
-   (fn [_] (db/select {:name "objectQbe" :key table-name :key-name "objectName"}))
-   (fn [res]
-     (if (empty? res)
-       (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" _qbe}}] true )
-       (db/update {:name "objectQbe" :key table-name :key-name "objectName"
-                   :update (fn[x]
-                             (js-delete x "offlineqbe")
-                             (aset x "qbe" _qbe) x) })))))
+  (let [qbe (clj->js _qbe)]
+    (do-offline
+     (fn [_] (db/select {:name "objectQbe" :key table-name :key-name "objectName"}))
+     (fn [res]
+       (if (empty? res)
+         (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" qbe}}] true )
+         (db/update {:name "objectQbe" :key table-name :key-name "objectName"
+                     :update (fn[x]
+                               (aset x "qbe" qbe) x) }))))))
 
 (defn insert-order-by
   [table-name orderby]
@@ -225,34 +225,34 @@
 (defn insert-offline-qbe
   "insert the qbe in offline mode- limited functionality for offline search"
   [table-name column-name qbe]
-  (assert (and (= -1 (.indexOf qbe ">"))
-               (= -1 (.indexOf qbe "<"))
-               (= -1 (.indexOf qbe "!")))
-          "Offline qbe supports just like or equal search")
   (->
    (db/select {:name "objectQbe" :key table-name :key-name "objectName"})
    (p/then (fn [res]
            (let [existing (aget res 0)
                  exis-qbe (if existing
-                            (if-let [exs-offlineqbe  (aget existing "offlineqbe")]
+                            (if-let [exs-offlineqbe  (aget existing "qbe")]
                               exs-offlineqbe
                               #js {}
                               )
                             #js {})]
              (aset exis-qbe (.toUpperCase column-name) qbe)
              (if (empty? res)
-               (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "offlineqbe" exis-qbe}}] true )
-               (db/update {:name "objectQbe" :key table-name :key-name "objectName" :update (fn[x] (aset x "offlineqbe" exis-qbe) x)} )))))))
+               (dml [{:type :put :name "objectQbe" :data #js {"objectName" table-name "qbe" exis-qbe}}] true )
+               (db/update {:name "objectQbe" :key table-name :key-name "objectName" :update (fn[x] (aset x "qbe" exis-qbe) x)} )))))))
 
 (defn get-qbe
   "this is read in offline mode"
   [table-name]
   (->
    (db/select {:name "objectQbe" :key table-name :key-name "objectName"})
-   (p/then (fn [res]
-           (if (empty? res)
-             #js []
-             #js[(-> res first (aget "qbe"))])))))
+   (p/then
+    (fn [res]
+      (if (empty? res)
+        []
+        (let [qbeo (aget res "qbe")
+              qbe (->> qbeo js->clj (into []) (apply concat) vec)]
+          [qbe]
+          ))))))
 
 (defn get-order-by
   [table-name]
