@@ -909,8 +909,8 @@
          (aget meta "preloaded"))))
     (p/get-resolved-promise false)))
 
-(defn get-preloaded-lists
-  []
+(defn get-lists
+  [just-preloaded?]
   ;;get all the preloaded lists
   (->
    (db/select {:qbe {}
@@ -921,7 +921,7 @@
            (filter
             (fn [r]
               (and
-               (aget r "preloaded")
+               (or (not just-preloaded?) (aget r "preloaded"))
                (.startsWith (aget r "objectName") "list_")))
             res))))))
 
@@ -949,5 +949,14 @@
                   (str "="
                        (aget r return-column)))
                 res)))))))))
+
+(defn remove-selection
+  [list-names];;in theory it can be used also for tables
+  ;;i will use multiple lists at once to simplify
+  (println "removing selection for " list-names)
+  (dml
+   (map (fn [l]
+          {:type :update :name l :updateObject {"_SELECTED" nil "changedValue" nil}})
+        list-names)))
   
    

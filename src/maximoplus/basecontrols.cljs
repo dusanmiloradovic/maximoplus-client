@@ -3163,7 +3163,17 @@
    [this]
    (doseq [f (get-children this)]
      (change-maximo-value  f ""))
-   (clear-control this))
+   (clear-control this)
+   (when @c/is-offline
+     (->
+      (off/get-lists false)
+      (p/then (fn [lists]
+                (let [table-name (aget c/rel-map (c/get-id (c/get-container this)))]
+                  (->
+                   (off/remove-selection (filter #(.startsWith % (str "list_" (.toUpperCase table-name)))
+                                                 lists))
+                   (p/then (fn [_]
+                             (off/insert-qbe table-name []))))))))))
   Row
   (^override create-field
    [this col-metadata]
@@ -3454,7 +3464,7 @@
 (defn ^:export reloadPreloadedLists
   []
   (->
-   (off/get-preloaded-lists)
+   (off/get-lists true)
    (p/then (fn [res]
              (println res)
              (println c/rel-map-reverse))))
