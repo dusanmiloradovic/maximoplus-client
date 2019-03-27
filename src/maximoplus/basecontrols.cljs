@@ -1649,7 +1649,8 @@
      (set-row-value this k (get colvals k))))
   (set-row-value
    [this col value]
-   (set-field-value (get-field this col) value))
+   (when-let [field (get-field this col)]
+     (set-field-value field value)))
   (set-row-field-value
    [this field value]
    (set-field-value field value))

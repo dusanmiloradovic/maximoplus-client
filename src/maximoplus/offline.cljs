@@ -323,6 +323,7 @@
     (do-offline
      (fn [_] (db/get-offline-qbe-where table-name parent-id) )
      (fn [condition]
+       (println "For table " table-name " got the qbe condition " condition)
        (->
         (dml1 (merge
                {:type :select :name table-name :start _sr :rows _nr :order-by "rownum" :index-column #js["parentid" "rownum"]}

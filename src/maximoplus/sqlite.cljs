@@ -349,7 +349,7 @@
 ;;qbe syntax: {"b" ["=" 2] "c" ["like" ["'a%'" 3]]}
 ;;column [operator val|list-of val]
 ;;if we have the list-of val after operator that means OR
-
+;;TODO (low priority) multiple operators per column (i.e ='a' or !='b' or !='c' for example(
 (defn get-qbe-where
   [qbe]
   (when-not (empty? qbe)

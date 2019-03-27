@@ -3,7 +3,7 @@
             [maximoplus.promises :as p]
             [maximoplus.sqlite :as sqlite]
             [maximoplus.utils :as u]
-            [clojure.string :as st :refer [join replace split blank?]])
+            [clojure.string :as st :refer [join replace split blank? starts-with? includes? trim]])
   (:require-macros
    [maximoplus.db :refer [dml1]])
   (:refer-clojure :exclude [update])
@@ -52,6 +52,42 @@
           true
           (recur (rest exprs)))))))
 
+(defn get-qbe-operand-and-value
+  ;;this should be called on splitted qbe
+  ;;supported operands =,!=,>,>=,<,<=
+  ;;if no operand assume =
+  ;;if there is no operand and qbe contains % or * , the operand is like
+  [qbe]
+  (let [operands ["=" "!=" ">" ">=" "<" "<="]]
+    (if-let [ex-operand
+             (first
+              (filter
+               (fn [s] (starts-with? qbe s))
+               operands))]
+      [ex-operand (trim (subs qbe (count ex-operand)))]
+      (if (or
+           (includes? qbe "*")
+           (includes? qbe "%"))
+        ["like" (trim qbe)]
+        ["=" (trim qbe)]))))
+
+(defn internal-sqlite-qbe
+  ;;from Maximo QBE to internal implementation
+  [qbe]
+  (into {}
+        (filter
+         (fn [[k v]] v)
+         (map (fn [[k v]]
+                [k
+                 (when v
+                   (let [qbvals (map trim (split v ","))
+                         mvals (map get-qbe-operand-and-value qbvals)
+                         moper (-> mvals first first);;currently only one operand per value is supported
+                         ]
+                     [moper (map second mvals)]
+                     ))])
+              (js->clj qbe)))))
+
 (defprotocol DB
   (set-database-name [this db-name])
   (ddl-internal [this objects] [this objects raw?] [this objects raw? readonly?])
@@ -72,6 +108,7 @@
   (-get-changed-object-values [this object-name])
   (-get-return-list-value [this list-table-name rownum])
   (-update-after-alter [this object-name data])
+  (-get-internal-qbe [this qbe]);;from Maximo to internal qbe presentation
   )
 
 
@@ -134,7 +171,8 @@
                      (= table-name (:objectName x))
                      )})
      (p/then (fn [[res]]
-               (if-let [qbe (:offlineqbe res)]
+
+               (if-let [qbe (:qbe res)]
                  {:where
                   (fn [x]
                     (when (or (not parent-id) (= parent-id (aget x "parentid")))
@@ -197,6 +235,8 @@
                             (aget ret-obj return-column)))))))))
   (-update-after-alter [this object-name data]
     (u/debug "update-after-alter not implemented for indexeddb!"))
+  (-get-internal-qbe [this qbe]
+    qbe);;TODO once IndexedDB offline is done completely, review
   )
 
 ;;WebSql and Sqlite are the same, setting the dialect will handle the difference
@@ -298,13 +338,13 @@
   (-get-offline-qbe-where
     [this table-name parent-id]
     (->
-     (dml1 {:type :select :name "objectQbe" :key table-name  :key-name "objectName"})
+     (-select this {:name "objectQbe" :key table-name :key-name "objectName"})
      (p/then (fn [[res]]
-               (if-let [qbe (when res (aget res "offlineqbe"))]
-                 {:qbe qbe}
-                 (when parent-id
-                   {:qbe {"parentid" ["=" parent-id]}}
-                   ))))))
+               (let [_qbe (when res (aget res "qbe"))
+                     qbe (if-not _qbe {} (internal-sqlite-qbe _qbe))]
+                 (if-not parent-id
+                   {:qbe qbe}
+                   {:qbe (assoc qbe "parentid" ["=" parent-id])}))))))
   (-get-unique-id
     [this rel-name _parent-id rownum]
     (let [parent-id (if _parent-id _parent-id -1)]
@@ -369,6 +409,11 @@
                          (aget (first _res) return-column))))))))))))
   (-update-after-alter [this object-name data]
     (sqlite/update-after-alter object-name data))
+  (-get-internal-qbe [this qbe]
+    (let [_qbe (js->clj qbe)]
+      (map (fn [[k v]]
+             [k v])
+           _qbe)))
   )
 
 (def engine  (atom nil))
