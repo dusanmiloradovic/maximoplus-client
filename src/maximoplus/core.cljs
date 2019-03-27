@@ -979,6 +979,13 @@
         (fetched-row-callback control-name row true))
       (dispatch-peers! control-name "fetch-finished" {})
       (when cb (cb rows))))
+   (p/then
+    (fn [_]
+      (offline/get-lists false)
+      ))
+   (p/then (fn [lists]
+             (offline/remove-selection (filter #(.startsWith % (str "list_" (.toUpperCase rel-name)))
+                                           lists))))
    (p/then-catch
     (fn [err] (when errb err) (u/debug err)))))
 
