@@ -58,18 +58,19 @@
   ;;if no operand assume =
   ;;if there is no operand and qbe contains % or * , the operand is like
   [qbe]
-  (let [operands ["=" "!=" ">" ">=" "<" "<="]]
-    (if-let [ex-operand
-             (first
-              (filter
-               (fn [s] (starts-with? qbe s))
-               operands))]
-      [ex-operand (trim (subs qbe (count ex-operand)))]
-      (if (or
-           (includes? qbe "*")
-           (includes? qbe "%"))
-        ["like" (trim qbe)]
-        ["=" (trim qbe)]))))
+  (when (not= "" (trim qbe))
+      (let [operands ["=" "!=" ">" ">=" "<" "<="]]
+        (if-let [ex-operand
+                 (first
+                  (filter
+                   (fn [s] (starts-with? qbe s))
+                   operands))]
+          [ex-operand (trim (subs qbe (count ex-operand)))]
+          (if (or
+               (includes? qbe "*")
+               (includes? qbe "%"))
+            ["like" (trim qbe)]
+            ["=" (trim qbe)])))))
 
 (defn internal-sqlite-qbe
   ;;from Maximo QBE to internal implementation
@@ -79,7 +80,7 @@
          (fn [[k v]] v)
          (map (fn [[k v]]
                 [k
-                 (when v
+                 (when (not= "" (trim v)) 
                    (let [qbvals (map trim (split v ","))
                          mvals (map get-qbe-operand-and-value qbvals)
                          moper (-> mvals first first);;currently only one operand per value is supported
