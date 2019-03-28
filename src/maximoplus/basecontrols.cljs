@@ -4,7 +4,7 @@
             [maximoplus.promises :as p]
             [maximoplus.arrays :as ar]
             [maximoplus.offline :as off]
-            [clojure.string :refer [trim]]
+            [clojure.string :refer [trim split]]
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
