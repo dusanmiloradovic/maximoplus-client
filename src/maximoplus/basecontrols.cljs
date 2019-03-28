@@ -3449,26 +3449,58 @@
   [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
   (let [table-name (aget c/rel-map (c/get-id container))
         chl (get-children container)]
-    (off/unmark-as-preloaded table-name)
+    (->
+     (off/unmark-as-preloaded table-name)
+     (p/then (fn [_] (off/clearTable table-name))))
     (doseq [c chl]
       (clearOfflinePreloaded c))))
 
-(defn ^:export clearOfflinePreloadedLists
+(defn get-offline-list-name
   [container col-name]
-  (let [table-name (str "list_"
-                        (.toUpperCase (aget c/rel-map (c/get-id container)))
-                        "_"
-                        (.toUpperCase col-name))]
-    (off/unmark-as-preloaded table-name)))
+  (str "list_"
+       (.toUpperCase (aget c/rel-map (c/get-id container)))
+       "_"
+       (.toUpperCase col-name))
+  )
+
+(defn ^:export clearOfflinePreloadedList
+  ([container col-name]
+   (let [table-name (get-offline-list-name container col-name)]
+     (->
+      (off/unmark-as-preloaded table-name)
+      (p/then (fn [_] (off/clearTable table-name)))))))
+
+(declare listToOffline)
+
+(defn ^:export reloadPreloadedList
+  [container col-name]
+  (->
+   (clearOfflinePreloadedList container col-name)
+   (p/then
+    (fn [_]
+      (let [table-name (get-offline-list-name container col-name)]
+        (println "gettnit offline meta for list " table-name)
+        (off/getObjectMeta table-name))))
+   (p/then
+    (fn [object-meta]
+      (println "object-meta=" object-meta)
+      (let [return-column (aget object-meta "returnColumn")
+            list-columns (u/read-json (aget object-meta "listColumns"))]
+        (listToOffline container col-name list-columns return-column true))))))
 
 (defn ^:export reloadPreloadedLists
   []
   (->
    (off/get-lists true)
    (p/then (fn [res]
-             (println res)
-             (println c/rel-map-reverse))))
-   )
+             (doseq [l res]
+               (let [[_ table column] (split l "_")
+                     container-name
+                     (aget c/rel-map-reverse
+                           (first (filter #(= table (.toUpperCase %)) (js-keys c/rel-map-reverse))))
+                     container (@c/registered-components container-name)]
+                 (println "container = " container-name " and column =" column)
+                 (reloadPreloadedList container column)))))))
 
 (defn ^:export addOfflineListReturnColumn
   [container column value-column]
@@ -3512,8 +3544,10 @@
               (then
                (fn [e]
                  (.dispose lc)
-                 (off/mark-as-preloaded list-table-name)
-                 "ok")))))))))))
+                 (off/mark-as-preloaded list-table-name)))
+              (then
+               (fn [_]
+                 (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns)))))))))))))
 
 (defn get-unique-ids-container-prom
   [container]

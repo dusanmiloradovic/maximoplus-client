@@ -413,15 +413,17 @@
 (defn updateObjectMeta
   "for keeping other metadata other than column meta"
   [table-name attribute value]
-;;  (.log js/console (str "updating object meta " table-name " " attribute "=" value))
-  (do-offline
-   (fn [_]
-     (db/select {:key table-name :name "objectMeta" :key-name "objectName"}))
-;;   (fn [ok]
-;;     (.log js/console "@@@@@@@@@@@@@@objectMeta select")
-;;     (.log js/console (first ok)))
-   (fn [_]
-           (db/update {:key table-name :name "objectMeta" :key-name "objectName" :update (fn [obj] (aset obj attribute value) obj)}))))
+  (db/update
+   {:key table-name :name "objectMeta" :key-name "objectName"
+    :update (fn [obj]
+              (if (map? value)
+                (doseq [[k v] value]
+                  (aset obj k v))
+                (aset obj attribute value)) obj)}))
+
+(defn getObjectMeta
+  [table-name]
+  (db/select {:name "objectMeta" :key-name "objectName" :key table-name}))
 
 (defn getReturnListValue
   [list-table-name rownum]
@@ -892,6 +894,7 @@
 (defn mark-as-preloaded
   [table-name]
   ;;when listToOffline is called, we will mark the flag on metadata. It is assumed that it will not be changed. I will provide the separate methid to clean the meta for all the lists,  if there is need to reload the offline dta
+  (println "should mark as preloaded table " table-name)
   (updateObjectMeta table-name "preloaded" true))
 
 (defn unmark-as-preloaded

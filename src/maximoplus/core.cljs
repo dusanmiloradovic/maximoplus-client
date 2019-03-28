@@ -965,8 +965,6 @@
       (fetched-row-callback control-name rd-evt)
       )))
 
-
-
 (defn fetch-multi-rows-offline [control-name rel-name start-row num-rows cb errb]
   (->
    (get-parent-uniqueid control-name)
@@ -1004,8 +1002,6 @@
     (fn [err])))
 
 (mm/defcmd multi-select [control-name value start-row num-rows])
-
-
 
 (defn loop-cmd
   "loops the commands with the callback. we need to put the commands as defined by macro as argument"
