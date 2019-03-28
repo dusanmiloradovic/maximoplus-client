@@ -3474,19 +3474,19 @@
 
 (defn ^:export reloadPreloadedList
   [container col-name]
-  (->
-   (clearOfflinePreloadedList container col-name)
-   (p/then
-    (fn [_]
-      (let [table-name (get-offline-list-name container col-name)]
+  (let [table-name (get-offline-list-name container col-name)]
+    (->
+     (clearOfflinePreloadedList container col-name)
+     (p/then
+      (fn [_]
         (println "gettnit offline meta for list " table-name)
-        (off/getObjectMeta table-name))))
-   (p/then
-    (fn [object-meta]
-      (println "object-meta=" object-meta)
-      (let [return-column (aget object-meta "returnColumn")
-            list-columns (u/read-json (aget object-meta "listColumns"))]
-        (listToOffline container col-name list-columns return-column true))))))
+        (off/getObjectMeta table-name)))
+     (p/then
+      (fn [object-meta]
+        (let [return-column (-> object-meta (aget table-name) (aget "returnColumn"))
+              list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
+          (println return-column "," list-columns)
+          (listToOffline container col-name list-columns return-column true)))))))
 
 (defn ^:export reloadPreloadedLists
   []
