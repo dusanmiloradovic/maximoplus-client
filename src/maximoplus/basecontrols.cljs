@@ -3451,6 +3451,26 @@
           (c/set-offline-move-in-progress false)
           (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
 
+(defn ^:export offload
+  []
+  ;;we don't need to specify application containers here that is the only diff
+  (if @c/offline-move-in-progress
+    (c/globalErrorHandler "Offline move already in progress" nil nil nil);;TODO i18n
+    (do
+      (c/set-offline-move-in-progress true)
+      (..
+       (p/prom-all
+        (map
+         (fn [cont]
+           (->
+            (offl cont cont 0)
+            (p/then (fn []
+                      (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))))))
+         (vals c/app-container-registry)))
+       (then
+        (fn []
+          (c/set-offline-move-in-progress false)))))))
+
 (defn ^:export clearOfflinePreloaded
   [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
   (let [table-name (aget c/rel-map (c/get-id container))
@@ -3460,6 +3480,12 @@
      (p/then (fn [_] (off/clearTable table-name))))
     (doseq [c chl]
       (clearOfflinePreloaded c))))
+
+(defn ^:export unload
+  []
+  (map
+   (fn [cont] (clearOfflinePreloaded cont))
+   (vals c/app-container-registry)))
 
 (defn get-offline-list-name
   [container col-name]
