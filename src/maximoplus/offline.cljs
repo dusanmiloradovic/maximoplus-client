@@ -323,7 +323,7 @@
     (do-offline
      (fn [_] (db/get-offline-qbe-where table-name parent-id) )
      (fn [condition]
-       (println "For table " table-name " got the qbe condition " condition)
+;;       (println "For table " table-name " got the qbe condition " condition)
        (->
         (dml1 (merge
                {:type :select :name table-name :start _sr :rows _nr :order-by "rownum" :index-column #js["parentid" "rownum"]}
@@ -423,7 +423,8 @@
 
 (defn getObjectMeta
   [table-name]
-  (db/select {:name "objectMeta" :key-name "objectName" :key table-name}))
+  (first
+   (db/select {:name "objectMeta" :key-name "objectName" :key table-name})))
 
 (defn getReturnListValue
   [list-table-name rownum]
@@ -894,7 +895,7 @@
 (defn mark-as-preloaded
   [table-name]
   ;;when listToOffline is called, we will mark the flag on metadata. It is assumed that it will not be changed. I will provide the separate methid to clean the meta for all the lists,  if there is need to reload the offline dta
-  (println "should mark as preloaded table " table-name)
+;;  (println "should mark as preloaded table " table-name)
   (updateObjectMeta table-name "preloaded" true))
 
 (defn unmark-as-preloaded
@@ -956,7 +957,7 @@
 (defn remove-selection
   [list-names];;in theory it can be used also for tables
   ;;i will use multiple lists at once to simplify
-  (println "removing selection for " list-names)
+;;  (println "removing selection for " list-names)
   (dml
    (map (fn [l]
           {:type :update :name l :updateObject {"_SELECTED" nil "changedValue" nil}})

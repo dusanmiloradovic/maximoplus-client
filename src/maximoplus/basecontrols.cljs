@@ -3479,13 +3479,11 @@
      (clearOfflinePreloadedList container col-name)
      (p/then
       (fn [_]
-        (println "gettnit offline meta for list " table-name)
         (off/getObjectMeta table-name)))
      (p/then
       (fn [object-meta]
         (let [return-column (-> object-meta (aget table-name) (aget "returnColumn"))
               list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
-          (println return-column "," list-columns)
           (listToOffline container col-name list-columns return-column true)))))))
 
 (defn ^:export reloadPreloadedLists
@@ -3499,7 +3497,7 @@
                      (aget c/rel-map-reverse
                            (first (filter #(= table (.toUpperCase %)) (js-keys c/rel-map-reverse))))
                      container (@c/registered-components container-name)]
-                 (println "container = " container-name " and column =" column)
+;;                 (println "container = " container-name " and column =" column)
                  (reloadPreloadedList container column)))))))
 
 (defn ^:export addOfflineListReturnColumn

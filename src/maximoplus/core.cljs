@@ -744,7 +744,6 @@
       )))
 
 (defn offline-set-value [control-name rel-name attribute value cb errb]
-  (println rel-map)
   (let [currow (get-state control-name :currrow)]
     (dispatch-upd control-name currow attribute value)
     (->
