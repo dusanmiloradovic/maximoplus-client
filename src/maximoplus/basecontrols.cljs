@@ -95,6 +95,7 @@
   (move-to-uniqueid [control uniqueid cb errb])
   (get-local-data-by-uniqueid [control uniqueid])
   (get-unique-id [container]);just for unique containers
+  (get-mbo-name [container])
   )
 
 (defprotocol UI
@@ -610,6 +611,9 @@
    [this]
    (c/get-state this :offlineenabled))
   Container
+  (get-mbo-name
+   [this]
+   mboname)
   (get-rel-containers
    [this]
    (c/get-state this :rel-containers)
@@ -3396,9 +3400,12 @@
           (loop [i 0 rez (p/get-resolved-promise "starting")] 
             (if (>= i cnt)
               rez
-              (let [_uid (aget (get-local-data container i) "_uniqueid")
+              (let [ld (get-local-data container i)
+                    _uid (->  ld :data  (get "_uniqueid"))
                     uid (.toString _uid)
-                    _cnt (UniqueMboContainer. (aget container "mboname") uid)
+                    mbo-name (get-mbo-name container)
+                    _ (println "mbo name=" mbo-name)
+                    _cnt (UniqueMboContainer. mbo-naem uid)
                     _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
                     _prm (..
                           rez
@@ -3462,11 +3469,11 @@
        (p/prom-all
         (map
          (fn [cont]
-           (->
+           (..
             (offl cont cont 0)
-            (p/then (fn []
+            (then (fn []
                       (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))))))
-         (vals c/app-container-registry)))
+         (vals @c/app-container-registry)))
        (then
         (fn []
           (c/set-offline-move-in-progress false)))))))
@@ -3485,7 +3492,7 @@
   []
   (map
    (fn [cont] (clearOfflinePreloaded cont))
-   (vals c/app-container-registry)))
+   (vals @c/app-container-registry)))
 
 (defn get-offline-list-name
   [container col-name]
