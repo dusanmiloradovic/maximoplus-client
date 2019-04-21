@@ -272,6 +272,16 @@
   (swap! container-registry dissoc (get-id container))
   )
 
+(def app-container-registry (atom {}));;for the offline reload, the starting point is the root, i.e app container
+
+(defn add-app-container-to-registry [container]
+  (swap! app-container-registry assoc (get-id container) container)
+  )
+
+(defn remove-app-container-from-registry [container]
+  (swap! app-container-registry dissoc (get-id container))
+  )
+
 (defn get-registered-columns [container-name]
   (set
    (map #(.toUpperCase %) (@registered-columns container-name))))

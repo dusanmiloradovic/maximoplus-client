@@ -593,7 +593,8 @@
   (^override get-prefix [this]
    mboname)
   (dispose [this]
-           (c/unregister-control-with-offline (c/get-id this)))
+           (c/unregister-control-with-offline (c/get-id this))
+           (c/remove-container-from-registry this))
   MessageProcess
   (on-reset
    [this])
@@ -824,6 +825,7 @@
      (googbase this mboname)
      (let [deferred (promise-chan)]
        (c/toggle-state this :deferred deferred)
+       (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok] (go (put! deferred ok)))
             nil)))) 
@@ -866,6 +868,10 @@
   (get-app
    [this]
    appname)
+  Foundation
+  (dispose
+   [this]
+   (c/remove-app-container-from-registry this))
   )
 
 (def-comp RelContainer [mbocont rel] MboContainer
