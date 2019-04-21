@@ -3405,7 +3405,7 @@
                     uid (.toString _uid)
                     mbo-name (get-mbo-name container)
                     _ (println "mbo name=" mbo-name)
-                    _cnt (UniqueMboContainer. mbo-naem uid)
+                    _cnt (UniqueMboContainer. mbo-name uid)
                     _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
                     _prm (..
                           rez
