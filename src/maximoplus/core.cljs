@@ -2055,6 +2055,7 @@
   "when there is no parent id it means clear the compolete table"
   [control-name parentid]
   (u/debug "DELETE OFFLINE DATA INTERNAL")
+  (println "Is ofline move in progress? " @offline-move-in-progress)
   (->
    (if-let [rel-containers (get-state control-name :rel-containers)]
      (->

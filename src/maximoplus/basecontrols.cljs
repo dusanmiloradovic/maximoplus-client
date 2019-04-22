@@ -613,7 +613,11 @@
   Container
   (get-mbo-name
    [this]
-   mboname)
+   (:objectName
+    (first
+     (filter
+      (fn [c] (not (:attributeName c)))
+      (c/get-control-metadata (c/get-id this))))))
   (get-rel-containers
    [this]
    (c/get-state this :rel-containers)
@@ -3404,7 +3408,6 @@
                     _uid (->  ld :data  (get "_uniqueid"))
                     uid (.toString _uid)
                     mbo-name (get-mbo-name container)
-                    _ (println "mbo name=" mbo-name)
                     _cnt (UniqueMboContainer. mbo-name uid)
                     _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
                     _prm (..
@@ -3438,8 +3441,7 @@
           (do
             (when-not (= 0 level)
               (.dispose container)
-              )))
-        "done")))))
+              ))))))))
 
                                         ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
 (defn ^:export notifyOfflineMoveFinished
@@ -3455,6 +3457,7 @@
        (offl container container 0)
        (then
         (fn []
+
           (c/set-offline-move-in-progress false)
           (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
 
@@ -3471,8 +3474,8 @@
          (fn [cont]
            (..
             (offl cont cont 0)
-            (then (fn []
-                      (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))))))
+            (then (fn [rez]
+                    (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))))))
          (vals @c/app-container-registry)))
        (then
         (fn []
