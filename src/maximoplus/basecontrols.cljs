@@ -3440,7 +3440,7 @@
                                    )))))))
           (do
             (when-not (= 0 level)
-              (.dispose container)
+            ;;  (.dispose container)
               ))))))))
 
                                         ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
@@ -3479,7 +3479,8 @@
          (vals @c/app-container-registry)))
        (then
         (fn []
-          (c/set-offline-move-in-progress false)))))))
+          (c/set-offline-move-in-progress false)
+          (println "Finished offloading")))))))
 
 (defn ^:export clearOfflinePreloaded
   [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
