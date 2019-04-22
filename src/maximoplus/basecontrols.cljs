@@ -3409,7 +3409,13 @@
                     uid (.toString _uid)
                     mbo-name (get-mbo-name container)
                     _cnt (UniqueMboContainer. mbo-name uid)
-                    _ (when (not= 0 level) (c/set-offline-enabled-nodel _cnt true )) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
+                    _ (when (not= 0 level)
+                        (c/set-offline-enabled-nodel _cnt true )
+                        (println "parent rel name " (aget orig-container "rel"))
+                        (p-deferred
+                         _cnt
+                         (c/add-relationship (c/get-id _cnt) (aget orig-container "rel") (c/get-id orig-container)))) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
+                    
                     _prm (..
                           rez
                           (then 
@@ -3436,7 +3442,7 @@
                                  (fn [_] (p/prom-all rel-promises)))
                                 (then
                                  (fn [_] 
-                                   (.dispose _cnt)
+                                   ;;(.dispose _cnt)
                                    )))))))
           (do
             (when-not (= 0 level)

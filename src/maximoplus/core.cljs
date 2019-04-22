@@ -456,16 +456,17 @@
   [rel-name uniqueId parentId flgs]
   (offline/moveFlagsToOffline rel-name (assoc flgs "uniqueid" uniqueId "parentid" parentId) ))
 
-(defn add-relationship [name object parent-name]
-  (if-not parent-name
-    (do
-      (aset rel-map name object)
-      (aset rel-map-reverse object name))
-    (let [parent-obj (aget rel-map parent-name)
-          r-obj-name (str parent-obj "_" object)
-          rls (get-state name :rel-containers)]
-      (aset rel-map name r-obj-name)
-      (aset rel-map-reverse r-obj-name name))))
+(defn add-relationship [name _object parent-name]
+  (let [object (.toLowerCase _object)]
+    (if-not parent-name
+      (do
+        (aset rel-map name object)
+        (aset rel-map-reverse object name))
+      (let [parent-obj (aget rel-map parent-name)
+            r-obj-name (str parent-obj "_" object)
+            rls (get-state name :rel-containers)]
+        (aset rel-map name r-obj-name)
+        (aset rel-map-reverse r-obj-name name)))))
 
 (mm/defcmd-with-prepare register-main-mboset
   [control-name main-object]
@@ -630,11 +631,11 @@
 
 (mm/defcmd-with-prepare register-list [list-name mbocontainer-name column-name force-qbe?]
   (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
-    (add-relationship list-name (str "list_" (.toUpperCase cont-obj-name) "_" (.toUpperCase column-name)) nil))
+    (add-relationship list-name (str "list_" (.toLowerCase cont-obj-name) "_" (.toLowerCase column-name)) nil))
   (fn[evt] (process-register-list-callback-event list-name evt)))
 
 (defn exist-offline-list? [mbocontainer-name column-name]
-  (offline/exist-table? (str "list_" (.toUpperCase (aget rel-map mbocontainer-name)) "_" (.toUpperCase column-name) )))
+  (offline/exist-table? (str "list_" (.toLowerCase (aget rel-map mbocontainer-name)) "_" (.toLowerCase column-name) )))
 
 (defn exist-table? [mbocontainer-name & raw?]
   (offline/exist-table? (aget rel-map mbocontainer-name) (first raw?))
@@ -642,14 +643,14 @@
 
 (defn offline-register-list [list-name mbocontainer-name column-name force-qbe? cb errb]
   (->
-   (offline/exist-table? (str "list_" (.toUpperCase (aget rel-map mbocontainer-name)) "_" (.toUpperCase column-name)))
+   (offline/exist-table? (str "list_" (.toLowerCase (aget rel-map mbocontainer-name)) "_" (.toLowerCase column-name)))
    (p/then
     (fn [ex?]
       (if-not ex?
         (errb "No offline list exists for this column")
         (do
           (add-peer-control nil list-name)
-          (add-relationship list-name (str "list_" (.toUpperCase (aget rel-map mbocontainer-name)) "_" (.toUpperCase column-name)) nil)
+          (add-relationship list-name (str "list_" (.toLowerCase (aget rel-map mbocontainer-name)) "_" (.toLowerCase column-name)) nil)
           (cb "done")))))))
 
 (mm/offline-alt-noobj register-list-with-offline register-list offline-register-list [list-name mbocontainer-name column-name force-qbe?])
