@@ -81,13 +81,15 @@
      (fn [res]
        (let [existing (aget res 0)]
          (if (empty? existing)
-           (->
-            (ddl
-             [{:type :create :name object-name :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}
-              {:type :create :name (str object-name "_flags") :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}])
-            (p/then (fn [_]
-                      (dml
-                       [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true))))
+           (do
+             (println "creating " object-name " from " object-meta)
+             (->
+              (ddl
+               [{:type :create :name object-name :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}
+                {:type :create :name (str object-name "_flags") :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}])
+              (p/then (fn [_]
+                        (dml
+                         [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true)))))
            (db/update {:key object-name
                        :name "objectMeta"
                        :key-name "objectName"
@@ -112,9 +114,9 @@
 
 (defn clearTable
   [control-name]
-;;  (.log js/console (str "calling the clear table for" control-name))
-  (dml [{:type :delete :name control-name :where (fn [_] true)}])
-  )
+  ;;  (.log js/console (str "calling the clear table for" control-name))
+  (println "calling clearTable " control-name)
+  (dml [{:type :delete :name control-name :where (fn [_] true)}]))
 
 
 
@@ -184,6 +186,7 @@
   [table-name]
   ;;once the offline posting is finished, delete the old records
   ;;unless it is marked as preloaded
+  (println "Calling delete-old-records " table-name)
   (->
    (db/exist-object? table-name)
    (p/then
@@ -383,7 +386,8 @@
 
 (defn delete-for-parent
   [rel-name parent-id & raw?]
-;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
+  ;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
+  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
   (do-offline 
    (fn [_]
      ;;(.log js/console (str "******starting delete for parent for " rel-name))

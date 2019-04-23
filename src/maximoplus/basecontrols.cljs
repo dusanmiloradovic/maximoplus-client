@@ -916,12 +916,22 @@
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
-     (p-deferred-on dfrd
-                    (doseq [c  (get-children this)]
-                      (when-not (c/get-state c :iscontainer)
-                        (clear-control c)
-                        (init-data c)))
-                    (when cb (cb this)))
+     ;;for the offline offload of complete data set, we need to traverse all the containters from top to bottom and fetch all data. The process goes like this
+     ;;1. fetch all the data from the main container
+     ;;2. iterate through all the records one by one, this will initiate the reset of the relcontainer.
+     ;;3. on reset fetch data for the rel container
+     ;;4. recursively call function for the rel container children (if any)
+     ;;The problem is no 3. , we need to be sure when the rel container is reset. I will check is there a designated deferred, and fire it if it is not fired already
+     (p-deferred-on
+      dfrd
+      (when-let [re-register-deferred (c/get-state this :re-register-deferred)]
+        (when-not (p/has-fired? re-registered-deferred)
+          (p/callback re-registered-deferred)))
+      (doseq [c  (get-children this)]
+        (when-not (c/get-state c :iscontainer)
+          (clear-control c)
+          (init-data c)))
+      (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
       (fn [ok]
@@ -3448,6 +3458,17 @@
             (when-not (= 0 level)
             ;;  (.dispose container)
               ))))))))
+
+(defn offl-new
+  [container level]
+  ;; the idea is to fetch the container rows, and then move records one by one in the loop. When we move the record, we will wait for all the rel containers to get the inder set, then call this function recursively for each rel container
+  (let [rel-containers (get-rel-containers container)]
+    (map (fn [r]
+           (let [d (p/get-deferred)]
+             (c/set-state r :re-registered-deferred d)))
+         rel-containers)
+    )
+  )
 
                                         ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
 (defn ^:export notifyOfflineMoveFinished

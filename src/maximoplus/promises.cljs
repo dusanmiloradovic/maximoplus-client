@@ -66,11 +66,7 @@
         (get-specified (.then p callback)))
       (then-catch
         [this errback]
-        (get-specified (.catch p errback)))
-      )
-    
-    )
-  )
+        (get-specified (.catch p errback))))))
 
 
 
