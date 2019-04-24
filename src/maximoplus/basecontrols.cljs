@@ -925,8 +925,8 @@
      (p-deferred-on
       dfrd
       (when-let [re-register-deferred (c/get-state this :re-register-deferred)]
-        (when-not (p/has-fired? re-registered-deferred)
-          (p/callback re-registered-deferred)))
+        (when-not (p/has-fired? re-register-deferred)
+          (p/callback re-register-deferred)))
       (doseq [c  (get-children this)]
         (when-not (c/get-state c :iscontainer)
           (clear-control c)
@@ -3399,76 +3399,39 @@
        (rejecter err))]
     ))
 
-(defn offl [container orig-container level]
-  "level 0 are original containers, when the recursion happens level increases. This is used for deletion of temporary containers. We don't want to delete the original containers (level 0)"
-  (let [rel-containers (get-rel-containers orig-container)]
-    (..
-     (get-row-count container nil nil)
-     (then 
-      (fn [e]
-        (let [cnt (get e 0)]
-          (.then (fetch-data container 0 cnt nil nil) (fn [_] cnt)))))
-     (then
-      (fn [cnt]
-        (if rel-containers ;fetch from the previos block will put data offline, from here we recursively go to rel containers
-          (loop [i 0 rez (p/get-resolved-promise "starting")] 
-            (if (>= i cnt)
-              rez
-              (let [ld (get-local-data container i)
-                    _uid (->  ld :data  (get "_uniqueid"))
-                    uid (.toString _uid)
-                    mbo-name (get-mbo-name container)
-                    _cnt (UniqueMboContainer. mbo-name uid)
-                    _ (when (not= 0 level)
-                        (c/set-offline-enabled-nodel _cnt true )
-                        (println "parent rel name " (aget orig-container "rel"))
-                        (p-deferred
-                         _cnt
-                         (c/add-relationship (c/get-id _cnt) (aget orig-container "rel") (c/get-id orig-container)))) ;otherwise the rownum will be overwritten in the offline table (unique cont has only row 0)
-                    
-                    _prm (..
-                          rez
-                          (then 
-                           (fn [_] (c/register-columns _cnt (c/get-registered-columns (c/get-id orig-container)) nil nil)))
-                          (then
-                           (fn [_] (fetch-data _cnt 0 1 nil nil)))
-                          (then
-                           (fn [_] (move-to-row _cnt 0 nil nil)))) 
-                    fl (fn [r]
-                         (let [rel-name (aget r "rel")
-                               rcont (RelContainer. _cnt rel-name)
-                               _ (c/set-offline-enabled-nodel rcont true)
-                               _prm-rel  (..
-                                          _prm
-                                          (then
-                                           (fn[_] (c/register-columns rcont (c/get-registered-columns (c/get-id r)) nil nil))))]
-                           (.then _prm-rel (fn [] 
+(declare offl)
 
-                                             (offl rcont r (inc level))))))
-                    rel-promises (map fl rel-containers)]
-                (recur (inc i) (..
-                                _prm
-                                (then
-                                 (fn [_] (p/prom-all rel-promises)))
-                                (then
-                                 (fn [_] 
-                                   ;;(.dispose _cnt)
-                                   )))))))
-          (do
-            (when-not (= 0 level)
-            ;;  (.dispose container)
-              ))))))))
-
-(defn offl-new
-  [container level]
-  ;; the idea is to fetch the container rows, and then move records one by one in the loop. When we move the record, we will wait for all the rel containers to get the inder set, then call this function recursively for each rel container
+(defn offl-helper
+  [index rows container]
   (let [rel-containers (get-rel-containers container)]
-    (map (fn [r]
-           (let [d (p/get-deferred)]
-             (c/set-state r :re-registered-deferred d)))
-         rel-containers)
-    )
-  )
+    (->
+     (move-to-row container index nil nil)
+     (p/then
+      (p/prom-all
+       (map (fn [r]
+              (let [move-deferred (p/get-deferred)]
+                (c/toggle-state r :re-register-deferred move-deferred)
+                (p/then
+                 move-deferred
+                 (offl r))))
+            rel-containers)))
+     (p/then
+      (fn [_]
+        (when (< index rows)
+          (offl-helper (inc index) rows container)))))))
+
+(defn offl
+  [container]
+  ;; the idea is to fetch the container rows, and then move records one by one in the loop. When we move the record, we will wait for all the rel containers to get the inder set, then call this function recursively for each rel container
+  (->
+   (get-row-count container nil nil)
+   (p/then (fn [e]
+             (let [cnt (get e 0)]
+               (.then (fetch-data container 0 cnt nil nil) (fn [_] cnt)))))
+   (p/then
+    (fn [cnt]
+      (when (> cnt 0)
+        (offl-helper 0 cnt container))))))
 
                                         ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
 (defn ^:export notifyOfflineMoveFinished
@@ -3481,10 +3444,9 @@
     (do
       (c/set-offline-move-in-progress true)
       (..
-       (offl container container 0)
+       (offl container)
        (then
         (fn []
-
           (c/set-offline-move-in-progress false)
           (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
 
@@ -3500,7 +3462,7 @@
         (map
          (fn [cont]
            (..
-            (offl cont cont 0)
+            (offl cont)
             (then (fn [rez]
                     (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))))))
          (vals @c/app-container-registry)))
