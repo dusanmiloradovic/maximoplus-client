@@ -3547,7 +3547,7 @@
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
   [container column list-columns value-column force?]
   (let [table-name (aget c/rel-map (c/get-id container))
-        list-table-name (str "list_" (.toUpperCase table-name) "_" (.toUpperCase column))]
+        list-table-name (str "list_" (.toLowerCase table-name) "_" (.toLowerCase column))]
     (mm/p-deferred 
      container
      (->

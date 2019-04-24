@@ -193,7 +193,7 @@
     (fn [ex?]
       (when ex?
         (->
-         (preloaded? (.toUpperCase table-name))
+         (preloaded? (.toLowerCase table-name))
          (p/then
           (fn [_preloaded?]
             (when-not _preloaded?
