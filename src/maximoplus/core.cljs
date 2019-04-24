@@ -56,6 +56,11 @@
     (<! _channel);;ignore what is put, just delay until the completion of init
     (f)))
 
+(def offline-posted (atom {}))
+
+;;this should be cleared when the device go offline. Once it is online, it should post the changes maximum once per table if it was not already posted.
+;;MAYBE I need this just for the application containers (because the change is calculated recursively)
+
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
@@ -2212,7 +2217,4 @@
           (map empty-data-tree? ch-tree))
          true)))
 
-(def offline-posted (atom {}))
 
-;;this should be cleared when the device go offline. Once it is online, it should post the changes maximum once per table if it was not already posted.
-;;MAYBE I need this just for the application containers (because the change is calculated recursively)
