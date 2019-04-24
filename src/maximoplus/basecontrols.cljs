@@ -851,6 +851,7 @@
         (c/is-offline-enabled this)
         (not (aget this "offlinePosting"))
         (not @c/is-offline);don't try to post offline when offline
+        (not (@c/offline-posted (c/get-id this)))
         )
      (aset this "offlinePosting" true)
      (->
@@ -868,6 +869,7 @@
                         (off/debug-table table-name)
                         (offline-post-finished this (first res))
                         (aset this "offlinePosting" false)
+                        (swap! c/offline-posted assoc (c/get-id this) true)
                         (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
    (fetch-data this start numrows cb errb))
   App

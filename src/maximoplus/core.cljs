@@ -63,7 +63,8 @@
     (do
       (u/debug "Going offline")
       (net/stop-server-push-receiving)
-      (swap! is-offline (fn [_] true)))
+      (swap! is-offline (fn [_] true))
+      (reset! offline-posted {}))
     (do
       (u/debug "Going online")
       (net/start-server-push-receiving bulk-ev-dispf error-dispf)
@@ -2210,3 +2211,8 @@
             (and a b))
           (map empty-data-tree? ch-tree))
          true)))
+
+(def offline-posted (atom {}))
+
+;;this should be cleared when the device go offline. Once it is online, it should post the changes maximum once per table if it was not already posted.
+;;MAYBE I need this just for the application containers (because the change is calculated recursively)
