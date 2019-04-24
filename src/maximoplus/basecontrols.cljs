@@ -3427,7 +3427,9 @@
    (get-row-count container nil nil)
    (p/then (fn [e]
              (let [cnt (get e 0)]
-               (.then (fetch-data container 0 cnt nil nil) (fn [_] cnt)))))
+               (.then
+                (kk! container "fetch" c/fetch-with-local 0 cnt nil nil)
+                (fn [_] cnt)))))
    (p/then
     (fn [cnt]
       (when (> cnt 0)

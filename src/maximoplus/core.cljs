@@ -185,14 +185,18 @@
   string
   (set-offline-enabled
     [container flag]
-    (set-offline-enabled (@container-registry container) flag))
+    (when-let [cont (@container-registry container)]
+      (set-offline-enabled cont  flag)))
   (set-offline-enabled-nodel
     [container flag]
-    (set-offline-enabled-nodel (@container-registry container) flag))
+    (when-let [cont (@container-registry container)]
+      (set-offline-enabled-nodel cont flag))
+    )
   (is-offline-enabled
     [container]
-    (is-offline-enabled (@container-registry container)))
-  )
+    (when-let [cont (@container-registry container)]
+      (is-offline-enabled cont)
+      )))
 
 (defn any-offline-enabled?
   ;;if the offline is enabled for any container, then we will switch to offline mode when there is no network
@@ -450,6 +454,7 @@
 
 (defn ^:export moveToOffline
   [rel-name uniqueId parentId dta]
+  (println "move to offline " rel-name " and " uniqueId " and " parentId " and " dta)
   (offline/moveToOffline rel-name (assoc dta "uniqueid" uniqueId "parentid" parentId) ))
 
 (defn ^:export moveFlagsToOffline
@@ -1092,6 +1097,7 @@
           (doseq [x (range  r (+ r nrs))]
             (let [{data :data flags :flags} (get (@object-data control-name) x)
                   dfgs {:row x :data (select-keys data reg-cols) :flags (select-keys flags reg-cols)}]
+;;              (println dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
           (when cb (cb "ok")))
@@ -2052,30 +2058,6 @@
   (let [table-name  (aget rel-map control-name)]
     (offline/delete-for-parent table-name parent-id (first raw?))))
 
-(defn delete-offline-data-internal
-  "when there is no parent id it means clear the compolete table"
-  [control-name parentid]
-  (u/debug "DELETE OFFLINE DATA INTERNAL")
-  (println "Is ofline move in progress? " @offline-move-in-progress)
-  (->
-   (if-let [rel-containers (get-state control-name :rel-containers)]
-     (->
-      (get-ids-for-parent control-name parentid :raw)
-      (p/then
-       (fn [uniques]
-         (->>
-          (doall
-           (mapcat (fn [u]
-                     (map (fn [r] 
-                            (delete-offline-data-internal r u))
-                          rel-containers))
-                   uniques
-                   ))
-          (p/prom-all)))))
-     (p/get-resolved-promise "norels"))
-   (p/then
-    (fn [_]
-      (delete-for-parent control-name parentid :raw)))))
 
                                         ;offline delete should be atomic, so recursive delete should not be done here, instead just prepare the hierarchy of control names to be deleted and call the atomic function in offline.cljs
 (defn prepare-offline-delete
@@ -2096,13 +2078,9 @@
 
 (defn ^:export deleteOfflineData
   [control-name & parentid]
-  (delete-offline-data-internal control-name (first parentid))
+  (delete-for-parent control-name (first parentid) :raw)
   )
 
-(defn  delete-raw-offline-data
-  [control-name & parentid]
-  (delete-offline-data-internal control-name (first parentid))
-  )
 
 
 (defn get-main-containers

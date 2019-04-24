@@ -25,6 +25,15 @@
       [this]
       true)))
 
+(extend-type js/Promise
+  Deferred
+  (then
+    [this cb]
+    (.then this cb))
+  (then-catch
+    [this errb]
+    (.catch this errb)))
+
 (defn get-deferred
   []
   (let [o (js/Object.)
