@@ -3489,6 +3489,7 @@
         (map
          (fn [cont]
            (let [comp-cloned-cont (comp-clone cont nil)]
+             (println "QBE " (aget cont "qbe"))
              (..
               (offl comp-cloned-cont)
               (then (fn [rez]
