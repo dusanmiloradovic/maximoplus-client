@@ -388,25 +388,28 @@
   [rel-name parent-id & raw?]
   ;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
   (println "calling delete for paretn for " rel-name " and parent id " parent-id)
-  (do-offline 
-   (fn [_]
-     ;;(.log js/console (str "******starting delete for parent for " rel-name))
-     )
-   (fn [_] (db/exist-object? rel-name))
-   (fn [ok]
-     (if ok
-       (dml [{:type :delete :name rel-name :where
-              #(if-not parent-id
-                 true
-                 (= parent-id (aget % "parentid"))) }
-             {:type :delete :name (str rel-name "_flags") :where
-              #(if-not parent-id
-                 true
-                 (= parent-id (aget % "parentid"))) }] true)
-       (p/get-resolved-promise "no table")))
-   (fn [_]
-     ;;(.log js/console (str "******ending delete for parent for " rel-name))
-     )))
+  (let [del-deferred (p/get-deferred)]
+    (do-offline 
+     (fn [_]
+       ;;(.log js/console (str "******starting delete for parent for " rel-name))
+       (@object-promises rel-name))
+     (fn [_]
+       (swap! object-promises assoc rel-name del-deferred))
+     (fn [_] (db/exist-object? rel-name))
+     (fn [ok]
+       (if ok
+         (dml [{:type :delete :name rel-name :where
+                #(if-not parent-id
+                   true
+                   (= parent-id (aget % "parentid"))) }
+               {:type :delete :name (str rel-name "_flags") :where
+                #(if-not parent-id
+                   true
+                   (= parent-id (aget % "parentid"))) }] true)
+         (p/get-resolved-promise "no table")))
+     (fn [_]
+       ;;(.log js/console (str "******ending delete for parent for " rel-name))
+       (p/callback del-deferred)))))
 
 
                                         ;move the function from core.cljs to here because it has to be atomic, otherwise inserts that come after delete may be deleted
