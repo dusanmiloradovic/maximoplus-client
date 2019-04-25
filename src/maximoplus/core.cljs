@@ -1375,7 +1375,7 @@
 (declare offline-move-in-progress)
 
 (defn reset-controls [control-names]
-                                        ;  (u/debug "doing the reset-controls for " control-names)
+  (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
     (when (and (is-offline-enabled control-name) (not @offline-move-in-progress) (not @is-offline));must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
