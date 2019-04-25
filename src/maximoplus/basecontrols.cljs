@@ -96,8 +96,8 @@
   (get-local-data-by-uniqueid [control uniqueid])
   (get-unique-id [container]);just for unique containers
   (get-mbo-name [container])
-  (clone [container parent]) ;;used for offline
-  (clone-shallow [container parent])
+  (comp-clone [container parent]) ;;used for offline
+  (comp-clone-shallow [container parent])
   )
 
 (defprotocol UI
@@ -613,14 +613,14 @@
    [this]
    (c/get-state this :offlineenabled))
   Container
-  (clone-shallow
+  (comp-clone-shallow
    [this parent]
    (MboContainer. mboname));;appcontainer relcontainer have their own implementation
-  (clone
+  (comp-clone
    [this parent]
-   (let [rez (clone-shallow this parent)
-         rel-containers (map (fn [c] (clone c rez))
-                             (get-rel-containers))]
+   (let [rez (comp-clone-shallow this parent)
+         rel-containers (map (fn [c] (comp-clone c rez))
+                             (get-rel-containers this))]
      (c/toggle-state rez :rel-containers rel-containers)
      rez
      ))
@@ -851,7 +851,7 @@
             (fn [ok] (go (put! deferred ok)))
             nil)))) 
   Container
-  (^override clone-shallow
+  (^override comp-clone-shallow
    [this parent]
    (AppContainer. mboname appname))
   (late-register
@@ -924,7 +924,7 @@
    [this]
    (c/is-offline-enabled (get-parent this)));;it doesn't make sense to have offline enabled for rel container, but not for main. Basically the change will allow to define the offline enabled only once in the project(for the app container), all the rules should be inherited from that
   Container
-  (^override clone-shallow
+  (^override comp-clone-shallow
    [this parent]
    (RelContainer. parent rel))
   (^override late-register
@@ -3488,9 +3488,9 @@
        (p/prom-all
         (map
          (fn [cont]
-           (let [cloned-cont (clone cont nil)]
+           (let [comp-cloned-cont (comp-clone cont nil)]
              (..
-              (offl cloned-cont)
+              (offl comp-cloned-cont)
               (then (fn [rez]
                       (off/mark-as-preloaded (aget c/rel-map (c/get-id cont))))))))
          (vals @c/app-container-registry)))
