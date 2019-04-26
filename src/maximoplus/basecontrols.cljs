@@ -59,6 +59,7 @@
 (defprotocol Container
   (get-rel-containers [this])
   (re-register-and-reset [cont cb errb]) ;previously the reset for the relcontainer also re-register it, which is bad if we manually want to reset the container after the qbe was set. Re-registration is required if the parent index has been changed
+  (re-register [cont]);;manually call it for offline offloading
   (get-key-attributes [this cb errb])
   (fetch-data [this start numrows cb errb])
   (fetch-current [this cb errb])
@@ -623,6 +624,8 @@
          rel-containers (map (fn [c] (comp-clone c rez))
                              (get-rel-containers this))]
      (c/register-columns rez reg-columns nil nil);;Maybe promise necessary, check
+     (when (c/is-offline-enabled this)
+       (c/set-offline-enabled rez true))
      (c/toggle-state rez :rel-containers rel-containers)
      rez
      ))
@@ -933,23 +936,18 @@
    [this]
    (mm/kk-branch-nocb! mbocont this "register" 
                        c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
+  (re-register
+   [this]
+   ;;simlified version used for offline offloading
+   (kk-nocb! this "re-register" c/register-mboset-byrel rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
    ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
 
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
-     ;;for the offline offload of complete data set, we need to traverse all the containters from top to bottom and fetch all data. The process goes like this
-     ;;1. fetch all the data from the main container
-     ;;2. iterate through all the records one by one, this will initiate the reset of the relcontainer.
-     ;;3. on reset fetch data for the rel container
-     ;;4. recursively call function for the rel container children (if any)
-     ;;The problem is no 3. , we need to be sure when the rel container is reset. I will check is there a designated deferred, and fire it if it is not fired already
      (p-deferred-on
       dfrd
-      (when-let [re-register-deferred (c/get-state this :re-register-deferred)]
-        (when-not (p/has-fired? re-register-deferred)
-          (p/callback re-register-deferred)))
       (doseq [c  (get-children this)]
         (when-not (c/get-state c :iscontainer)
           (clear-control c)
@@ -3438,17 +3436,13 @@
         (println " Moved " (c/get-id container) " to row " index " from " rows)
         (p/prom-all
          (map (fn [r]
-                (let [move-deferred (p/get-deferred)]
-              ;;    (println "Setting promise for " (c/get-id r) " and row " index " from " rows)
-                  (c/toggle-state r :re-register-deferred move-deferred)
-                  (p/then
-                   move-deferred
-                   (fn [_]
-                     ;;   (println "move deferred fired for " (c/get-id r) " and row " index " from " rows)
-                     (offl r)))))
+                (->
+                 (re-register r)
+                 (p/then (fn [_] (offl r)))))
               rel-containers))))
      (p/then
       (fn [_]
+        (println "???? " index " " rows)
         (when (< index rows)
 ;          (println "going further in loop")
           (offl-helper (inc index) rows container)))))))
@@ -3461,9 +3455,11 @@
    (p/then (fn [e]
              (let [cnt (get e 0)]
                (println "Fetching " (c/get-id container ) " with " cnt)
-               (.then
-                (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
-                (fn [_] cnt)))))
+               (if (and cnt (> cnt 0))
+                 (.then
+                  (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
+                  (fn [_] cnt))
+                 0))))
    (p/then
     (fn [cnt]
       (when (> cnt 0)
