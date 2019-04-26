@@ -3489,11 +3489,22 @@
         (map
          (fn [cont]
            (let [comp-cloned-cont (comp-clone cont nil)]
-             (println "QBE " (aget cont "qbe"))
-             (..
-              (offl comp-cloned-cont)
-              (then (fn [rez]
-                      (off/mark-as-preloaded (aget c/rel-map (c/get-id cont))))))))
+             (get-qbe cont
+                      (fn [qbe]
+                        (println "The qbe " qbe)
+                        (->
+                         (p/prom-all
+                          (map (fn [[k v ]]
+                                 (if (and v (not= "" v))
+                                   (set-qbe comp-cloned-cont k v nil nil)
+                                   (p/get-resolved-promise 1))
+                                 ) qbe))
+                         (p/then (fn [_]
+                                   (offl comp-cloned-cont)))
+                         (p/then (fn [rez]
+                                 (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))
+                                 (dispose comp-cloned-cont)))))
+                      nil)))
          (vals @c/app-container-registry)))
        (then
         (fn []
