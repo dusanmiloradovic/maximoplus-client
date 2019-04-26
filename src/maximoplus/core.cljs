@@ -959,6 +959,7 @@
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid")))
+      (println "fetched row callback " control-name " offline enabled? " (is-offline-enabled control-name))
       (when (and (not offline?)(is-offline-enabled control-name))
         "dont move to offline storage if already offline"
         (let [rel-name (aget rel-map control-name)

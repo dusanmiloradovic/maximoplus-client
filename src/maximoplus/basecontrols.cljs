@@ -619,8 +619,10 @@
   (comp-clone
    [this parent]
    (let [rez (comp-clone-shallow this parent)
+         reg-columns (@c/registered-columns (c/get-id this))
          rel-containers (map (fn [c] (comp-clone c rez))
                              (get-rel-containers this))]
+     (c/register-columns rez reg-columns nil nil);;Maybe promise necessary, check
      (c/toggle-state rez :rel-containers rel-containers)
      rez
      ))
@@ -3424,25 +3426,31 @@
 
 (defn offl-helper
   [index rows container]
+  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
   (let [rel-containers (get-rel-containers container)]
     (->
-     (move-to-row container index nil nil)
+     (do
+       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
+       (move-to-row container index nil nil)
+       )
      (p/then
       (fn [_]
+        (println " Moved " (c/get-id container) " to row " index " from " rows)
         (p/prom-all
          (map (fn [r]
                 (let [move-deferred (p/get-deferred)]
+              ;;    (println "Setting promise for " (c/get-id r) " and row " index " from " rows)
                   (c/toggle-state r :re-register-deferred move-deferred)
                   (p/then
                    move-deferred
                    (fn [_]
-                     (offl r)
-                     (println "move deferred fired for " (c/get-id r))))))
+                     ;;   (println "move deferred fired for " (c/get-id r) " and row " index " from " rows)
+                     (offl r)))))
               rel-containers))))
      (p/then
       (fn [_]
         (when (< index rows)
-          (println "going further in loop")
+;          (println "going further in loop")
           (offl-helper (inc index) rows container)))))))
 
 (defn offl
@@ -3452,8 +3460,9 @@
    (get-row-count container nil nil)
    (p/then (fn [e]
              (let [cnt (get e 0)]
+               (println "Fetching " (c/get-id container ) " with " cnt)
                (.then
-                (kk! container "fetch" c/fetch-with-local 0 cnt nil nil)
+                (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
                 (fn [_] cnt)))))
    (p/then
     (fn [cnt]
@@ -3491,7 +3500,6 @@
            (let [comp-cloned-cont (comp-clone cont nil)]
              (get-qbe cont
                       (fn [qbe]
-                        (println "The qbe " qbe)
                         (->
                          (p/prom-all
                           (map (fn [[k v ]]
