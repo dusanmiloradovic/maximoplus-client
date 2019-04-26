@@ -20,6 +20,10 @@
 
 (def object-promises (atom {}))
 
+(defn preloaded?
+  [table-name]
+  (db/preloaded? table-name))
+
 (defn enable-offline
   []
   (when-not (p/has-fired? offline-enabled)
@@ -180,7 +184,7 @@
     (fn [ex?]
       (when ex?
         (dml [{:type :update :name table-name :updateObject {"rownum" -1}}]))))))
-(declare preloaded?)
+
 
 (defn delete-old-records
   [table-name]
@@ -903,22 +907,15 @@
   [table-name]
   ;;when listToOffline is called, we will mark the flag on metadata. It is assumed that it will not be changed. I will provide the separate methid to clean the meta for all the lists,  if there is need to reload the offline dta
 ;;  (println "should mark as preloaded table " table-name)
-  (updateObjectMeta table-name "preloaded" true))
+  (updateObjectMeta table-name "preloaded" true)
+  (swap! (db/get-preloaded-cache) assoc table-name true))
 
 (defn unmark-as-preloaded
   [table-name]
-  (updateObjectMeta table-name "preloaded" nil))
+  (updateObjectMeta table-name "preloaded" nil)
+  (swap! (db/get-preloaded-cache) assoc table-name false))
 
-(defn preloaded?
-  [table-name]
-  ;;can be list or the preloaded container
-  (if table-name;;maybe list table has not been created yet
-    (p/then
-     (db/get-object-meta table-name)
-     (fn [meta]
-       (when meta
-         (aget meta "preloaded"))))
-    (p/get-resolved-promise false)))
+
 
 (defn get-lists
   [just-preloaded?]

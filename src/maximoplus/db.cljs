@@ -24,6 +24,7 @@
 
 (def ^:export SQLITENATIVE "sqlitenative")
 
+
 ;;(def ddl-lock (atom (p/get-resolved-promise "start")))
 
 ;;the idea is that ddl will block all the operations while dml will not. This should remove the need for the curr-oper promise in the offline. I will do it now and test it just for the sqlite and websql, but it should work fine for indexedDB as well
@@ -110,6 +111,7 @@
   (-get-return-list-value [this list-table-name rownum])
   (-update-after-alter [this object-name data])
   (-get-internal-qbe [this qbe]);;from Maximo to internal qbe presentation
+  (-get-preloaded-cache [this])
   )
 
 
@@ -238,6 +240,8 @@
     (u/debug "update-after-alter not implemented for indexeddb!"))
   (-get-internal-qbe [this qbe]
     qbe);;TODO once IndexedDB offline is done completely, review
+  (-get-preloaded-cache [this]
+    idb/preloaded-cache)
   )
 
 ;;WebSql and Sqlite are the same, setting the dialect will handle the difference
@@ -367,7 +371,7 @@
       [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName"}]
       true true)
      (p/then (fn [res]
-         ;;      (println "get-object-meta" res ".." (-> res first) "..." (-> res first first))
+               ;;      (println "get-object-meta" res ".." (-> res first) "..." (-> res first first))
                (when-not (empty? res)
                  (when-let [obj (-> res first first)]
                    (-> obj (aget sqlite/json-store-column) u/read-json )))))))
@@ -415,6 +419,8 @@
       (map (fn [[k v]]
              [k v])
            _qbe)))
+  (-get-preloaded-cache [this]
+    sqlite/preloaded-cache)
   )
 
 (def engine  (atom nil))
@@ -525,7 +531,33 @@
   (-update-after-alter @engine table-name data)
   )
 
+(defn get-preloaded-cache
+  []
+  (-get-preloaded-cache @engine))
+
+(defn preloaded?
+  [table-name]
+  (let [preloaded-cache (get-preloaded-cache)
+        cached (@preloaded-cache table-name)]
+    ;;can be list or the preloaded container
+    (if (nil? cached)
+      (if table-name;;maybe list table has not been created yet
+        (->
+         (get-object-meta table-name)
+         (p/then
+          (fn [meta]
+            (when meta
+              (aget meta "preloaded"))))
+         (p/then
+          (fn [preloaded?]
+            (swap! preloaded-cache table-name preloaded?)
+            preloaded?
+            )))
+        (p/get-resolved-promise false))
+      (p/get-resolved-promise cached))))
+
 (defn test-it
   []
   (setEngine "websql")
   (ddl [{:type :create :name "radnici" :key "id"}]))
+
