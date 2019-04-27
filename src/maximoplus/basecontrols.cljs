@@ -3518,18 +3518,17 @@
 (defn ^:export clearOfflinePreloaded
   [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
   (let [table-name (aget c/rel-map (c/get-id container))
-        chl (get-children container)]
-    (->
-     (off/unmark-as-preloaded table-name)
-     (p/then (fn [_] (off/clearTable table-name))))
+        chl (get-rel-containers container)]
+    (off/unmark-as-preloaded table-name)
+    (off/clearTable table-name)
     (doseq [c chl]
       (clearOfflinePreloaded c))))
 
 (defn ^:export unload
   []
-  (map
-   (fn [cont] (clearOfflinePreloaded cont))
-   (vals @c/app-container-registry)))
+;;  (.log js/console "app container registry " @c/app-container-registry)
+  (doseq [cont (vals @c/app-container-registry)]
+     (clearOfflinePreloaded cont)))
 
 (defn get-offline-list-name
   [container col-name]

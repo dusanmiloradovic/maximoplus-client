@@ -912,7 +912,7 @@
 
 (defn unmark-as-preloaded
   [table-name]
-  (updateObjectMeta table-name "preloaded" nil)
+  (updateObjectMeta table-name "preloaded" false)
   (swap! db/preloaded-cache assoc table-name false))
 
 

@@ -466,7 +466,7 @@
                    (let [a (first arr)
                          prm (p/get-promise
                               (fn [_resolve _reject]
-;;                                (u/debug "^^^^^" (first a) ".." (second a))
+                            ;;   (u/debug "^^^^^" (first a) ".." (second a))
                                 (.executeSql tx (first a) (second a)
                                              (fn [tx ok] (_resolve ok)))))]
                      (recur (rest arr) (conj rez prm))))))
