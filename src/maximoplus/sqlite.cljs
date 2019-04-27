@@ -26,8 +26,6 @@
 
 (def columns-lock (atom {}))
 
-(def preloaded-cache (atom {}))
-
 (declare get-table-columns)
 
 (defn get-new-columns-lock

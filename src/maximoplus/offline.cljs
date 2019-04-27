@@ -908,12 +908,12 @@
   ;;when listToOffline is called, we will mark the flag on metadata. It is assumed that it will not be changed. I will provide the separate methid to clean the meta for all the lists,  if there is need to reload the offline dta
 ;;  (println "should mark as preloaded table " table-name)
   (updateObjectMeta table-name "preloaded" true)
-  (swap! (db/get-preloaded-cache) assoc table-name true))
+  (swap! db/preloaded-cache assoc table-name true))
 
 (defn unmark-as-preloaded
   [table-name]
   (updateObjectMeta table-name "preloaded" nil)
-  (swap! (db/get-preloaded-cache) assoc table-name false))
+  (swap! db/preloaded-cache assoc table-name false))
 
 
 

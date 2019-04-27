@@ -16,6 +16,8 @@
 
 (declare get-unique-id)
 
+(declare preloaded?)
+
 (def ^:export INDEXEDDB "indexeddb")
 
 (def ^:export WEBSQL "websql")
@@ -111,7 +113,6 @@
   (-get-return-list-value [this list-table-name rownum])
   (-update-after-alter [this object-name data])
   (-get-internal-qbe [this qbe]);;from Maximo to internal qbe presentation
-  (-get-preloaded-cache [this])
   )
 
 
@@ -240,8 +241,6 @@
     (u/debug "update-after-alter not implemented for indexeddb!"))
   (-get-internal-qbe [this qbe]
     qbe);;TODO once IndexedDB offline is done completely, review
-  (-get-preloaded-cache [this]
-    idb/preloaded-cache)
   )
 
 ;;WebSql and Sqlite are the same, setting the dialect will handle the difference
@@ -419,8 +418,6 @@
       (map (fn [[k v]]
              [k v])
            _qbe)))
-  (-get-preloaded-cache [this]
-    sqlite/preloaded-cache)
   )
 
 (def engine  (atom nil))
@@ -461,13 +458,43 @@
    (ddl-internal @engine objects raw? readonly?))
   )
 
+(defn filter-preloaded
+  [objects]
+  (->
+   (p/prom-all
+    (map (fn [object]
+           (let [operation-type (:type object)
+                 object-name (:name object)]
+             (->
+              (preloaded? (:name object))
+              (p/then
+               (fn [prel?]
+                 (or (= :select operation-type )
+                     (= :select-by-key operation-type )
+                     (= :select-all operation-type )
+                     (not prel?)
+                     ))))))))
+   (p/then
+    (fn [rez]
+      (remove not rez)))))
+
 (defn ^:export dml
   ([objects]
-   (dml-internal @engine objects))
+   (->
+    (filter-preloaded objects)
+    (p/then (fn [_objects]
+              (dml-internal @engine _objects)))))
   ([objects raw?]
-   (dml-internal @engine objects raw?))
+   (->
+    (filter-preloaded objects)
+    (p/then (fn [_objects]
+              (dml-internal @engine _objects raw?))))
+   )
   ([objects raw? readonly?]
-   (dml-internal @engine objects raw? readonly?)))
+   (->
+    (filter-preloaded objects)
+    (p/then (fn [_objects]
+              (dml-internal @engine _objects raw? readonly?))))))
 
 (defn ^:export exist-object?
   [object-name]
@@ -531,14 +558,11 @@
   (-update-after-alter @engine table-name data)
   )
 
-(defn get-preloaded-cache
-  []
-  (-get-preloaded-cache @engine))
+(def preloaded-cache (atom {}))
 
 (defn preloaded?
   [table-name]
-  (let [preloaded-cache (get-preloaded-cache)
-        cached (@preloaded-cache table-name)]
+  (let [cached (@preloaded-cache table-name)]
     ;;can be list or the preloaded container
     (if (nil? cached)
       (if table-name;;maybe list table has not been created yet

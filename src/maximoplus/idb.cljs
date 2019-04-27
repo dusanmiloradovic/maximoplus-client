@@ -9,8 +9,6 @@
 
 (def database (atom nil))
 
-(def preloaded-cache (atom {}))
-
 (defn ^:export set-database-name [db-name]
   (reset! databaseName db-name)
 )
