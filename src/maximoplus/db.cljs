@@ -473,7 +473,8 @@
                      (= :select-by-key operation-type )
                      (= :select-all operation-type )
                      (not prel?)
-                     ))))))))
+                     ))))))
+         objects))
    (p/then
     (fn [rez]
       (remove not rez)))))
