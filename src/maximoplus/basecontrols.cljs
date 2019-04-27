@@ -805,7 +805,7 @@
            (kk! this "getQbe"
                 c/get-qbe-with-offline
                 (fn [e]
-                  (println "got qbe " e)
+;;                  (println "got qbe " e)
                   (let [ qbe (-> (get e 0)  u/vec-to-map)]
                     (when qbe
                       (aset this "qbe" qbe)

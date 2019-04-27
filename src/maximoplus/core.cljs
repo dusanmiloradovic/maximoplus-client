@@ -1336,28 +1336,29 @@
         ]
     (doseq [control-name control-names]
       (let [control (get-connected-control control-name)
-            _mess {:mboid mboid :currrow rownum :numrows 1}
-            prev-row (get-state control :currrow)
-            uid (get-local-data control-name rownum "_uniqueid")
-            org (get-state control :uniqueid)
-            mess (if uid
-                   (if-not (p/has-fired? org)
-                     (do
-;;                       (println "resolving the promise for " control-name " with " uid)
-                       (p/callback org uid)
-                       _mess)
-                     (do
-  ;;                     (println "already fired getting the new promise " control-name)
-                       (assoc _mess :uniqueid (p/get-resolved-promise uid))))
-                   (do
-    ;;                 (println "no uid leave it as it is " control-name)
-                     _mess))]
-        (set-states control mess)
-        (change-the-id-map! control-name mboid rownum)
-        (dispatch-peers! control-name "set-control-index" {:control-name control-name :mboid mboid :currrow rownum :prevrow prev-row})
-        (dispatch-datarow control-name rownum)
-        (if (not (= -1 rownum))
-          (dispatch-peers! control-name "setting-done" {:control-name control-name}))))))
+            _mess {:mboid mboid :currrow rownum :numrows 1}]
+        (when (and control (@container-registry control))
+          (let [prev-row (get-state control :currrow)
+                uid (get-local-data control-name rownum "_uniqueid")
+                org (get-state control :uniqueid)
+                mess (if uid
+                       (if-not (p/has-fired? org)
+                         (do
+                           ;;                       (println "resolving the promise for " control-name " with " uid)
+                           (p/callback org uid)
+                           _mess)
+                         (do
+                           ;;                     (println "already fired getting the new promise " control-name)
+                           (assoc _mess :uniqueid (p/get-resolved-promise uid))))
+                       (do
+                         ;;                 (println "no uid leave it as it is " control-name)
+                         _mess))]
+            (set-states control mess)
+            (change-the-id-map! control-name mboid rownum)
+            (dispatch-peers! control-name "set-control-index" {:control-name control-name :mboid mboid :currrow rownum :prevrow prev-row})
+            (dispatch-datarow control-name rownum)
+            (if (not (= -1 rownum))
+              (dispatch-peers! control-name "setting-done" {:control-name control-name}))))))))
 
 (defn clear-data-cache [control-name]
   ;;when clearing the data preserve the meta
@@ -1471,7 +1472,10 @@
 
 (defn bulk-ev-dispf [bulk-event];optimizacija performansi
   (doseq [e bulk-event]
-    (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e))) 0))
+    (try  (ev-dispf-from-str e) (catch js/Error e
+                                  (if js/console
+                                    (.log js/console e);;remove
+                                    (u/debug e)))) 0))
 
 (defn error-dispf[e]
   (let [error-code (nth e 0)
