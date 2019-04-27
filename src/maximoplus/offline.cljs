@@ -119,7 +119,7 @@
 (defn clearTable
   [control-name]
   ;;  (.log js/console (str "calling the clear table for" control-name))
-  (println "calling clearTable " control-name)
+;;  (println "calling clearTable " control-name)
   (dml [{:type :delete :name control-name :where (fn [_] true)}]))
 
 
@@ -169,7 +169,7 @@
 
 (defn ^:export debug-table
   [table-name]
-  (.log js/console (str "Debug rable " table-name))
+;;  (.log js/console (str "Debug rable " table-name))
   (..
    (dml [{:type :select :name table-name}])
    (then (fn [res]
@@ -190,7 +190,7 @@
   [table-name]
   ;;once the offline posting is finished, delete the old records
   ;;unless it is marked as preloaded
-  (println "Calling delete-old-records " table-name)
+;;  (println "Calling delete-old-records " table-name)
   (->
    (db/exist-object? table-name)
    (p/then
@@ -391,7 +391,7 @@
 (defn delete-for-parent
   [rel-name parent-id & raw?]
   ;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
-  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
+;;  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
   (let [del-deferred (p/get-deferred)]
     (do-offline 
      (fn [_]

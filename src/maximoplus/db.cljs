@@ -195,7 +195,7 @@
         [{:type :select-by-key  :name rel-name :index-column #js["parentid" "rownum"]  :key #js[parent-id rownum]}] true true)
        (p/then 
         (fn [res]
-          (u/debug "got the unique id for " rel-name " and rownum " rownum " and parent-id " _parent-id)
+;;          (u/debug "got the unique id for " rel-name " and rownum " rownum " and parent-id " _parent-id)
           (when-let [rt (-> res (aget 0))]
             (aget rt "uniqueid")))))))
   (-get-flags-array [this val] val)
@@ -481,7 +481,6 @@
       )
      (p/then
       (fn [rez]
-        (println rez)
         (remove not rez))))))
 
 (defn ^:export dml
@@ -489,20 +488,20 @@
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
-              (println "dml " _objects)
+    ;;          (println "dml " _objects)
               (dml-internal @engine _objects)))))
   ([objects raw?]
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
-              (println "dml " _objects)
+  ;;            (println "dml " _objects)
               (dml-internal @engine _objects raw?))))
    )
   ([objects raw? readonly?]
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
-              (println "dml " _objects)
+;;              (println "dml " _objects)
               (dml-internal @engine _objects raw? readonly?))))))
 
 (defn ^:export exist-object?

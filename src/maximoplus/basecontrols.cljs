@@ -3424,16 +3424,16 @@
 
 (defn offl-helper
   [index rows container]
-  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
+;;  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
   (let [rel-containers (get-rel-containers container)]
     (->
      (do
-       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
+;;       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
        (move-to-row container index nil nil)
        )
      (p/then
       (fn [_]
-        (println " Moved " (c/get-id container) " to row " index " from " rows)
+  ;;      (println " Moved " (c/get-id container) " to row " index " from " rows)
         (p/prom-all
          (map (fn [r]
                 (->
@@ -3442,7 +3442,7 @@
               rel-containers))))
      (p/then
       (fn [_]
-        (println "???? " index " " rows)
+    ;;    (println "???? " index " " rows)
         (when (< index rows)
 ;          (println "going further in loop")
           (offl-helper (inc index) rows container)))))))
@@ -3454,7 +3454,7 @@
    (get-row-count container nil nil)
    (p/then (fn [e]
              (let [cnt (get e 0)]
-               (println "Fetching " (c/get-id container ) " with " cnt)
+;;               (println "Fetching " (c/get-id container ) " with " cnt)
                (if (and cnt (> cnt 0))
                  (.then
                   (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)

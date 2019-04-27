@@ -98,7 +98,6 @@
 
 (defn prom-all-new
   [values]
-  (println "prom-all new " values)
   (let [rez-ar (ar/empty)]
     (doseq [r values]
       (ar/conj! rez-ar r))
