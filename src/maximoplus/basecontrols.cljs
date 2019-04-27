@@ -3458,7 +3458,9 @@
                (if (and cnt (> cnt 0))
                  (.then
                   (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
-                  (fn [_] cnt))
+                  (fn [_]
+                    (println "fetch finished u offl for " (c/get-id container) )
+                    cnt))
                  0))))
    (p/then
     (fn [cnt]
