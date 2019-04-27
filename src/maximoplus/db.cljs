@@ -460,41 +460,49 @@
 
 (defn filter-preloaded
   [objects]
-  (->
-   (p/prom-all
-    (map (fn [object]
-           (let [operation-type (:type object)
-                 object-name (:name object)]
-             (->
-              (preloaded? (:name object))
-              (p/then
-               (fn [prel?]
-                 (or (= :select operation-type )
-                     (= :select-by-key operation-type )
-                     (= :select-all operation-type )
-                     (not prel?)
-                     ))))))
-         objects))
-   (p/then
-    (fn [rez]
-      (remove not rez)))))
+  ;;  (println "filter-preoloaded " objects)
+  (let [vec-prom (map (fn [object]
+                        (let [operation-type (:type object)
+                              object-name (:name object)]
+                          (->
+                           (preloaded? (:name object))
+                           (p/then
+                            (fn [prel?]
+                              (when (or (= :select operation-type )
+                                        (= :select-by-key operation-type )
+                                        (= :select-all operation-type )
+                                        (not prel?))
+                                object))))))
+                      objects)]
+    ;;    (println "vec-prom " vec-prom)
+    (->
+     (p/prom-all-new
+      vec-prom
+      )
+     (p/then
+      (fn [rez]
+        (println rez)
+        (remove not rez))))))
 
 (defn ^:export dml
   ([objects]
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
+              (println "dml " _objects)
               (dml-internal @engine _objects)))))
   ([objects raw?]
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
+              (println "dml " _objects)
               (dml-internal @engine _objects raw?))))
    )
   ([objects raw? readonly?]
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
+              (println "dml " _objects)
               (dml-internal @engine _objects raw? readonly?))))))
 
 (defn ^:export exist-object?
@@ -563,23 +571,25 @@
 
 (defn preloaded?
   [table-name]
-  (let [cached (@preloaded-cache table-name)]
-    ;;can be list or the preloaded container
-    (if (nil? cached)
-      (if table-name;;maybe list table has not been created yet
-        (->
-         (get-object-meta table-name)
-         (p/then
-          (fn [meta]
-            (when meta
-              (aget meta "preloaded"))))
-         (p/then
-          (fn [preloaded?]
-            (swap! preloaded-cache table-name preloaded?)
-            preloaded?
-            )))
-        (p/get-resolved-promise false))
-      (p/get-resolved-promise cached))))
+  (if (= "objectMeta" table-name)
+    (p/get-resolved-promise false)
+    (let [cached (@preloaded-cache table-name)]
+      ;;can be list or the preloaded container
+      (if (nil? cached)
+        (if table-name;;maybe list table has not been created yet
+          (->
+           (get-object-meta table-name)
+           (p/then
+            (fn [meta]
+              (when meta
+                (aget meta "preloaded"))))
+           (p/then
+            (fn [preloaded?]
+              (swap! preloaded-cache assoc table-name preloaded?)
+              preloaded?
+              )))
+          (p/get-resolved-promise false))
+        (p/get-resolved-promise cached)))))
 
 (defn test-it
   []

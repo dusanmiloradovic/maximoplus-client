@@ -1,4 +1,5 @@
-(ns maximoplus.promises)
+(ns maximoplus.promises
+  (:require [maximoplus.arrays :as ar]))
 
 
 (defprotocol Deferred
@@ -94,3 +95,11 @@
 (defn prom-all
   [values]
   (get-specified (.all js/Promise (clj->js values))))
+
+(defn prom-all-new
+  [values]
+  (println "prom-all new " values)
+  (let [rez-ar (ar/empty)]
+    (doseq [r values]
+      (ar/conj! rez-ar r))
+    (get-specified (.all js/Promise rez-ar))))
