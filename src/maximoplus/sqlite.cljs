@@ -16,7 +16,7 @@
                 (if (aget js/window "sqlitePlugin")
                   "SQLITE"
                   "WEBSQL")
-                (catch js/Error e "NODE")))
+                (catch js/Error e "NODE"))))
 
 (def json-store-column "JSON_STORE");MAYBE a better name is requiredc
 
