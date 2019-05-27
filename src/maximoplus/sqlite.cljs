@@ -12,9 +12,11 @@
 (def database (atom nil))
 
 (def dialect (atom
-              (if (aget js/window "sqlitePlugin")
-                "SQLITE"
-                "WEBSQL")))
+              (if-not js/window
+                "NODE"
+                (if (aget js/window "sqlitePlugin")
+                  "SQLITE"
+                  "WEBSQL"))))
 
 (def json-store-column "JSON_STORE");MAYBE a better name is requiredc
 
