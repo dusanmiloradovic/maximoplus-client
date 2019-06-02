@@ -1006,8 +1006,9 @@
      (c/toggle-state this :deferred dfrd)
      (p-deferred-on dfrd
                     (doseq [c  (get-children this)]
-                      (clear-control c)
-                      (init-data c)))
+                      (when-not (c/get-state c :iscontainer)
+                        (clear-control c)
+                        (init-data c))))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
       idcont
