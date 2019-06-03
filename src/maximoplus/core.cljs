@@ -1020,7 +1020,7 @@
       (doseq [rd-evt  (nth evt 0)]
         (fetched-row-callback control-name rd-evt)
         )
-      (println "dispatching fetch-finished for " control-name)
+;;      (println "dispatching fetch-finished for " control-name)
       (dispatch-peers! control-name "fetch-finished" {}))
     (fn [err])))
 

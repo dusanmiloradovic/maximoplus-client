@@ -426,7 +426,7 @@
   [engine-type]
   (reset! engine
           (do
-            (u/debug engine-type)
+;;            (u/debug engine-type)
             (case engine-type
               "indexeddb" (IndexedDB.)
               "websql" (do

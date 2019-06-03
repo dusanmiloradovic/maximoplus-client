@@ -1724,7 +1724,7 @@
   (get-field
    [this column]
    (when-not (= (type column) js/String)
-     (println "!!!!!!!!!!!!!!!!!!!!!!MOSA")
+     (println "field type not string")
      (println column))
    (let [column-map (c/get-state this :column-map)]
      (when column-map (column-map (.toUpperCase column)))))
