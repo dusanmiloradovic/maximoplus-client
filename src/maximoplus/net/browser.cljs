@@ -10,7 +10,7 @@
    )
   (:import [goog.net XhrIo]))
 
-(def *timeout* 10000)
+(def ^:dynamic *timeout* 10000)
 
 (def tabsess (atom "123"))
 
@@ -116,11 +116,11 @@
              (first progress-callback)))
 
 
-(def *run-the-longpoll* (atom false))
+(def ^:dynamic *run-the-longpoll* (atom false))
 ;this is set to false for easier start-up control from maximoplus.core package
 ;if it was true that would indicate the longpoll is already running, so it couldn't be started
 
-(def *longpoll-min* 5000)
+(def ^:dynamic *longpoll-min* 5000)
 
 (defn long-poll
   [url callback error-callback]
