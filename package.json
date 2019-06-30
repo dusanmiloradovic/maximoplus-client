@@ -10,6 +10,7 @@
   "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1",
       "build":"lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
+      "buildnative":"lein with-profile rnprod cljsbuild once && cp -rT npmfilesnative public/javascript/react-native-prod",
       "builddev":"lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/"
   },
   "repository": {

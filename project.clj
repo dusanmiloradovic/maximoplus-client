@@ -105,7 +105,7 @@
                 [
                  {:source-paths ["src" "src-repl"],
                   :compiler
-                  {:pretty-print true,
+                  {:pretty-print false,
                    :output-to "public/javascript/react-native-prod/main.js",
                    :output-dir "public/javascript/react-native-prod",
                    :target :nodejs

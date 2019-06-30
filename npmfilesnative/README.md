@@ -1,0 +1,1 @@
+Instead of copying the files manually to maximoplus-core library after each build, we will copy the package.json and other files to the javascript build library from here, before the npm publish. build has to be done with npm
