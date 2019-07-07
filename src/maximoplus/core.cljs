@@ -2224,3 +2224,34 @@
          true)))
 
 
+(defn ^:export setDisplayWaitCursor
+  [f]
+  (setGlobalFunction "globalDisplayWaitCursor" f))
+
+(defn ^:export setRemoveWaitCursor
+  [f]
+  (setGlobalFunction "globalRemoveWaitCursor" f))
+
+(defn ^:export setErrorHandler
+  [f]
+  (setGlobalFunction "globalErrorHandler" f))
+
+(defn ^:export setCallbackHandler
+  [f]
+  (setGlobalFunction "globalCallbackHandler" f))
+
+(defn ^:export setPrepareCallHandler
+  [f]
+  (setGlobalFunction "globalPrepareCallHandler" f))
+
+(defn ^:export setFinishCallHandler
+  [f]
+  (setGlobalFunction "globalFinishCallHandler" f))
+
+(defn ^:export setOnLoggedOff
+  [f]
+  (setGlobalFunction "global_login_function" f))
+
+(defn ^:export setErrorMessageHandler
+  [f]
+  (setGlobalFunction "handleErrorMessage" f))

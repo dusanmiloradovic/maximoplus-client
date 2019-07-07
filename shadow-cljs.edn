@@ -23,19 +23,49 @@
   :scriptprod
   {:id :scriptprod
    :target :npm-module
-   :main maximoplus.rn/main
    :output-dir "out/"
    :compiler-options {
                       :output-wrapper true
                       :infer-externs true}}
-  :scriptprod2
-  {:id :scriptprod
+  :scriptprod-lib
+  {:id :scriptprod-lib
    :target :node-library
-   :main maximoplus.rn/main
    :output-dir "outlib/"
    :output-to "outlib/index.js"
    :exports {:AppContainer maximoplus.basecontrols/AppContainer
              :RelContainer maximoplus.basecontrols/RelContainer
+             :SintleMboContainer maximoplus.basecontrols/SingleMboContainer
+             :MboContainer maximoplus.basecontrols/MboContainer
+             :ComponentAdapter maximoplus.re/ComponentAdapter
+             :Grid maximoplus.re/Grid
+             :Section maximoplus.re/Section
+             :QbeSection maximoplus.re/QbeSection
+             :GLDialog maximoplus.re/GLDialog
+             :WorkflowControl maximoplus.re/WorkflowControl
+             :getDownloadURL maximoplus.net/getDownloadURL
+             :upload maximoplus.net/upload
+             :loginFunction maximoplus.core/max-login
+             :handleErrorMessage maximoplus.core/handleErrorMessage
+             :setDisplayWaitCursor maximoplus.core/setDisplayWaitCursor
+             :setRemoveWaitCursor maximoplus.core/setRemoveWaitCursor
+             :setErrorHandler maximoplus.core/setErrorHandler
+             :setCallbackHandler maximoplus.core/setCallbackHandler
+             :setPrepareCallHandler maximoplus.core/setPrepareCallHandler
+             :setFinishCallHandler maximoplus.core/setFinishCallHandler
+             :setOnLoggedOff maximoplus.core/setOnLoggedOff
+             :setErrorMessageHandler maximoplus.core/setErrorMessageHandler
+             :setServerRoot maximoplus.net/set-server-root
+             :isOffline maximoplus.core/isOffline
+             :setOffline maximoplus.core/setOffline
+             :formatToMaximoDate maximoplus.core/formatToMaximoDate
+             :generalLoginFuncation maximoplus.core/general-max-login
+             :offload maximoplus.basecontrols/offload
+             :unload maximoplus.basecontrols/unload
+             :clearOfflineList maximoplus.basecontrols/clearOfflinePreloadedList
+             :reloadPreloadedList maximoplus.basecontrols/reloadPreloadedList
+             :listToOffline maximoplus.basecontrols/listToOffline
+             :processFinishedOfflineWFs maximoplus.basecontrols/processFinishedOfflineWFs
+             :multiWFPrefetch maximoplus.basecontrols/multiWFPrefetch
              }
    :compiler-options {
                       :output-wrapper true
