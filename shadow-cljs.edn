@@ -28,5 +28,17 @@
    :compiler-options {
                       :output-wrapper true
                       :infer-externs true}}
+  :scriptprod2
+  {:id :scriptprod
+   :target :node-library
+   :main maximoplus.rn/main
+   :output-dir "outlib/"
+   :output-to "outlib/index.js"
+   :exports {:AppContainer maximoplus.basecontrols/AppContainer
+             :RelContainer maximoplus.basecontrols/RelContainer
+             }
+   :compiler-options {
+                      :output-wrapper true
+                      :infer-externs true}}
   }
  }
