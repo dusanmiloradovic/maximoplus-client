@@ -1,19 +1,20 @@
 (defproject maximoplus-client "1.0.0-SNAPSHOT"
   :description "core maximoplus client - clojurescript library"
   :dependencies [
-                 [org.clojure/clojurescript  "1.10.339"]
-                 [com.cognitect/transit-cljs "0.8.256"]
-                 [weasel "0.7.0"]
-                 [cider/piggieback "0.3.6"]
-                 [org.clojure/clojure "1.9.0"]
-                 [org.clojure/core.async "0.3.443"]
+;;                 [org.clojure/clojurescript  "1.10.339"]
+;;                 [com.cognitect/transit-cljs "0.8.256"]
+;;                 [weasel "0.7.0"]
+  ;;               [cider/piggieback "0.3.6"]
+                 [org.clojure/clojure "1.10.0"]
+;;                 [org.clojure/core.async "0.3.443"]
+                 [thheller/shadow-cljs "2.8.40"]
                  ]
 
 
-  :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-localrepo "0.5.4"]
-            [cider/cider-nrepl "0.17.0"]
-	    ]
+;;  :plugins [[lein-cljsbuild "1.1.7"]
+;;            [lein-localrepo "0.5.4"]
+;;            [cider/cider-nrepl "0.17.0"]
+;;	    ]
   :profiles {:publish;;no source map, important, because webpack fails if it doesn't find the source map from the end of the file
              [{:cljsbuild
                {:builds

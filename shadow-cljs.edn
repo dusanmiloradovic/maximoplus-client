@@ -1,0 +1,32 @@
+{:source-paths
+ ["src" ]
+ :builds
+ {:browser
+  {:id :browser
+   :target :browser
+   :output-dir "out"
+   :output-to "out/main.js"
+   :init-fn maximoplus.rn/main
+   :compiler-options {:source-map true
+                      :output-wrapper true
+                      :optimizations :simple
+                      :pretty-print true}}
+  :browserprod
+  {:id :browserprod
+   :target :browser
+   :output-dir "out"
+   :modules {:main {:entries [maximoplus.re maximoplus.core]}}
+   :compiler-options {:source-map false
+                      :output-wrapper true
+                      :optimizations :advanced
+                      :pretty-print false}}
+  :scriptprod
+  {:id :scriptprod
+   :target :npm-module
+   :main maximoplus.rn/main
+   :output-dir "out/"
+   :compiler-options {
+                      :output-wrapper true
+                      :infer-externs true}}
+  }
+ }

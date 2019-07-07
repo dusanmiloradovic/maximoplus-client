@@ -31,3 +31,5 @@
 /public/demo/kendo/vex-2.0.1/.gitignore
 .nrepl-port
 .repl*/
+/%P
+.shadow-cljs/
