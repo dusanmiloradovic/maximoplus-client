@@ -16,7 +16,8 @@ export {
   Section,
   QbeSection,
   GLDialog,
-  WorkflowControl
+  WorkflowControl,
+  ComponentAdapter
 } from "./out/maximoplus.re";
 export {
   getDownloadURL,
