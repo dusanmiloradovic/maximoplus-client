@@ -1,35 +1,25 @@
 {
-  "name": "maximoplus-jslibs",
-  "version": "1.0.0",
-  "description": "Node module dependencies for MaximoPlus",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs",
-    "test": "test"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
-    "buildnative": "lein with-profile rnprod cljsbuild once && cp -rT npmfilesnative public/javascript/react-native-prod",
-    "builddev": "lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
-    "buildprod": "lein run -m shadow.cljs.devtools.cli release scriptprod-lib",
-    "buildbrowserprod": "lein run -m shadow.cljs.devtools.cli release browserprod",
-      "buildbrowser": "lein run -m shadow.cljs.devtools.cli compile browser",
-      "bundle":"rollup -c"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@bitbucket.org/miloradovic/maximoplus.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "homepage": "https://bitbucket.org/miloradovic/maximoplus#readme",
-  "dependencies": {
-    "react-native-event-source": "^1.1.0"
-  },
-  "devDependencies": {
-    "rollup": "^1.16.6",
-    "rollup-plugin-commonjs": "^10.0.1",
-    "rollup-plugin-node-resolve": "^5.2.0"
-  }
+    "name": "maximoplus-core",
+    "version": "2.2.1",
+    "description": "",
+    "main": "rollup/index.js",
+    "scripts": {
+	"test": "echo \"Error: no test specified\" && exit 1",
+	"build": "lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
+	"buildnative": "lein with-profile rnprod cljsbuild once && cp -rT npmfilesnative public/javascript/react-native-prod",
+	"builddev": "lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
+	"buildprod": "lein run -m shadow.cljs.devtools.cli release scriptprod && rollup -c",
+	"buildbrowserprod": "lein run -m shadow.cljs.devtools.cli release browserprod",
+	"buildbrowser": "lein run -m shadow.cljs.devtools.cli compile browser",
+	"bundle":"rollup -c"
+    },
+    "author": "",
+    "license": "ISC",
+    "homepage": "https://maximoplus.com",
+    "devDependencies": {
+	"rollup": "^1.16.6",
+	"rollup-plugin-commonjs": "^10.0.1",
+	"rollup-plugin-node-resolve": "^5.2.0",
+        "react-native-event-source": "^1.1.0"
+    }
 }
