@@ -18,6 +18,15 @@
    :target :browser
    :output-dir "out"
    :modules {:main {:entries [maximoplus.re maximoplus.core maximoplus.basecontrols maximoplus.offline]}}
+   :compiler-options {:source-map false
+                      :output-wrapper true
+                      :optimizations :advanced
+                      :pretty-print false}}
+  :browserprodmaps
+  {:id :browserprodmaps
+   :target :browser
+   :output-dir "out"
+   :modules {:main {:entries [maximoplus.re maximoplus.core maximoplus.basecontrols maximoplus.offline]}}
    :compiler-options {:source-map true
                       :output-wrapper true
                       :optimizations :advanced
