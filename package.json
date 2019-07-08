@@ -12,7 +12,7 @@
     "build": "lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
     "buildnative": "lein with-profile rnprod cljsbuild once && cp -rT npmfilesnative public/javascript/react-native-prod",
     "builddev": "lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
-    "buildprod": "lein run -m shadow.cljs.devtools.cli release scriptprod",
+    "buildprod": "lein run -m shadow.cljs.devtools.cli release scriptprod-lib",
     "buildbrowserprod": "lein run -m shadow.cljs.devtools.cli release browserprod",
     "buildbrowser": "lein run -m shadow.cljs.devtools.cli compile browser"
   },
@@ -22,5 +22,8 @@
   },
   "author": "",
   "license": "ISC",
-  "homepage": "https://bitbucket.org/miloradovic/maximoplus#readme"
+  "homepage": "https://bitbucket.org/miloradovic/maximoplus#readme",
+  "dependencies": {
+    "react-native-event-source": "^1.1.0"
+  }
 }

@@ -7,6 +7,7 @@
    [goog.events]
    [goog.events.OnlineHandler]
    [maximoplus.arrays :as ar]
+   [maximoplus.net.protocols :refer [INet]]
    )
   (:import [goog.net XhrIo]))
 
@@ -116,45 +117,6 @@
              (first progress-callback)))
 
 
-(def ^:dynamic *run-the-longpoll* (atom false))
-;this is set to false for easier start-up control from maximoplus.core package
-;if it was true that would indicate the longpoll is already running, so it couldn't be started
-
-(def ^:dynamic *longpoll-min* 5000)
-
-(defn long-poll
-  [url callback error-callback]
-  (when @*run-the-longpoll*
-    (let [kk (xhr-connection)
-          start-time (.now js/Date)]
-      (.setWithCredentials kk true)
-      (.setTimeoutInterval kk 10000)
-      (goog.events/listenOnce kk
-                              gevt/SUCCESS
-                             (fn [e]
-                               (let [resp-text (if ( = "" (.getResponseText kk)) "" (u/transit-read (.getResponseText kk)))
-                                     status (. kk (getStatus))]
-                                 (callback resp-text)
-                                 (long-poll url callback error-callback))))
-      (goog.events/listenOnce kk
-                              gevt/TIMEOUT
-                              (fn [e]
-                                (long-poll url callback error-callback)))
-      (goog.events/listenOnce kk
-                              gevt/ERROR
-                              (fn [e]
-                                        ;seems like internet explorer doesn't handle correctly the timeouts, i.e. it does not send the timeout event, when it timeouts, instead it will give the error. The temporary workaround is to check the time when the request has started, and if it is long enough (more than 5 secs), assume that the long poll timed out and do it again
-                                (let [ek (.getLastErrorCode kk)
-                                      err (.getLastError kk)
-                                      status (.getStatus kk)
-                                      curr-ts (.now js/Date)]
-                                  (if (> (- curr-ts start-time) *longpoll-min*)
-                                    (long-poll url callback error-callback)
-                                    (do
-                                      (u/debug "long poll error")
-                                      (error-callback  [ek err status]))))))
-      (transmit kk (str url "?t=" @tabsess)))))
-
 (def event-source (atom nil))
 
 (defn sse-start
@@ -189,14 +151,30 @@
                           (cb (not (.isOnline oh)))))))
 
 
-(defn stop-server-push-receiving []
-  (if (exists? js/EventSource)
-    (sse-stop)
-    (reset! *run-the-longpoll* false)))
 
-(defn start-server-push-receiving [sse-path longpoll-path force-long-poll? cb errb]
-  (if (and (exists? js/EventSource) (not force-long-poll?))
-    (sse-start sse-path cb errb)
-    (when-not @*run-the-longpoll*
-      (reset! *run-the-longpoll* true)
-      (long-poll longpoll-path cb errb))))
+(deftype Browser []
+  INet
+  (-send-get
+    [this url callback error-callback]
+    (send-get url callback error-callback))
+  (-send-get
+    [this url callback error-callback data]
+    (send-get-with-data url data callback error-callback))
+  (-send-post
+    [this url data callback error-callback]
+    (send-post url data callback error-callback))
+  (-send-post
+    [this url data callback error-callback progress-callback]
+    (send-post url data callback error-callback progress-callback))
+  (-start-server-push-receiving
+    [this sse-path callback error-callback]
+    (sse-start sse-path callback error-callback))
+  (-stop-server-push-receiving
+    [this]
+    (sse-stop))
+  (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
+    [this]
+    @tabsess)
+  (-set-tabsess!
+    [this tabsess]
+    (reset! tabsess tabsess)))

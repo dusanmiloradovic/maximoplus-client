@@ -1,8 +1,10 @@
 (ns maximoplus.net
   (:require
    [maximoplus.utils :as u]
-   [maximoplus.net.browser :as b]
+   [maximoplus.net.browser :as b :refer [Browser]]
+   [maximoplus.net.rn :refer [ReactNative]]
    [cljs.core.async :refer [put! <! >! chan buffer poll!]]
+   [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess!]]
    )
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   )
@@ -12,8 +14,6 @@
 
 (defn init [] (str ( serverRoot) "/server/init"))
 (defn queuein [] (str ( serverRoot) "/server/queuein"))
-(defn longpoll [] (str ( serverRoot) "/server/longpoll"))
-(defn longpoll-batch [] (str ( serverRoot)  "/server/longpoll-batch"))
 (defn register [] (str ( serverRoot)"/server/register"))
 (defn login [] (str ( serverRoot) "/server/login"))
 (defn logout[] (str (serverRoot) "/server/logout"))
@@ -21,55 +21,16 @@
 (defn command [] (str ( serverRoot) "/server/command"))
 (defn sse [] (str (serverRoot) "/server/sse?t=" (get-tabsess)))
 
-(defprotocol INet
-  (-send-get
-    [this url callback error-callback]
-    [this url data callback error-callback])
-  (-send-post
-    [this url data callback error-callback]
-    [this url data callback error-callback progress-callback])
-  (-start-server-push-receiving
-    [this callback error-callback])
-  (-stop-server-push-receiving
-    [this])
-  (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
-    [this])
-  (-set-tabsess!
-    [this tabsess])
-  );;abstract away get post and server push receiving for nodejs and browser
-
-;;I decided there will be no nodejs implementation in the core lib, but by definng protocols, in the nodejs based libraries (GraphQL currently), it will be easier to define network functions
-
-
-(deftype Browser []
-  INet
-  (-send-get
-    [this url callback error-callback]
-    (b/send-get url callback error-callback))
-  (-send-get
-    [this url callback error-callback data]
-    (b/send-get-with-data url data callback error-callback))
-  (-send-post
-    [this url data callback error-callback]
-    (b/send-post url data callback error-callback))
-  (-send-post
-    [this url data callback error-callback progress-callback]
-    (b/send-post url data callback error-callback progress-callback))
-  (-start-server-push-receiving
-    [this callback error-callback]
-    (b/start-server-push-receiving (sse) (longpoll-batch) false callback error-callback))
-  (-stop-server-push-receiving
-    [this]
-    (b/stop-server-push-receiving))
-  (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
-    [this]
-    @b/tabsess)
-  (-set-tabsess!
-    [this tabsess]
-    (reset! b/tabsess tabsess))
-  )
-
-(def net-type (atom (Browser.)))
+(def net-type
+  (if (and
+       js/navigator
+       (= (aget js/navigator "product") "ReactNative" ))
+    (do
+      (println "Setting net type to React Native")
+      (atom (ReactNative.)))
+    (do
+      (println "Setting net type to browser")
+      (atom (Browser.)))))
 
 ;;(def command-pipeline (chan (buffer 1)))
 
@@ -114,7 +75,7 @@
 
 (defn start-server-push-receiving
   [callback error-callback]
-  (-start-server-push-receiving @net-type callback error-callback))
+  (-start-server-push-receiving @net-type (sse) callback error-callback))
 
 (defn stop-server-push-receiving
   []
@@ -124,7 +85,6 @@
 
 (def ^:export globalFunctions
   #js {"serverRoot" (fn [] "")
-       "longpollTimeout"  1800000 ;half an hour like default session
        }
   )
 

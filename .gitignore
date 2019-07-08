@@ -33,3 +33,6 @@
 .repl*/
 /%P
 .shadow-cljs/
+node_modules/
+outlib/
+/package-lock.json
