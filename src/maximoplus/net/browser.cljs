@@ -176,5 +176,5 @@
     [this]
     @tabsess)
   (-set-tabsess!
-    [this tabsess]
-    (reset! tabsess tabsess)))
+    [this _tabsess]
+    (reset! tabsess _tabsess)))

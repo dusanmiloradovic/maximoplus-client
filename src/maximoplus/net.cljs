@@ -124,6 +124,6 @@
              (fn [[[mx err err-group err-code] _] _ _]
                (errback err))  progress-callback))
 
-(defn ^:export set-server-root
+(defn ^:export setServerRoot
   [url]
   (aset globalFunctions "serverRoot" (fn [_] url)))
