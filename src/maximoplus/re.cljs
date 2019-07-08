@@ -975,4 +975,4 @@
 
 (defn ^:export rn-start
   []
-  (pritln "RN Start"))
+  (println "RN Start"))

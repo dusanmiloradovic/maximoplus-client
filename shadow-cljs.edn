@@ -1,7 +1,19 @@
 {:source-paths
  ["src" ]
  :builds
- {:browser
+ {
+  :rnprod
+  {:id :rnprod
+   :target :react-native
+   :main maximoplus.rn/main
+   :output-to "outrn/main.js"
+   :output-dir "outrn/"
+   :init-fn maximoplus.re/rn-start
+   :compiler-options {:source-map false
+                      :optimizations :advanced
+                      :output-wrapper true
+                      :infer-externs true}}
+  :browser
   {:id :browser
    :target :browser
    :output-dir "out"
@@ -71,15 +83,5 @@
                       :output-wrapper true
                       :infer-externs true}}
   }
- :rnprod
- {:id :rnprod
-  :target :react-native
-  :main maximoplus.rn/main
-  :output-to "outrn/main.js"
-  :output-dir "outrn/"
-  :init-fn maximoplus.re/rn-start
-  :compiler-options {:source-map false
-                     :optimizations :advanced
-                     :output-wrapper true
-                     :infer-externs true}}
+
  }
