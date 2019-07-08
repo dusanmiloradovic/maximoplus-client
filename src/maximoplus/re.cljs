@@ -972,3 +972,7 @@
   (on-fetch-finished
    [this])
   )
+
+(defn ^:export rn-start
+  []
+  (pritln "RN Start"))
