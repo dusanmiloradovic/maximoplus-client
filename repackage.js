@@ -22,7 +22,7 @@ export {
 export {
   getDownloadURL,
   upload,
-  set_server_root as setServerRoot
+  setServerRoot
 } from "./out/maximoplus.net";
 export {
   max_login as loginFunction,
