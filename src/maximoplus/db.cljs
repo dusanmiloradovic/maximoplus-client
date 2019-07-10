@@ -34,9 +34,11 @@
 (defn get-default-engine-name
   []
   ;;if the user
-  (if (exists? js/SQLite)
+  (if (and
+       (exists? js/navigator)
+       (= "ReactNative" (aget js/navigator "product")))
     SQLITENATIVE
-    (if (exists? js/sqlitePlugin)
+    (if (exists? js/sqlitePlugin);;Cordova
       SQLITE
       (if (exists? js/openDatabase)
         WEBSQL

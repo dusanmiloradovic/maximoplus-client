@@ -16,12 +16,7 @@
   [db]
   (reset! database db))
 
-(def dialect (atom
-              (try
-                (if (aget js/window "sqlitePlugin")
-                  "SQLITE"
-                  "WEBSQL")
-                (catch js/Error e "NODE"))))
+(def dialect (atom nil));;dialect set from db.cljs
 
 (def json-store-column "JSON_STORE");MAYBE a better name is requiredc
 
@@ -66,13 +61,12 @@
 (defn get-database
   []
   (when-not @database
+    (when (= "SQLITENATIVE" @dialect)
+      (throw (js/Error. "For React Native the database must be set from outside")))
     (reset! database
             (case @dialect
               "WEBSQL" (.openDatabase js/window @databaseName "1.0" @databaseName (* 5 1024 1024))
-              "SQLITE" (.openDatabase (aget js/window "sqlitePlugin") #js{"location" "default" "name" @databaseName})
-              "SQLITENATIVE" (.openDatabase js/SQLite @databaseName "1.0" @databaseName (* 100 1024 1024)
-                                              (fn [] (.log js/console "Sqlite datase open"))
-                                              (fn [err] (.log js/console (str "Sqlite database failed" err)))))))
+              "SQLITE" (.openDatabase (aget js/window "sqlitePlugin") #js{"location" "default" "name" @databaseName}))))
   @database)
 
 (defmulti sql-oper (fn [operation] (:type operation)))
