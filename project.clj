@@ -1,20 +1,20 @@
 (defproject maximoplus-client "1.0.0-SNAPSHOT"
   :description "core maximoplus client - clojurescript library"
   :dependencies [
-;;                 [org.clojure/clojurescript  "1.10.339"]
-;;                 [com.cognitect/transit-cljs "0.8.256"]
-;;                 [weasel "0.7.0"]
-  ;;               [cider/piggieback "0.3.6"]
+                 [org.clojure/clojurescript  "1.10.339"]
+                 [com.cognitect/transit-cljs "0.8.256"]
+                 [weasel "0.7.0"]
+                 [cider/piggieback "0.3.6"]
                  [org.clojure/clojure "1.10.0"]
-;;                 [org.clojure/core.async "0.3.443"]
+                 [org.clojure/core.async "0.3.443"]
                  [thheller/shadow-cljs "2.8.40"]
                  ]
 
 
-;;  :plugins [[lein-cljsbuild "1.1.7"]
-;;            [lein-localrepo "0.5.4"]
-;;            [cider/cider-nrepl "0.17.0"]
-;;	    ]
+  :plugins [[lein-cljsbuild "1.1.7"]
+            [lein-localrepo "0.5.4"]
+            [cider/cider-nrepl "0.17.0"]
+	    ]
   :profiles {:publish;;no source map, important, because webpack fails if it doesn't find the source map from the end of the file
              [{:cljsbuild
                {:builds
@@ -91,12 +91,15 @@
                    :target :nodejs
                    ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
-                   :language-in :ecmascript5
-                   :language-out :ecmascript5-strict
+                   ;;                   :language-in :ecmascript5
+                   ;;                 :language-out :ecmascript5-strict
+                   :foreign-libs [{:file "js-foreign/out/es.js"
+                                   :provides ["rn-eventsource"]}]
+                   
                    :optimizations :simple
+                   :verbose true
                    :closure-warnings {:externs-validation :off
-                                      :non-standard-jsdoc :off}
-                   }}
+                                      :non-standard-jsdoc :off}}}
 
 
                  ]}}]
@@ -112,8 +115,10 @@
                    :target :nodejs
                    ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
-                   :language-in :ecmascript5
-                   :language-out :ecmascript5-strict
+		   :foreign-libs [{:file "js-foreign/out/es.js"
+                                   :provides ["rn-eventsource"]}]
+                   :externs ["js-foreign/externs.js"]
+                   :hashbang false
                    :optimizations :advanced
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}

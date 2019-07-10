@@ -3,8 +3,11 @@
    [maximoplus.net.protocols :refer [INet]]
    [maximoplus.utils :as u]
    [maximoplus.net.browser :as b]
-   ["react-native-event-source" :as EventSource])
+   [rn-eventsource])
   )
+
+;;(set! *warn-on-infer* true)
+
 
 (def event-source (atom nil))
 
@@ -26,7 +29,7 @@
     (b/send-post url data callback error-callback progress-callback))
    (-start-server-push-receiving
     [this  sse-path callback error-callback]
-    (let [_event-source (EventSource. sse-path #js {:withCredentials true})]
+    (let [^js/EventSource _event-source (js/EventSource. sse-path #js {:withCredentials true})]
       (reset! event-source _event-source)
       (.addEventListener _event-source "message"
                          (fn [message]
@@ -39,8 +42,8 @@
                            (u/debug "SSE error, probably session end")))))
   (-stop-server-push-receiving
     [this]
-    (when @event-source
-      (.close (@event-source))
+    (when-let [^js/EventSource es @event-source]
+      (.close es)
       (reset! event-source nil)))
   (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
     [this]

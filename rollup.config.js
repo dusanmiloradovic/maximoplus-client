@@ -2,18 +2,16 @@ import resolve from "rollup-plugin-node-resolve";
 import commonjs from "rollup-plugin-commonjs";
 
 export default {
-  input: "repackage.js",
+  input: "js-foreign/EventSource.js",
   output: {
-    file: "rollup/index.js",
-    format: "esm"
+    file: "js-foreign/out/es.js",
+      format: "iife",
+      name:"es"
   },
   plugins: [
     resolve({
       jsnext: true,
       main: true
-    }),
-    commonjs({
-      include: ["out/**"]
     })
   ]
 };

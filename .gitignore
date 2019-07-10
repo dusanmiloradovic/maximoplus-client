@@ -37,3 +37,4 @@ node_modules/
 outlib/
 /package-lock.json
 rollup/
+js-foreign/out
