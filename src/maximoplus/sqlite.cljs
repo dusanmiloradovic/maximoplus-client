@@ -11,6 +11,11 @@
 
 (def database (atom nil))
 
+;;in React Native, we use Expo SQLite db, and that has to be created in Expo App first, and then set here
+(defn ^:export setDatabase
+  [db]
+  (reset! database db))
+
 (def dialect (atom
               (try
                 (if (aget js/window "sqlitePlugin")
