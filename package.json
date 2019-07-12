@@ -5,9 +5,9 @@
     "main": "out/main.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
+        "build": "rollup -c && lein with-profile publish cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/",
         "buildnative": "rollup -c && lein with-profile rnprod cljsbuild once && cp -rT npmfilesnative public/javascript/react-native-prod",
-        "builddev": "lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/"
+        "builddev": "rollup -c && lein cljsbuild once && cp -rT npmfiles public/javascript/maximoplus-core/"
     },
     "author": "",
     "license": "ISC",

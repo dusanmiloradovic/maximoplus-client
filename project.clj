@@ -26,10 +26,9 @@
                    :output-dir "public/javascript/maximoplus-core",
                    :output-to "public/javascript/maximoplus-core/main.js",
                    :closure-output-charset "US-ASCII"
-                   :language-in :ecmascript5
-                   :language-out :ecmascript5
-                   :parallel-build true
                    :optimizations :advanced
+                   :foreign-libs [{:file "js-foreign/out/es.js"
+                                   :provides ["rn-eventsource"]}]
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
                    }}]}
@@ -38,30 +37,6 @@
              [{  :cljsbuild
                {:builds
                 [
-                 ;;                 {:source-paths ["src" "src-repl"],
-                 ;;                  :compiler
-                 ;;                  {:pretty-print true,
-                 ;;                   :output-to "public/javascript/main.js",
-                 ;;                   :output-dir "public/javascript",
-                 ;;                   :closure-output-charset "US-ASCII"
-                 ;;                   :language-in :ecmascript5
-                 ;;                   :language-out :ecmascript5-strict
-                 ;;                   :optimizations :whitespace
-                 ;;                   :closure-warnings {:externs-validation :off
-                 ;;                                      :non-standard-jsdoc :off}
-                 ;;                   }}
-                 ;;    {:source-paths ["src" "src-repl"],
-                 ;;     :compiler
-                 ;;     {:pretty-print true,
-                 ;;      :output-to "public/javascript/simple/main.js",
-                 ;;      :output-dir "public/javascript/simple",
-                 ;;      :closure-output-charset "US-ASCII"
-                 ;;      :optimizations :simple
-                 ;;      :language-in :ecmascript5
-                 ;;      :language-out :ecmascript5-strict
-                 ;;      :closure-warnings {:externs-validation :off
-                 ;;                         :non-standard-jsdoc :off}
-                 ;;      }}
                  {:source-paths ["src"],
                   :compiler
                   {:pretty-print false
@@ -70,10 +45,9 @@
                    :output-dir "public/javascript/maximoplus-core",
                    :output-to "public/javascript/maximoplus-core/main.js",
                    :closure-output-charset "US-ASCII"
-                   :language-in :ecmascript5
-                   :language-out :ecmascript5
                    :optimizations :advanced
-                   :parallel-build true
+                   :foreign-libs [{:file "js-foreign/out/es.js"
+                                   :provides ["rn-eventsource"]}]
                    :source-map "public/javascript/maximoplus-core/source-map.js.map"
                    :closure-warnings {:externs-validation :off
                                       :non-standard-jsdoc :off}
