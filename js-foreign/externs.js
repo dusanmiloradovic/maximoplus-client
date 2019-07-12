@@ -1,24 +1,22 @@
 /**
-* @constructor
-* @param {string} url
-* @param {Object} options
-*/
-var EventSource = function(url,options){};
+ * @constructor
+ * @param {string} url
+ * @param {Object} options
+ */
+var RNEventSource = function(url, options) {};
 
 /**
-* @param {string} type
-* @param {Function} listener
-*/
-EventSource.prototype.addEventListener = function(type,listener){};
+ * @param {string} type
+ * @param {Function} listener
+ */
+RNEventSource.prototype.addEventListener = function(type, listener) {};
 
-EventSource.prototype.removeAllListeners = function(){};
+RNEventSource.prototype.removeAllListeners = function() {};
 
-EventSource.prototype.close = function(){};
+RNEventSource.prototype.close = function() {};
 
 /**
-* @param {string} type
-* @param {Function} listener
-*/
-EventSource.prototype.removeListener = function(type,listener){};
-
-
+ * @param {string} type
+ * @param {Function} listener
+ */
+RNEventSource.prototype.removeListener = function(type, listener) {};

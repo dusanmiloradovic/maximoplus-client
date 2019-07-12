@@ -1,5 +1,5 @@
-import  RNEventSource  from "react-native-event-source";
+import RNEventSource from "react-native-event-source";
 
-global.EventSource=RNEventSource;
+var gl = typeof global === "undefined" ? window : global;
 
-
+gl.RNEventSource = RNEventSource;

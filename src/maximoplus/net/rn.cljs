@@ -29,7 +29,7 @@
     (b/send-post url data callback error-callback progress-callback))
    (-start-server-push-receiving
     [this  sse-path callback error-callback]
-    (let [^js/EventSource _event-source (js/EventSource. sse-path #js {:withCredentials true})]
+    (let [^js/RNEventSource _event-source (js/RNEventSource. sse-path #js {:withCredentials true})]
       (reset! event-source _event-source)
       (.addEventListener _event-source "message"
                          (fn [message]
@@ -42,7 +42,7 @@
                            (u/debug "SSE error, probably session end")))))
   (-stop-server-push-receiving
     [this]
-    (when-let [^js/EventSource es @event-source]
+    (when-let [^js/RNEventSource es @event-source]
       (.close es)
       (reset! event-source nil)))
   (-get-tabsess;;tabsess handling will be done by the implemntation (browser or node)
