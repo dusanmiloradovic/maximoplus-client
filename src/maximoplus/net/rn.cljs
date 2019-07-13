@@ -35,7 +35,7 @@
                          (fn [message]
                            (let [_data (aget message "data")
                                  data (if (= "" _data) "" (u/transit-read _data))]
-                             (u/debug "SSE" data)
+;;                             (u/debug "SSE" data)
                              (callback data))))
       (.addEventListener _event-source "error"
                          (fn [error]

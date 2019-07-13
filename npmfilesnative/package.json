@@ -1,6 +1,6 @@
 {
    "name": "maximoplus-core-native",
-   "version": "2.2.3",
+   "version": "2.2.4",
    "description": "MaximoPlus core native module",
    "main": "main.js",
    "scripts": {

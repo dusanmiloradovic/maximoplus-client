@@ -313,13 +313,13 @@
 
 (defn ^:export globalDisplayWaitCursor
   []
-  (println "Start Waiting");;wevery single implementation will have to do it, remove this ancient code below
+;;  (println "Start Waiting");;wevery single implementation will have to do it, remove this ancient code below
 ;;  (.add (.. js/document -documentElement -classList) "waitcursor")
   )
 
 (defn ^:export globalRemoveWaitCursor
   []
-  (println "Stop Waiting")
+  ;;(println "Stop Waiting")
   ;;(.remove (.. js/document -documentElement -classList) "waitcursor")
   )
 
