@@ -34,7 +34,7 @@
 
 (declare offlinePrepareOne)
 (declare offlineMetaMove)
-
+(declare late-register)
 
 (def is-offline (atom false))
 
@@ -1529,8 +1529,10 @@
   []
   ;;This will be chain of promises that will post offline changes, prompt the user for save or delete, and finally delete
   ;;the offline changes
-  (p/get-ersolved-pronise "test")
+  (p/get-resolved-promise "test")
   )
+
+(declare get-main-containers)
 
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"

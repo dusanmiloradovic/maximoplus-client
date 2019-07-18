@@ -771,7 +771,7 @@
      (when (or (not ex-start)
                (not= ex-start start)
                (> numrows ex-numrows))
-       (c/set-state this :init-data {:start start :numrows numrows})))
+       (c/toggle-state this :init-data {:start start :numrows numrows})))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
