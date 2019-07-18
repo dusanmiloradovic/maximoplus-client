@@ -1523,6 +1523,13 @@
   []
   )
 
+(defn new-offline-post
+  []
+  ;;This will be chain of promises that will post offline changes, prompt the user for save or delete, and finally delete
+  ;;the offline changes
+  (p/get-ersolved-pronise "test")
+  )
+
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
@@ -1531,21 +1538,32 @@
   (stop-receiving-events)
   (if @is-offline
     (go (put! @page-init-channel "offline"))
-    (net/send-get (net/init)
-                  (fn [_ts] 
-                    (swap! logging-in (fn [_] false))
-                    (net/set-tabsess! (first _ts) )
-                    (go (put! @page-init-channel (first _ts)))
-                    (start-receiving-events))
-                  (fn [err]
-                    (u/debug "received page-init error")
-                    (u/debug err)
-                    (reset! page-init-called false)
-                    (reset! page-init-channel (promise-chan))
-                    (swap! logging-in (fn [_] true))
-                    (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
+    (->
+     (p/get-promise (fn [resolve reject]
+                      (net/send-get (net/init)
+                                    (fn [_ts] 
+                                      (reset! logging-in  false)
+                                      (net/set-tabsess! (first _ts) )
+                                      ;;                                     (go (put! @page-init-channel (first _ts)))
+                                      (start-receiving-events)
+                                      (resolve (first _ts)))
+                                    (fn [err]
+                                      (u/debug "received page-init error")
+                                      (u/debug err)
+                                      (reset! page-init-called false)
+                                      (reset! page-init-channel (promise-chan))
+                                      (swap! logging-in (fn [_] true))
+                                      (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
                                         ;(global-login-function err)
-                    ))))
+                                      ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
+                                      ))))
+     (p/then
+      (fn [_]
+        (new-offline-post)))
+     (p/then
+      (fn [_]
+        (late-register (get-main-containers))))
+     )))
 
 
 (defn get-control-metadata
