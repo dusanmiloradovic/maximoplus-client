@@ -370,6 +370,7 @@
                   (fn [ok]
                     (.call (aget globalFunctions "globalRemoveWaitCursor"))
                     (swap! logging-in (fn [_] false))
+                    (page-init)
                     ( okf ok))
                   (fn [err]
                     (.call (aget globalFunctions "globalRemoveWaitCursor"))
@@ -400,6 +401,7 @@
                  (fn [ok]
                    (.call (aget globalFunctions "globalRemoveWaitCursor"))
                    (swap! logging-in (fn [_] false))
+                   (page-init)
                    ( okf ok))
                  (fn [err]
                    (.call (aget globalFunctions "globalRemoveWaitCursor"))
@@ -1544,7 +1546,7 @@
                                     (fn [_ts] 
                                       (reset! logging-in  false)
                                       (net/set-tabsess! (first _ts) )
-                                      ;;                                     (go (put! @page-init-channel (first _ts)))
+                                      (go (put! @page-init-channel (first _ts)))
                                       (start-receiving-events)
                                       (resolve (first _ts)))
                                     (fn [err]
@@ -1563,7 +1565,11 @@
      (p/then
       (fn [_]
         (late-register (get-main-containers))))
-     )))
+     (p/then-catch
+      (fn [err]
+        (println "page init exception" err)
+        (reset! page-init-called false)
+        (reset! page-init-channel (promise-chan)))))))
 
 
 (defn get-control-metadata
@@ -2140,10 +2146,14 @@
                  (map (fn [c]
                         (->
                          (.lateRegister c)
-                         (p/then (fn [_](mm/kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))
-                                   ))
+                         (p/then (fn [_](mm/kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
+                                   (mm/kk-nocb! c "reset" reset)))
+                         (p/then (fn [_]
+                                   (let [{start :start numrows :numrows} (get-state c :init-data)]
+                                     (mm/kk-nocb! c "fetch" fetch start numrows))))
+                         (p/then (fn [_]
                                    (when-let [ch-rels (.getRelContainers c)]
                                      (late-register ch-rels))))))
                       containers)))))

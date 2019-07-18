@@ -563,8 +563,7 @@
            data (:data msg)]
        (when-let [rf (get (c/get-receive-functions this) type)]
          (rf data))
-       )))
-  )
+       ))))
 
 
 
@@ -768,6 +767,11 @@
               (when errb (errb err)))))))
   (init-data-with-off
    [this start numrows cb errb]
+   (let [{ex-start :start ex-numrows :numrows} (c/get-state this :init-data)]
+     (when (or (not ex-start)
+               (not= ex-start start)
+               (> numrows ex-numrows))
+       (c/set-state this :init-data {:start start :numrows numrows})))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
