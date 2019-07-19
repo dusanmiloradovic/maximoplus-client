@@ -35,7 +35,7 @@
 (declare offlinePrepareOne)
 (declare offlineMetaMove)
 (declare late-register)
-
+(declare get-app-containers)
 (def is-offline (atom false))
 
 (enable-console-print!)
@@ -487,7 +487,8 @@
 
 (mm/defcmd-with-prepare register-main-mboset
   [control-name main-object]
-  (add-relationship control-name main-object nil)
+  (do
+    (add-relationship control-name main-object nil))
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1566,7 +1567,8 @@
         (new-offline-post)))
      (p/then
       (fn [_]
-        (late-register (get-main-containers))))
+        (let [app-cont (get-app-containers)]
+          (late-register app-cont))))
      (p/then-catch
       (fn [err]
         (println "page init exception" err)
@@ -2127,7 +2129,6 @@
 
 (defn get-main-containers
   [& condition]
-                                        ;condition is the expression on ids
   (loop [ks  (keys @container-registry) rez []]
     (if (empty? ks)
       rez
@@ -2138,10 +2139,21 @@
                  (conj rez (@container-registry cid))
                  rez))))))
 
+(defn get-app-containers
+  []
+  (filter some?
+          (map (fn [[k v]]
+                 (println k)
+                 (when-let [st (get-state k :appcont)]
+                   v))
+               @container-registry)))
+
+
 (defn late-register 
   "if it was registered offline and then it goes online, or the session expires during the offline, and we need to re-register. There is no need to keep the track of promises, kk! macros take care of that"
                                         ;TODO make this a promise, because posting of offline changes must occur only when this has been finished
   [containers]
+  (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
     (p/prom-all (doall

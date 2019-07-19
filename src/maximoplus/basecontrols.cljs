@@ -639,8 +639,12 @@
    [this]
    (c/get-state this :rel-containers)
    )
-  (late-register [this]
-                 (kk-nocb! this "init" c/register-mainset mboname))
+  (late-register
+   [this]
+   (kk! this "init" c/register-mainset mboname
+        (fn [ok]
+          (go (put! (c/get-state this :deferred) ok)))
+        nil))
   (get-offline-objects-tree
    [this]
    (let [ret
@@ -854,7 +858,7 @@
        this
      (googbase this mboname)
      (let [deferred (promise-chan)]
-       (c/toggle-state this :deferred deferred)
+       (c/set-states this {:deferred deferred :appcont true})
        (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok] (go (put! deferred ok)))
