@@ -138,6 +138,8 @@
 
 (def page-init-channel (atom (promise-chan)));; this is the atom to the channel, and not just the channel, because on logout, we need to again re-initiate the page by calling the server, and getting the new tab session. When the session ends, and the login function is called the atom should again be reset to the new promise channel
 
+(def page-opened (atom false));;page-init will be reset each time the logoff is called. THe new login procedure keeps the components on the client side, and do the late-register. The late register will be called only if page-opened is set to true
+
 
 (defprotocol Receivable ; getting rid of events for propagate the server message, will use the core-async
   (process-received [component message])
@@ -1511,20 +1513,12 @@
   (when-not @is-offline
     (net/stop-server-push-receiving)))
 
-(declare pageDestructor)
-
 (defn- internal-page-destructor
-                                        ;ako se ne zove login stranica nego login f-ja mora prvo da se skloni sve sa stranice
   []
   (loop [arr wait-actions]
     (when-not (ar/empty? arr)
       (ar/pop! arr)
-      (recur arr)))
-  (pageDestructor))
-
-(defn ^:export pageDestructor
-  []
-  )
+      (recur arr))))
 
 (defn new-offline-post
   []
@@ -1543,37 +1537,39 @@
   (stop-receiving-events)
   (if @is-offline
     (go (put! @page-init-channel "offline"))
-    (->
-     (p/get-promise (fn [resolve reject]
-                      (net/send-get (net/init)
-                                    (fn [_ts] 
-                                      (reset! logging-in  false)
-                                      (net/set-tabsess! (first _ts) )
-                                      (go (put! @page-init-channel (first _ts)))
-                                      (start-receiving-events)
-                                      (resolve (first _ts)))
-                                    (fn [err]
-                                      (u/debug "received page-init error")
-                                      (u/debug err)
-                                      (reset! page-init-called false)
-                                      (reset! page-init-channel (promise-chan))
-                                      (swap! logging-in (fn [_] true))
-                                      (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
-                                        ;(global-login-function err)
-                                      ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
-                                      ))))
-     (p/then
-      (fn [_]
-        (new-offline-post)))
-     (p/then
-      (fn [_]
-        (let [app-cont (get-app-containers)]
-          (late-register app-cont))))
-     (p/then-catch
-      (fn [err]
-        (println "page init exception" err)
-        (reset! page-init-called false)
-        (reset! page-init-channel (promise-chan)))))))
+    (let [page-already-opened @page-opened]
+      (reset! page-opened true)
+      (->
+       (p/get-promise (fn [resolve reject]
+                        (net/send-get (net/init)
+                                      (fn [_ts] 
+                                        (reset! logging-in  false)
+                                        (net/set-tabsess! (first _ts) )
+                                        (go (put! @page-init-channel (first _ts)))
+                                        (start-receiving-events)
+                                        (resolve (first _ts)))
+                                      (fn [err]
+                                        (u/debug "received page-init error")
+                                        (u/debug err)
+                                        (reset! page-init-called false)
+                                        (reset! page-init-channel (promise-chan))
+                                        (swap! logging-in (fn [_] true))
+                                        (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
+                                        ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
+                                        ))))
+       (p/then
+        (fn [_]
+          (new-offline-post)))
+       (p/then
+        (fn [_]
+          (let [app-cont (get-app-containers)]
+            (when page-already-opened
+              (late-register app-cont)))))
+       (p/then-catch
+        (fn [err]
+          (println "page init exception" err)
+          (reset! page-init-called false)
+          (reset! page-init-channel (promise-chan))))))))
 
 
 (defn get-control-metadata
@@ -2143,15 +2139,11 @@
   []
   (filter some?
           (map (fn [[k v]]
-                 (println k)
-                 (when-let [st (get-state k :appcont)]
-                   v))
+                 (when (get-state k :appcont) v))
                @container-registry)))
 
 
 (defn late-register 
-  "if it was registered offline and then it goes online, or the session expires during the offline, and we need to re-register. There is no need to keep the track of promises, kk! macros take care of that"
-                                        ;TODO make this a promise, because posting of offline changes must occur only when this has been finished
   [containers]
   (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
@@ -2163,10 +2155,11 @@
                          (p/then (fn [_](mm/kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
-                                   (mm/kk-nocb! c "reset" reset)))
-                         (p/then (fn [_]
-                                   (let [{start :start numrows :numrows} (get-state c :init-data)]
-                                     (mm/kk-nocb! c "fetch" fetch start numrows))))
+              ;;                     (mm/kk-nocb! c "reset" reset)
+                                   ))
+;;                         (p/then (fn [_]
+;;                                   (let [{start :start numrows :numrows} (get-state c :init-data)]
+;;                                     (mm/kk-nocb! c "fetch" fetch start numrows))))
                          (p/then (fn [_]
                                    (when-let [ch-rels (.getRelContainers c)]
                                      (late-register ch-rels))))))
