@@ -1549,8 +1549,6 @@
                                         (start-receiving-events)
                                         (resolve (first _ts)))
                                       (fn [err]
-                                        (u/debug "received page-init error")
-                                        (u/debug err)
                                         (reset! page-init-called false)
                                         (reset! page-init-channel (promise-chan))
                                         (swap! logging-in (fn [_] true))
@@ -1567,7 +1565,6 @@
               (late-register app-cont)))))
        (p/then-catch
         (fn [err]
-          (println "page init exception" err)
           (reset! page-init-called false)
           (reset! page-init-channel (promise-chan))))))))
 
