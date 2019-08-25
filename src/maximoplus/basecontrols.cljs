@@ -563,8 +563,7 @@
            data (:data msg)]
        (when-let [rf (get (c/get-receive-functions this) type)]
          (rf data))
-       )))
-  )
+       ))))
 
 
 
@@ -640,8 +639,12 @@
    [this]
    (c/get-state this :rel-containers)
    )
-  (late-register [this]
-                 (kk-nocb! this "init" c/register-mainset mboname))
+  (late-register
+   [this]
+   (kk! this "init" c/register-mainset mboname
+        (fn [ok]
+          (go (put! (c/get-state this :deferred) ok)))
+        nil))
   (get-offline-objects-tree
    [this]
    (let [ret
@@ -768,6 +771,11 @@
               (when errb (errb err)))))))
   (init-data-with-off
    [this start numrows cb errb]
+   (let [{ex-start :start ex-numrows :numrows} (c/get-state this :init-data)]
+     (when (or (not ex-start)
+               (not= ex-start start)
+               (> numrows ex-numrows))
+       (c/toggle-state this :init-data {:start start :numrows numrows})))
    (fetch-data this start numrows cb errb))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
@@ -850,7 +858,7 @@
        this
      (googbase this mboname)
      (let [deferred (promise-chan)]
-       (c/toggle-state this :deferred deferred)
+       (c/set-states this {:deferred deferred :appcont true})
        (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok] (go (put! deferred ok)))
