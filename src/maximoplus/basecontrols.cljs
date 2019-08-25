@@ -1860,8 +1860,7 @@
       (if (or (not currow) (= -1 currow))
         (init-data-with-off container 0 1
                             (fn [ok]
-                              (when cb-handler (cb-handler ok))
-                              (c/move-to-with-offline (c/get-id container) 0))
+                              (when cb-handler (cb-handler ok)))
                             (fn [err]
                               (when err-handler (err-handler err))))
         (init-data-from-nd this currow)))))
@@ -2701,8 +2700,7 @@
           err-handler (get-errback-handler this)]
       (init-data-with-off container 0 (get-numrows this)
                           (fn [ok]
-                            (when cb-handler (cb-handler ok))
-                            (c/move-to-with-offline (c/get-id container) 0))
+                            (when cb-handler (cb-handler ok)))
                           (fn [err]
                             (when err-handler (err-handler err)))))))
   Picker
