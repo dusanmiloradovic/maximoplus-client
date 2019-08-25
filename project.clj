@@ -69,7 +69,7 @@
                    ;;                 :language-out :ecmascript5-strict
                    :foreign-libs [{:file "js-foreign/out/es.js"
                                    :provides ["rn-eventsource"]}]
-                   
+                   :hashbang false
                    :optimizations :simple
                    :verbose true
                    :closure-warnings {:externs-validation :off

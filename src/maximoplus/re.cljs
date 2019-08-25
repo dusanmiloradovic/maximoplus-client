@@ -587,7 +587,8 @@
    (set-external-state
     this
     (fn [state]
-      (let [rows-state (aget state "maxrows")
+      (let [_rows-state (aget state "maxrows")
+            rows-state (if _rows-state _rows-state #js[])
             row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
         (aset row-data column value)
         #js{"maxrows" rows-state}))))
@@ -599,7 +600,8 @@
         (let [colvals (u/to-js-obj _colvals)
               mrow (b/get-maximo-row row)
               ;;  maximo-row (b/get-data-row this mrow)
-              rows-state (aget state "maxrows")
+              _rows-state (aget state "maxrows")
+              rows-state (if _rows-state _rows-state #js[])
               rs (-> rows-state
                      (u/first-in-arr
                       #(=  mrow (aget % "mxrow"))))
@@ -621,7 +623,8 @@
    (set-external-state
     this
     (fn [state]
-      (let [rows-state (aget state "maxrows")
+      (let [_rows-state (aget state "maxrows")
+            rows-state (if _rows-state _rows-state #js[])
             rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
         (if rs
           (aset rs meta value)
@@ -633,7 +636,8 @@
    (set-external-state
     this
     (fn [state]
-      (let [rows-state  (aget state "maxrows")
+      (let [_rows-state  (aget state "maxrows")
+            rows-state (if _rows-state _rows-state #js[])
             row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
         (when row
           (js-delete row meta))
