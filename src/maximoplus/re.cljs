@@ -373,20 +373,15 @@
   Row
   (^override set-row-field-value
    [this field value]
-;;   (set-field-state this column "data" value)
-;;   (when (-> field (aget "metadata") :picker)
-;;     (b/set-field-value field value)
-;;     )
    (if (-> field (aget "metadata") :picker)
      (let [column (b/get-column field)
            ex-picker (get-field-state this column "picker")]
        (aset ex-picker "value" value)
        (set-field-state this column "picker" ex-picker)
        (b/set-field-value field value))
-       (this-as this
-         (let [column (b/get-column field)]
-           (set-field-state this column "data" value))))
-   )
+     (this-as this
+       (let [column (b/get-column field)]
+         (set-field-state this column "data" value)))))
   (^override set-field-enabled
    [this field enabled]
    (let [column (b/get-column field)]
