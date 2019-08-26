@@ -2909,11 +2909,14 @@
    (if (= value "") ;;clearing of the section
      (changed-row this nil)
      (when-let [picker-list (get-picker-list this)]
-       (doseq [dr (get-data-rows picker-list)]
-         (let [row-key-value (get-field-local-value dr (.toUpperCase pickerkeycol))]
-           (if (= row-key-value value)
-             (pick-row picker-list dr)
-             (unpick-row picker-list dr)))))))
+       (do
+         (println "debug, got the picker list")
+         (doseq [dr (get-data-rows picker-list)]
+           (let [row-key-value (get-field-local-value dr (.toUpperCase pickerkeycol))]
+             (if (= row-key-value value)
+               (pick-row picker-list dr)
+               (unpick-row picker-list dr)))))
+       (println "keine pickerlist"))))
   (^override changed-row
    [this row]
    ;;I dont know if this is necessary
