@@ -549,6 +549,7 @@
   MessageProcess
   (on-fetch-finished
    [this]
+   (println "Called on fetch finished")
    (when (c/get-state this :fetching)
      (c/toggle-state this :fetching false)
      (move-externals this)))
@@ -557,8 +558,10 @@
    [this rows]
    (doseq [row rows]
      (let [maximo-row (b/get-data-row this (aget row "mxrow"))]
-       (aset row "rowSelectedAction" (fn [_] (b/selected-action maximo-row)) )))
-   )
+       (aset row "rowSelectedAction"
+             (fn [_]
+               (js/requestAnimationFrame ;;performance optimization for react and react native. all relevant browsers and react native support this
+                (fn [_] (b/selected-action maximo-row))))))))
   (move-externals
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
