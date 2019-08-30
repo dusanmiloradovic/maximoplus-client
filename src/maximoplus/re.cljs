@@ -153,6 +153,7 @@
   (get-external-state [this property])
   (before-move-externals [this rows])
   (move-externals [this])
+  (row-action [this mxrownum]);;instead of rowSelectedAction, which results in expensive js closure
   )
 
 
@@ -554,6 +555,12 @@
      (c/toggle-state this :fetching false)
      (move-externals this)))
   Reactive
+  (row-action ;;instead of the closure below
+   [this mxrownum]
+   (js/requestAnimationFrame
+    (fn [_]
+      (let [maximo-row (b/get-data-row this mxrownum)]
+        (b/selected-action maximo-row)))))
   (before-move-externals
    [this rows]
    (doseq [row rows]
