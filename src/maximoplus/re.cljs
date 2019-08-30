@@ -550,7 +550,6 @@
   MessageProcess
   (on-fetch-finished
    [this]
-   (println "Called on fetch finished")
    (when (c/get-state this :fetching)
      (c/toggle-state this :fetching false)
      (move-externals this)))
