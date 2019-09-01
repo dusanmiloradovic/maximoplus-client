@@ -2153,6 +2153,7 @@
                           :first-maxrow 0
                           :currrow -1
                           :grid true
+                          :fetch-flags false ;;Perf optmization for React - for the lists don't fetch flags. If in the futeure we need to now this, I will provide the method
                           :columns vcols
                           })
            (c/register-columns container  vcols
