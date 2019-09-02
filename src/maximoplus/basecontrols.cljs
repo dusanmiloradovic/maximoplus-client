@@ -1868,7 +1868,10 @@
   (on-set-control-index
    [this row]
    "when the container row has been changed, we have to fetch the data for the section(not all the columns might have been fetched). This should not be done while the fetching from the container is in progress, for the perfomanse reasons"
-   (when-not (= -1 (js/parseInt row))
+   (when-not (or
+              (= row (c/get-state this :sec-curr-row))
+              (= -1 (js/parseInt row)))
+     (c/toggle-state this :sec-curr-row row)
      (if-let [fc (aget container "fetching")]
        (when-not (aget this "fpause")
          (aset this "fpause" true)
@@ -1883,6 +1886,7 @@
                     (add-row this x)))
   (on-reset [this]
             (clear-control this)
+            (c/toggle-state this :sec-curr-row -1)
             (set-enabled this false)
             )
   (on-set-fieldflag
