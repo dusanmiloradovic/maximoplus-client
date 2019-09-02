@@ -1868,19 +1868,22 @@
   (on-set-control-index
    [this row]
    "when the container row has been changed, we have to fetch the data for the section(not all the columns might have been fetched). This should not be done while the fetching from the container is in progress, for the perfomanse reasons"
-   (when-not (or
-              (= row (c/get-state this :sec-curr-row))
-              (= -1 (js/parseInt row)))
-     (c/toggle-state this :sec-curr-row row)
-     (if-let [fc (aget container "fetching")]
-       (when-not (aget this "fpause")
-         (aset this "fpause" true)
+   (let [sec-curr-row (c/get-state this :sec-curr-row)
+         kond  (and
+                (not= row sec-curr-row)
+                (not= -1 (js/parseInt row)))]
+;;     (println sec-curr-row ",,," row  (= row sec-curr-row) "--" (= -1 (js/parseInt row)) "!!!!!!" kond)
+     (when kond
+       (c/toggle-state this :sec-curr-row row)
+       (if-let [fc (aget container "fetching")]
+         (when-not (aget this "fpause")
+           (aset this "fpause" true)
                                         ;performance problems, every on-set-indexs triggers fetch, do it just once for the main grid fetch
-         
-         (p/then fc (fn [fullfill]
-                      (aset this "fpause" false)
-                      (mm/c! this "fetch" fetch-data container (get-currow container) 1))))
-       (mm/c! this "fetch" fetch-data container row 1))))
+           
+           (p/then fc (fn [fullfill]
+                        (aset this "fpause" false)
+                        (mm/c! this "fetch" fetch-data container (get-currow container) 1))))
+         (mm/c! this "fetch" fetch-data container row 1)))))
   (on-fetched-row [this x]
                   (when (:row x)
                     (add-row this x)))
@@ -2571,33 +2574,38 @@
             (update-paginator-internal this))
   (on-set-control-index
    [this row]
-   (when-not (= -1 row)
-     (when-let [mtd (c/get-state this :moveToDeferred)]
-       (go (put! mtd row)))
-     (let [fmr (get-firstmaxrow this)
-           ^number first-maxrow (if (= -1 fmr) 0 fmr)
-           norows (get-numrows this)
-           last-row (+ first-maxrow (dec norows))
-           _row (js/parseInt row)]
-       
-       (c/toggle-state this :highlighted row)
-       (if (and (<= _row last-row) (>= _row first-maxrow))
-         (when-not (aget container "fetching")
-           (mm/c! this "fetch" fetch-data  container row 1))
-         (if (>= _row (+ first-maxrow norows))
-           (do
+   (let [grid-curr-row (c/get-state this :grid-curr-row)
+         kond  (and
+                (not= row grid-curr-row)
+                (not= -1 (js/parseInt row)))]
+     (when kond
+       (c/toggle-state this :grid-curr-row row)
+       (when-let [mtd (c/get-state this :moveToDeferred)]
+         (go (put! mtd row)))
+       (let [fmr (get-firstmaxrow this)
+             ^number first-maxrow (if (= -1 fmr) 0 fmr)
+             norows (get-numrows this)
+             last-row (+ first-maxrow (dec norows))
+             _row (js/parseInt row)]
+         
+         (c/toggle-state this :highlighted row)
+         (if (and (<= _row last-row) (>= _row first-maxrow))
+           (when-not (aget container "fetching")
+             (mm/c! this "fetch" fetch-data  container row 1))
+           (if (>= _row (+ first-maxrow norows))
+             (do
                                         ;             (set-table-control-data (get-id this) #(assoc % :first-maxrow (- row (dec norows))))
-             (mm/loop-arr [dr (get-data-rows this)]
-                          (when (< (get-maximo-row dr) (- _row (dec norows)))
-                            (remove-child this dr)))
-             (when-not (aget container "fetching")
-               (mm/c! this "fetch" fetch-data  container (inc last-row) (- row (dec last-row)))))
-           (do
-             (doseq [dr (get-data-rows this)]
-               (when (> (get-maximo-row dr) (+ row (dec norows)))
-                 (remove-child this dr)))
-             (when-not (aget container "fetching")
-               (mm/c! this "fetch" fetch-data  container row (- first-maxrow row)))))))))
+               (mm/loop-arr [dr (get-data-rows this)]
+                            (when (< (get-maximo-row dr) (- _row (dec norows)))
+                              (remove-child this dr)))
+               (when-not (aget container "fetching")
+                 (mm/c! this "fetch" fetch-data  container (inc last-row) (- row (dec last-row)))))
+             (do
+               (doseq [dr (get-data-rows this)]
+                 (when (> (get-maximo-row dr) (+ row (dec norows)))
+                   (remove-child this dr)))
+               (when-not (aget container "fetching")
+                 (mm/c! this "fetch" fetch-data  container row (- first-maxrow row))))))))))
   Component
   (get-col-attrs [this]
                  (c/get-state this :colAttrs))
