@@ -562,13 +562,7 @@
       (let [maximo-row (b/get-data-row this mxrownum)]
         (b/selected-action maximo-row)))))
   (before-move-externals
-   [this rows]
-   (doseq [row rows]
-     (let [maximo-row (b/get-data-row this (aget row "mxrow"))]
-       (aset row "rowSelectedAction"
-             (fn [_]
-               (js/requestAnimationFrame ;;performance optimization for react and react native. all relevant browsers and react native support this
-                (fn [_] (b/selected-action maximo-row))))))))
+   [this rows])
   (move-externals
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
@@ -613,7 +607,6 @@
     (fn [state]
         (let [colvals (u/to-js-obj _colvals)
               mrow (b/get-maximo-row row)
-              ;;  maximo-row (b/get-data-row this mrow)
               _rows-state (aget state "maxrows")
               rows-state (if _rows-state _rows-state #js[])
               rs (-> rows-state
@@ -621,12 +614,9 @@
                       #(=  mrow (aget % "mxrow"))))
               row-data (when rs (aget rs type ))]
           (if-not row-data
-            (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{}
-                                ;;"rowSelectedAction" (fn [_] (b/selected-action maximo-row))
-                                )]
+            (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
               (aset ndata type colvals)
-              (ar/conj! rows-state ndata)
-              )
+              (ar/conj! rows-state ndata))
             (if (object-empty? row-data)
               (aset rs type colvals)
               (loop-arr [k (js-keys colvals)]
