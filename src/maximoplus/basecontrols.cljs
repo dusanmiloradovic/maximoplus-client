@@ -2456,17 +2456,22 @@
   (row-selected-action
    [this row-control]
    (when-let [mr (get-maximo-row row-control)]
-     (let [selectableF (c/get-state this :selectableF)]
+     (let [currow (get-currow container)
+           selectableF (c/get-state this :selectableF)]
                                         ;the following gives the more responsive grid to the user (if the move to is slow, user may feel the whole maximo as slow)
+;;       (println "Row selected action current container row " currow " and row to move = " mr)
        (mm/loop-arr [r (get-data-rows this)]
                     (unhighlight-grid-row this r))
        (highlight-grid-row this row-control)
-
-       (c/move-to-with-offline
-        (c/get-id container)
-        mr
-        (fn [ok]
-          (when selectableF (after-move this (fn [] (selectableF row-control ok)))))))))
+       (if (and
+            (= mr currow)
+            selectableF)
+         (selectableF row-control mr)
+         (c/move-to-with-offline
+          (c/get-id container)
+          mr
+          (fn [ok]
+            (when selectableF (after-move this (fn [] (selectableF row-control ok))))))))))
   Row
   (add-default-lookups
    [this columnz]
