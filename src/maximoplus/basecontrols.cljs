@@ -2463,15 +2463,14 @@
        (mm/loop-arr [r (get-data-rows this)]
                     (unhighlight-grid-row this r))
        (highlight-grid-row this row-control)
-       (if (and
-            (= mr currow)
-            selectableF)
-         (selectableF row-control mr)
-         (c/move-to-with-offline
-          (c/get-id container)
-          mr
-          (fn [ok]
-            (when selectableF (after-move this (fn [] (selectableF row-control ok))))))))))
+       (c/move-to-with-offline
+        (c/get-id container)
+        mr
+        (fn [ok]
+          (when selectableF
+            (if (= mr currow)
+              (selectableF row-control ok)
+              (after-move this (fn [] (selectableF row-control ok))))))))))
   Row
   (add-default-lookups
    [this columnz]
