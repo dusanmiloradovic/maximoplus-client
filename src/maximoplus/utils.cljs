@@ -137,6 +137,11 @@
         (aset new-obj key val)))
     new-obj))
 
+(defn safe-object-clone [obj]
+  (if obj
+    (clone-object obj)
+    #js{}))
+
 (defn state-clone
   [obj]
   (cond

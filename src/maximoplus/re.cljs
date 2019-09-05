@@ -595,11 +595,15 @@
    (set-external-state
     this
     (fn [state]
-      (println "set-row-state-data-or-flags "column "=" value)
       (let [rows-state (safe-arr-clone (aget state "maxrows"))
-            row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
+            row-index (-> rows-state
+                          (u/first-ind-in-arr
+                           #(= (b/get-maximo-row row) (aget % "mxrow"))))
+            full-row-data (u/safe-object-clone (aget rows-state row-index)) ;;including -1
+            row-data (u/safe-object-clone (aget full-row-data type))] 
         (aset row-data column value)
-        (.log js/console row-data)
+        (aset full-row-data type row-data)
+        (aset rows-state row-index full-row-data)
         #js{"maxrows" rows-state}))))
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
