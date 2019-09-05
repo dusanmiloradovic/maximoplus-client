@@ -595,10 +595,11 @@
    (set-external-state
     this
     (fn [state]
-      (let [_rows-state (aget state "maxrows")
-            rows-state (if _rows-state _rows-state #js[])
+      (println "set-row-state-data-or-flags "column "=" value)
+      (let [rows-state (safe-arr-clone (aget state "maxrows"))
             row-data (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))) (aget type ))] ;;every implementation will have this function
         (aset row-data column value)
+        (.log js/console row-data)
         #js{"maxrows" rows-state}))))
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
@@ -607,8 +608,7 @@
     (fn [state]
         (let [colvals (u/to-js-obj _colvals)
               mrow (b/get-maximo-row row)
-              _rows-state (aget state "maxrows")
-              rows-state (if _rows-state _rows-state #js[])
+              rows-state (safe-arr-clone (aget state "maxrows"))
               rs (-> rows-state
                      (u/first-in-arr
                       #(=  mrow (aget % "mxrow"))))
@@ -627,8 +627,7 @@
    (set-external-state
     this
     (fn [state]
-      (let [_rows-state (aget state "maxrows")
-            rows-state (if _rows-state _rows-state #js[])
+      (let [rows-state (safe-arr-clone (aget state "maxrows"))
             rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
         (if rs
           (aset rs meta value)
@@ -640,8 +639,7 @@
    (set-external-state
     this
     (fn [state]
-      (let [_rows-state  (aget state "maxrows")
-            rows-state (if _rows-state _rows-state #js[])
+      (let [rows-state  (safe-arr-clone (aget state "maxrows"))
             row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
         (when row
           (js-delete row meta))
@@ -651,8 +649,7 @@
    (set-external-state
     this
     (fn [state]
-      (let  [_rows-state  (aget state "maxrows")
-             rows-state (if _rows-state _rows-state #js[])
+      (let  [rows-state  (safe-arr-clone (aget state "maxrows"))
              new-maximo-row  (b/get-maximo-row row)
              rows-count (ar/count rows-state)]
         (if (and
@@ -666,7 +663,7 @@
    (set-external-state
     this
     (fn [state]
-      (let  [rows-state  (aget state "maxrows")
+      (let  [rows-state  (safe-arr-clone (aget state "maxrows"))
              new-maximo-row (b/get-maximo-row row)]
         (when rows-state
           (ar/remove-at! rows-state (u/first-ind-in-arr rows-state #(= (aget % "mxrow") new-maximo-row )))
