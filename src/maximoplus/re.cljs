@@ -612,6 +612,7 @@
     (fn [state]
       (let [colvals (u/to-js-obj _colvals)
             rows-state (safe-arr-clone (aget state "maxrows"))
+            mrow (b/get-maximo-row row)
             row-index (-> rows-state
                           (u/first-ind-in-arr
                            #(= (b/get-maximo-row row) (aget % "mxrow"))))
