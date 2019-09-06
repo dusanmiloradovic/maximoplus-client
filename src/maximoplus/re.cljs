@@ -610,22 +610,23 @@
    (set-external-state
     this
     (fn [state]
-        (let [colvals (u/to-js-obj _colvals)
-              mrow (b/get-maximo-row row)
-              rows-state (safe-arr-clone (aget state "maxrows"))
-              rs (-> rows-state
-                     (u/first-in-arr
-                      #(=  mrow (aget % "mxrow"))))
-              row-data (when rs (aget rs type ))]
-          (if-not row-data
-            (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
-              (aset ndata type colvals)
-              (ar/conj! rows-state ndata))
-            (if (object-empty? row-data)
-              (aset rs type colvals)
-              (loop-arr [k (js-keys colvals)]
-                        (aset row-data k (aget colvals k)))))
-          #js{"maxrows" rows-state}))))
+      (let [colvals (u/to-js-obj _colvals)
+            rows-state (safe-arr-clone (aget state "maxrows"))
+            row-index (-> rows-state
+                          (u/first-ind-in-arr
+                           #(= (b/get-maximo-row row) (aget % "mxrow"))))
+            full-row-data (u/safe-object-clone (aget rows-state row-index)) ;;including -1
+            row-data (u/safe-object-clone (aget full-row-data type))]
+        (if (= -1 row-index)
+          (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
+            (aset ndata type colvals)
+            (ar/conj! rows-state ndata))
+          (do
+            (loop-arr [k (js-keys colvals)]
+                      (aset row-data k (aget colvals k)))
+            (aset full-row-data type row-data)
+            (aset rows-state row-index full-row-data)))
+        #js{"maxrows" rows-state}))))
   (set-row-state-meta
    [this row meta value]
    (set-external-state

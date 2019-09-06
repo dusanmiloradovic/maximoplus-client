@@ -2557,10 +2557,8 @@
      (del-rows this (js/parseInt x) (js/parseInt (get-numrows this)))))
   (on-update-control-data
    [this rownum column value]
-   (println "Grid on-update-control-data " rownum " " column "=" value)
    (doseq [dr (get-data-rows this)]
      (when (= (js/parseInt  (get-maximo-row dr))  (js/parseInt rownum))
-       (println "setting the row value")
        (set-grid-row-value this dr column value)))) 
   (on-add-at-index
    [this x]
@@ -2783,14 +2781,14 @@
                    (fn [_]
                      (set-row-value parentC column qbe)) nil)))))
             nil)
-           (let [chld (get-children listContainer)]
-             (.log js/console chld)
+           (do
              (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
                            (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
                                                        (fn[_]
                                                          (init-qbe-values parentC)
                                                          (set-focus field)))))
-             (c/dispatch-upd  (c/get-id listContainer) (get-currow listContainer) "_SELECTED" new-sel))))))))
+             ;;(c/dispatch-upd  (c/get-id listContainer) (get-currow listContainer) "_SELECTED" new-sel)
+             )))))))
 
 (mm/def-comp AbstractListDialog [container listContainer field dialogcols] VisualComponent
   (fn* []
@@ -2932,13 +2930,11 @@
      (changed-row this nil)
      (when-let [picker-list (get-picker-list this)]
        (do
-         (println "debug, got the picker list")
          (doseq [dr (get-data-rows picker-list)]
            (let [row-key-value (get-field-local-value dr (.toUpperCase pickerkeycol))]
              (if (= row-key-value value)
                (pick-row picker-list dr)
-               (unpick-row picker-list dr)))))
-       (println "keine pickerlist"))))
+               (unpick-row picker-list dr))))))))
   (^override changed-row
    [this row]
    ;;I dont know if this is necessary
