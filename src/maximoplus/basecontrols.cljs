@@ -942,6 +942,7 @@
    (RelContainer. parent rel))
   (^override late-register
    [this]
+   (println "rel container late register " rel " and " (c/get-id mbocont))
    (mm/kk-branch-nocb! mbocont this "register" 
                        c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (re-register
@@ -1024,7 +1025,11 @@
       (fn [ok]
         (go (put! dfrd ok)))
       (fn [err]
-        (go (put! dfrd err)))))))
+        (go (put! dfrd err))))))
+  (^override late-register
+   [this]
+   (mm/kk-branch-nocb! mbocont this "register"
+                        c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer
   (^override fn* []
