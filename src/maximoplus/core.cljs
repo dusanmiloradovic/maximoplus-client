@@ -922,7 +922,9 @@
   (-> (@object-data control-name) (get row) :flags  (get column)))
 
 (defn get-local-data [control-name row column]
-  (-> (@object-data control-name) (get row) :data (get column)))
+  (let [od (@object-data control-name)]
+;;    (println od)
+    (->  od (get row) :data (get column))))
 
 (defn get-local-data-fetch-size
   [control-name]
