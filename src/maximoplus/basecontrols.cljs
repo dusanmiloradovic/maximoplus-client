@@ -8,7 +8,7 @@
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
-  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc! kk-branch!]]
+  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc! kk-branch! c!]]
                    [cljs.core.async.macros :refer [go go-loop]])
   )
 
@@ -1506,7 +1506,9 @@
                                         ;TODO smartfill will not work in the offline mode. It shouldn't be hard to implement it, but definitely this is low priority
      (if (and smartfill? (not= "" value) (not @c/is-offline)) 
        (smart-fill-with-lookup container this _value)
-       (kc! this "set-value" c/set-value-with-offline column _value))))
+       ;;       (kc! this "set-value" c/set-value-with-offline column _value)
+       (c! this "set-value" c/set-value-with-offline (c/get-id container) column _value)
+       )))
   (get-list-dialog [this listContainer columns]
                    (get-field-list-dialog (get-parent this) this listContainer columns)
                    )

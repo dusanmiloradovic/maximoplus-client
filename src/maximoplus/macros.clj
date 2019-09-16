@@ -228,10 +228,10 @@
      (~cont-f  ~@args
       (fn [ok#]
         (fh# ~command)
-        (cb-handler# ~command ok#))
+        (cb-handler#  ok#))
       (fn [err#]
         (fh# ~command)
-        (err-handler# ~command err#)))))
+        (err-handler# err#)))))
 
 (defmacro p! [container command cont-f & args]
   `(let [fh# (maximoplus.baasecontrols.get-finish-call-handler ~container)]
