@@ -2,7 +2,8 @@
   (:require [maximoplus.core :as c]
             [maximoplus.arrays :as ar]
             [maximoplus.utils :as u]
-            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]])
+            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]]
+            [cljs.core.async :as a :refer [put! merge chan <! timeout]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]])
   )
 
@@ -478,12 +479,91 @@
   )
 
 
+(defn transform-maxrows
+  [maxrows]
+  (map (fn [k]
+         (assoc (get maxrows k) :mxrow k))
+       (sort (keys maxrows))))
 
+(defn set-re-state
+  [obj key]
+  (let [val (c/get-state obj key)]
+    (.log js/console ;;TODO for real set-wrapped-state
+          (clj->js
+           {key
+            (if (= :maxrows key)
+              (transform-maxrows val)
+              val
+              )}))))
+
+(defn schedule-state-update
+  [obj key]
+  (when-not (c/get-state obj :scheduled-updating)
+    (c/toggle-state obj :scheduled-updating true)
+    (js/setTimeout
+     (fn [_]
+       (c/toggle-state obj :scheduled-updating false)
+       (set-re-state obj key))
+     50)))
 
 (defn object-empty?
   [obj]
   (or (not obj)
       (= 0 (.-length (js/Object.keys obj)))))
+
+(defn state-row-upsert-helper
+  [grid row f]
+  (let [_rows-state (c/get-state grid :maxrows)
+        rows-state (if _rows-state _rows-state {})
+        _row-state (get rows-state row)
+        row-state (if _row-state _row-state {})
+        new-row-state (f row-state)]
+    (when (not= new-row-state row-state)
+      (let [new-rows-state (assoc rows-state row new-row-state)]
+        (c/toggle-state grid :maxrows new-rows-state)
+        (schedule-state-update grid :maxrows)))))
+
+(defn state-row-upsert-values
+  [grid row type values] ;;type is data or flags
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (update-in row-data [type] (fn [ex] (merge ex values))))))
+
+(defn state-row-upsert-value
+  [grid row type k v]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (update-in row-data [type] (fn [ex] (assoc ex k v))))))
+
+(defn state-row-upsert-meta
+  [grid row meta value]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (assoc row-data meta value))))
+
+(defn state-row-remove-meta
+  [grid row meta]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (dissoc row-data meta))))
+
+(defn state-row-delete-helper
+  [grid row]
+  (when-let [rows-state (c/get-state grid :maxrows)]
+    (let [new-rows-state (dissoc rows-state row)]
+      (c/toggle-state grid :maxrows new-rows-state)
+      (schedule-state-update grid :maxrows))))
+
+(defn state-clear-rows-helper
+  [grid]
+  (c/toggle-state grid :maxrrows {})
+  (schedule-state-update grid :maxrows))
+
+
 
 (def-comp Grid [container columns norows] b/Grid ; for the time being full grid will not be done for react
   (^override fn* []
@@ -500,28 +580,34 @@
    (GridRow. container columns mxrow disprow))
   (^override set-grid-row-values
    [this row values]
+   (state-row-upsert-values this row :data values) ;;#
    (set-row-state-bulk-data-or-flags this row "data" values ))
   (^override set-grid-row-value
    [this row column value]
+   (state-row-upsert-value this row :data column value) ;;#
    (set-row-state-data-or-flags this row column "data" value))
   (^override set-grid-row-flags
    [this row flags]
    (when (c/get-state this :fetch-flags)
+     (state-row-upsert-values this row :flags flags) ;##
      (set-row-state-bulk-data-or-flags this row "flags"  flags)))
   (^override mark-grid-row-as-selected
    [this row selected?]
+   (state-row-upsert-meta this row "selected" selected?)
    (set-row-state-meta this row "selected" selected?))
   (^override update-paginator [this fromRow toRow numRows]
-   (set-wrapped-state
+   (set-wrapped-state;;???????????????????????TABLE LEVEL META ;;##
     this
     (fn [state]
       #js{"paginator"
        #js{:fromrow fromRow :torow toRow :numrows numRows}})))
   (^override highlight-grid-row
    [this row]
+   (state-row-upsert-meta this row "highlighted" true) ;;#
    (set-row-state-meta this row "hightlighed" true))
   (^override unhighlight-grid-row
    [this row]
+   (state-row-upsert-meta this row "highlighted" false) ;;#
    (set-row-state-meta this row "hightlighed" false))
   (fetch-more
    [control num-rows]
@@ -534,6 +620,7 @@
    (c/toggle-state control :fetching true))
   (^override clear-data-rows;;check if web components lib is working after this change
    [this]
+   (state-clear-rows-helper this) ;;#
    (b/remove-mboset-count this)
    (reset! (aget this "children") [])
    (set-external-state
@@ -592,6 +679,7 @@
      (set-wrapped-state this fn-s)))
   (set-row-state-data-or-flags
    [this row column type value];;type is data or flag
+;;   (state-row-upsert-value this row type column value) ;;## ALREADY covered can remoev
    (set-external-state
     this
     (fn [state]
@@ -607,6 +695,7 @@
         #js{"maxrows" rows-state}))))
   (set-row-state-bulk-data-or-flags
    [this row type _colvals]
+;;   (state-row-upsert-values this row type _colvals) ;;##
    (set-external-state
     this
     (fn [state]
@@ -630,6 +719,7 @@
         #js{"maxrows" rows-state}))))
   (set-row-state-meta
    [this row meta value]
+   (state-row-upsert-meta this row meta value) ;;##
    (set-external-state
     this
     (fn [state]
@@ -642,6 +732,7 @@
         #js{"maxrows" rows-state}))))
   (remove-row-state-meta
    [this row meta]
+   (state-row-remove-meta this row meta) ;;##
    (set-external-state
     this
     (fn [state]
@@ -652,6 +743,8 @@
         #js{"maxrows" rows-state}))))
   (add-new-row-state-data
    [this row colvals colflags]
+;;   (state-row-upsert-values this row :data colvals) ;;##
+  ;; (state-row-upsert-values this row :flags colflags) ;;##
    (set-external-state
     this
     (fn [state]
@@ -666,6 +759,7 @@
         #js{"maxrows" rows-state}))))
   (del-row-state-data
    [this row]
+   (state-row-delete-helper this row) ;;##
    (set-external-state
     this
     (fn [state]
@@ -677,9 +771,13 @@
   UI
   (^override render-row
    [this row]
+   (state-row-upsert-values this row :data {})        ;;##
+   (state-row-upsert-values this row :flags {})       ;;##
    (add-new-row-state-data this row #js{} #js{}))
   (^override render-row-before
    [this row existing-row]
+   (state-row-upsert-values this row :data {})        ;;##
+   (state-row-upsert-values this row :flags {})       ;;##
    (add-new-row-state-data this row #js{} #js{});same as before becuase the functions rearanges the rows based on the mxrow
    )
   Foundation
