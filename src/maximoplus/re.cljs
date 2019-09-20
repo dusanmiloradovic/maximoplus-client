@@ -31,18 +31,6 @@
                                         ;there will be no state except on the level of grid and section
 
 
-
-;;(defn set-wrapped-state
-;;  [el property state]
-;;  (set-internal-state (aget el "wrapped") property state)
-;;  )
-;;
-;;(defn set-internal-state
-;;  [wrapped property state]
-;;  (.call (aget wrapped "setInternalState") wrapped property state))
-
-;;For React, getting the state and then act upon it is not guaranteed to be correct. The correct way is to pass the state function. TODO change the template for web components to use the state function
-
 (defn set-internal-state
   [wrapped state-f]
   (.call (aget wrapped "setInternalState") wrapped state-f))
@@ -487,13 +475,15 @@
 (defn set-re-state
   [obj key]
   (let [val (c/get-state obj key)]
-    (.log js/console ;;TODO for real set-wrapped-state
-          (clj->js
-           {key
-            (if (= :maxrows key)
-              (transform-maxrows val)
-              val
-              )}))))
+    (set-wrapped-state;;MAYBE set-external-state (delayed until fetch finish
+     obj
+     (fn [_]
+       (clj->js
+        {key
+         (if (= :maxrows key)
+           (transform-maxrows val)
+           val
+           )})))))
 
 (defn schedule-state-update
   [obj key]
@@ -581,20 +571,16 @@
    (GridRow. container columns mxrow disprow))
   (^override set-grid-row-values
    [this row values]
-   (state-row-upsert-values this row :data values) ;;#
-   (set-row-state-bulk-data-or-flags this row "data" values ))
+   (state-row-upsert-values this row :data values))
   (^override set-grid-row-value
    [this row column value]
-   (state-row-upsert-value this row :data column value) ;;#
-   (set-row-state-data-or-flags this row column "data" value))
+   (state-row-upsert-value this row :data column value))
   (^override set-grid-row-flags
    [this row flags]
    (when (c/get-state this :fetch-flags)
-     (state-row-upsert-values this row :flags flags) ;##
-     (set-row-state-bulk-data-or-flags this row "flags"  flags)))
+     (state-row-upsert-values this row :flags flags)))
   (^override mark-grid-row-as-selected
    [this row selected?]
-   (state-row-upsert-meta this row "selected" selected?)
    (set-row-state-meta this row "selected" selected?))
   (^override update-paginator [this fromRow toRow numRows]
    (set-wrapped-state;;???????????????????????TABLE LEVEL META ;;##
@@ -621,10 +607,7 @@
    [this]
    (state-clear-rows-helper this) ;;#
    (b/remove-mboset-count this)
-   (reset! (aget this "children") [])
-   (set-external-state
-    this
-    (fn [state] #js{"maxrows" #js[]}) ))
+   (reset! (aget this "children") []))
   (build-row
    [control rowcontrol]
    ;;in base controls this adds the child to the parent. It is a good place to add a listener property (to avoid setting the state after the render)
@@ -652,22 +635,6 @@
   (move-externals
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
-   (let [st (c/get-state this :re)
-         re-state #js{}]
-     (doseq [k (js-keys st)]
-       (let [v (aget st k )]
-         (when (= k "maxrows")
-           (before-move-externals this v))
-         (aset re-state k (if-not (= k "maxrows")
-                            v
-                            (ar/cat
-                             (if-let [wr-s (get-wrapped-state this "maxrows")]
-                               wr-s
-                               #js[])
-                             v)))))
-     (set-wrapped-state
-      this
-      (fn [state] re-state)))
    (c/remove-state this :re))
   (set-external-state
    [this fn-s]
@@ -676,109 +643,24 @@
            dl (if _dl _dl {})]
        (c/toggle-state this :re (fn-s dl)))
      (set-wrapped-state this fn-s)))
-  (set-row-state-data-or-flags
-   [this row column type value];;type is data or flag
-;;   (state-row-upsert-value this row type column value) ;;## ALREADY covered can remoev
-   (set-external-state
-    this
-    (fn [state]
-      (let [rows-state (safe-arr-clone (aget state "maxrows"))
-            row-index (-> rows-state
-                          (u/first-ind-in-arr
-                           #(= (b/get-maximo-row row) (aget % "mxrow"))))
-            full-row-data (u/safe-object-clone (aget rows-state row-index)) ;;including -1
-            row-data (u/safe-object-clone (aget full-row-data type))] 
-        (aset row-data column value)
-        (aset full-row-data type row-data)
-        (aset rows-state row-index full-row-data)
-        #js{"maxrows" rows-state}))))
-  (set-row-state-bulk-data-or-flags
-   [this row type _colvals]
-;;   (state-row-upsert-values this row type _colvals) ;;##
-   (set-external-state
-    this
-    (fn [state]
-      (let [colvals (u/to-js-obj _colvals)
-            rows-state (safe-arr-clone (aget state "maxrows"))
-            mrow (b/get-maximo-row row)
-            row-index (-> rows-state
-                          (u/first-ind-in-arr
-                           #(= (b/get-maximo-row row) (aget % "mxrow"))))
-            full-row-data (u/safe-object-clone (aget rows-state row-index)) ;;including -1
-            row-data (u/safe-object-clone (aget full-row-data type))]
-        (if (= -1 row-index)
-          (let [ndata (js-obj "mxrow" mrow "data" #js{} "flags" #js{})]
-            (aset ndata type colvals)
-            (ar/conj! rows-state ndata))
-          (do
-            (loop-arr [k (js-keys colvals)]
-                      (aset row-data k (aget colvals k)))
-            (aset full-row-data type row-data)
-            (aset rows-state row-index full-row-data)))
-        #js{"maxrows" rows-state}))))
   (set-row-state-meta
    [this row meta value]
-   (state-row-upsert-meta this row meta value) ;;##
-   (set-external-state
-    this
-    (fn [state]
-      (let [rows-state (safe-arr-clone (aget state "maxrows"))
-            rs (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-        (if rs
-          (aset rs meta value)
-          (let [new-row (js-obj "mxrow" (b/get-maximo-row row) meta value)]
-            (ar/conj! rows-state new-row)))
-        #js{"maxrows" rows-state}))))
+   (state-row-upsert-meta this row meta value))
   (remove-row-state-meta
    [this row meta]
-   (state-row-remove-meta this row meta) ;;##
-   (set-external-state
-    this
-    (fn [state]
-      (let [rows-state  (safe-arr-clone (aget state "maxrows"))
-            row (-> rows-state (u/first-in-arr #(= (b/get-maximo-row row) (aget % "mxrow"))))]
-        (when row
-          (js-delete row meta))
-        #js{"maxrows" rows-state}))))
-  (add-new-row-state-data
-   [this row colvals colflags]
-;;   (state-row-upsert-values this row :data colvals) ;;##
-  ;; (state-row-upsert-values this row :flags colflags) ;;##
-   (set-external-state
-    this
-    (fn [state]
-      (let  [rows-state  (safe-arr-clone (aget state "maxrows"))
-             new-maximo-row  (b/get-maximo-row row)
-             rows-count (ar/count rows-state)]
-        (if (and
-             (> 0 rows-count)
-             (<= (js/parseInt new-maximo-row) (-> rows-state (aget (- rows-count 1)) (aget "mxrow") (js/parseInt)) ))
-          (ar/insert-before! rows-state new-maximo-row #js{:mxrow new-maximo-row :data colvals :flags colflags})
-          (ar/conj! rows-state #js{:mxrow new-maximo-row :data colvals :flags colflags} ))
-        #js{"maxrows" rows-state}))))
+   (state-row-remove-meta this row meta))
   (del-row-state-data
    [this row]
-   (state-row-delete-helper this row) ;;##
-   (set-external-state
-    this
-    (fn [state]
-      (let  [rows-state  (safe-arr-clone (aget state "maxrows"))
-             new-maximo-row (b/get-maximo-row row)]
-        (when rows-state
-          (ar/remove-at! rows-state (u/first-ind-in-arr rows-state #(= (aget % "mxrow") new-maximo-row )))
-          #js{"maxrows" rows-state})))))
+   (state-row-delete-helper this row))
   UI
   (^override render-row
    [this row]
    (state-row-upsert-values this row :data {})        ;;##
-   (state-row-upsert-values this row :flags {})       ;;##
-   (add-new-row-state-data this row #js{} #js{}))
+   (state-row-upsert-values this row :flags {}))
   (^override render-row-before
    [this row existing-row]
    (state-row-upsert-values this row :data {})        ;;##
-   (state-row-upsert-values this row :flags {})       ;;##
-   (add-new-row-state-data this row #js{} #js{});same as before becuase the functions rearanges the rows based on the mxrow
-   )
+   (state-row-upsert-values this row :flags {}))
   Foundation
   (^override dispose-child
    [this row]
