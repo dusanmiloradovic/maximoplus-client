@@ -2,8 +2,7 @@
   (:require [maximoplus.core :as c]
             [maximoplus.arrays :as ar]
             [maximoplus.utils :as u]
-            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]]
-            [cljs.core.async :as a :refer [put! merge chan <! timeout]])
+            [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]])
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]])
   )
 
@@ -512,8 +511,9 @@
       (= 0 (.-length (js/Object.keys obj)))))
 
 (defn state-row-upsert-helper
-  [grid row f]
-  (let [_rows-state (c/get-state grid :maxrows)
+  [grid _row f]
+  (let [row (b/get-maximo-row _row)
+        _rows-state (c/get-state grid :maxrows)
         rows-state (if _rows-state _rows-state {})
         _row-state (get rows-state row)
         row-state (if _row-state _row-state {})
@@ -552,9 +552,10 @@
      (dissoc row-data meta))))
 
 (defn state-row-delete-helper
-  [grid row]
+  [grid _row]
   (when-let [rows-state (c/get-state grid :maxrows)]
-    (let [new-rows-state (dissoc rows-state row)]
+    (let [row (b/get-maximo-row _row)
+          new-rows-state (dissoc rows-state row)]
       (c/toggle-state grid :maxrows new-rows-state)
       (schedule-state-update grid :maxrows))))
 
@@ -603,12 +604,10 @@
        #js{:fromrow fromRow :torow toRow :numrows numRows}})))
   (^override highlight-grid-row
    [this row]
-   (state-row-upsert-meta this row "highlighted" true) ;;#
-   (set-row-state-meta this row "hightlighed" true))
+   (set-row-state-meta this row "highlighted" true))
   (^override unhighlight-grid-row
    [this row]
-   (state-row-upsert-meta this row "highlighted" false) ;;#
-   (set-row-state-meta this row "hightlighed" false))
+   (set-row-state-meta this row "highlighted" false))
   (fetch-more
    [control num-rows]
    (c/toggle-state control :fetching true))

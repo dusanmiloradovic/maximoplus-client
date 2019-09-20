@@ -2293,9 +2293,7 @@
   (get-data-rows
    [this]
    (when-let [children (get-children this)]
-     (let [_pom (filter #(aget % "mxrow") children)]
-       _pom
-       )))
+     (filter #(aget % "mxrow") children)))
   (get-data-row
    [this rownum]
    (first
@@ -2466,9 +2464,9 @@
      (let [currow (get-currow container)
            selectableF (c/get-state this :selectableF)]
                                         ;the following gives the more responsive grid to the user (if the move to is slow, user may feel the whole maximo as slow)
-;;       (println "Row selected action current container row " currow " and row to move = " mr)
-       (mm/loop-arr [r (get-data-rows this)]
-                    (unhighlight-grid-row this r))
+       ;;       (println "Row selected action current container row " currow " and row to move = " mr)
+       (doseq [r (get-data-rows this)]
+         (unhighlight-grid-row this r))
        (highlight-grid-row this row-control)
        (c/move-to-with-offline
         (c/get-id container)
