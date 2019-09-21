@@ -2918,8 +2918,7 @@
                       column
                       lv
                       (fn[_] 
-                        (u/debug "picker list ok")
-                        )
+                        (u/debug "picker list ok"))
                       (fn [err] ((get-errback-handler this)  err))))
                    (u/debug "picker list is null not sure why")))))
             picker-list (build-picker-list this column listcon pickerkeycol pickercol norows rfn)]

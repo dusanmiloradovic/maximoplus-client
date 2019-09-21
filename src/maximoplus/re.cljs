@@ -39,6 +39,152 @@
   [el state-f]
   (set-internal-state (aget el "wrapped") state-f))
 
+(defn transform-maxrows
+  [maxrows]
+  (map (fn [k]
+         (assoc (get maxrows k) :mxrow k))
+       (sort (keys maxrows))))
+
+(defn transform-fields
+  [fields]
+  (vals fields))
+
+(defn set-re-state
+  [obj key]
+  (let [val (c/get-state obj key)]
+    (set-wrapped-state
+     obj
+     (fn [_]
+       (clj->js
+        {key
+         (case key
+           :maxrows (transform-maxrows val)
+           :maxfields (transform-fields val)
+           val)})))))
+
+(defn schedule-state-update
+  [obj key]
+  (when-not (c/get-state obj :scheduled-updating)
+    (c/toggle-state obj :scheduled-updating true)
+    (js/setTimeout
+     (fn [_]
+       (c/toggle-state obj :scheduled-updating false)
+       (set-re-state obj key))
+     50)))
+
+;;;GRID
+
+(defn state-row-upsert-helper
+  [grid _row f]
+  (let [row (b/get-maximo-row _row)
+        _rows-state (c/get-state grid :maxrows)
+        rows-state (if _rows-state _rows-state {})
+        _row-state (get rows-state row)
+        row-state (if _row-state _row-state {})
+        new-row-state (f row-state)]
+    (when (not= new-row-state row-state)
+      (let [new-rows-state (assoc rows-state row new-row-state)]
+        (c/toggle-state grid :maxrows new-rows-state)
+        (schedule-state-update grid :maxrows)))))
+
+(defn state-row-upsert-values
+  [grid row type values] ;;type is data or flags
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (update-in row-data [type] (fn [ex] (merge ex values))))))
+
+(defn state-row-upsert-value
+  [grid row type k v]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (update-in row-data [type] (fn [ex] (assoc ex k v))))))
+
+(defn state-row-upsert-meta
+  [grid row meta value]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (assoc row-data meta value))))
+
+(defn state-row-remove-meta
+  [grid row meta]
+  (state-row-upsert-helper
+   grid row
+   (fn [row-data]
+     (dissoc row-data meta))))
+
+(defn state-row-delete-helper
+  [grid _row]
+  (when-let [rows-state (c/get-state grid :maxrows)]
+    (let [row (b/get-maximo-row _row)
+          new-rows-state (dissoc rows-state row)]
+      (c/toggle-state grid :maxrows new-rows-state)
+      (schedule-state-update grid :maxrows))))
+
+(defn state-clear-rows-helper
+  [grid]
+  (c/toggle-state grid :maxrrows {})
+  (schedule-state-update grid :maxrows))
+
+;;;SECTION
+
+(defn state-section-upsert-helper
+  [section field f]
+  (let [column (b/get-column field)
+        _fields-state (c/get-state section :maxfields)
+        fields-state (if _fields-state _fields-state {})
+        _column-state (get fields-state column)
+        column-state (if _column-state _column-state {})
+        new-column-state (f column-state)]
+    (when (not= new-column-state column-state)
+      (let [new-fields-state (assoc fields-state column new-column-statate)]
+        (c/toggle-state section :maxfields new-fields-state)
+        (schedule-state-update section :maxfields)))))
+
+(defn state-section-field-state-helper
+  [section field type value]
+  (state-section-upsert-helper
+   section field
+   (fn [field-data]
+     (assoc field-data type value))))
+
+(defn state-section-field-remove-state-helper
+  [section field type]
+  (state-section-upsert-helper
+   section field
+   (fn [field-data]
+     (dissoc field-data type))))
+
+(defn state-section-delete-helper
+  [section field]
+  (let [column (b/get-column field)
+        fields-state (c/get-state section :maxfields)
+        new-fields-state (dissoc fields-state column)]
+    (c/toggle-state section :maxfields new-fields-state)
+    (schedule-state-update section :maxfields)))
+
+(defn state-section-clear-helper
+  [section]
+  (c/toggle-state section :maxfields {})
+  (schedule-state-update section :maxfields))
+
+(defn state-section-new-field-helper
+  [section field]
+  (let [new-field-state (get-new-field-state field)]
+    (state-section-upsert-helper
+     field
+     (fn [field-data]
+       (merge field-data new-field-state)))))
+
+(defn state-section-get-field-state-helper
+  [section field type]
+  (let [column (b/get-column field)]
+    (-> (c/get-state section :maxfields) column type)))
+
+;;;
+
 (defn set-field-state
   [component column type value]
   (set-wrapped-state
@@ -137,7 +283,6 @@
   (del-row-state-data [this row])
   (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
   (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
-  (set-external-state [this state-f]);;for the performance reason, setstate will not be called during the fetch, we will keep it and send the data when the fetch is finished
   (get-external-state [this property])
   (before-move-externals [this rows])
   (move-externals [this])
@@ -276,17 +421,17 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata (u/to-js-obj meta)
-         :column column
-         :data nil
-         :flags nil
-         :readonly true
-         :required false
-         :listeners #js {}
-         :focused false
-         :maximoField fld
-         :dialogs #js [];;this is the stack of dialogs, the first on the top should be displayed on top. For the mobile app, that probably means move the stack to the top level of navigator (only one dialog for page). But for the tablet and the desktop app, the dialog can be displayed locally next to the field. Most of the times, there will be only one dialog. When the dialog close is detected, we should call the close dialog functtion, and remove the dialog from the list. If we provide the filters for the dialog, the list will be extended(filter then can have another dialog, and it another filter and so on.., everything is on stack)
-         }))
+     {:metadata meta
+      :column column
+      :data nil
+      :flags nil
+      :readonly true
+      :required false
+      :listeners  {}
+      :focused false
+      :maximoField fld
+      :dialogs  [];;this is the stack of dialogs, the first on the top should be displayed on top. For the mobile app, that probably means move the stack to the top level of navigator (only one dialog for page). But for the tablet and the desktop app, the dialog can be displayed locally next to the field. Most of the times, there will be only one dialog. When the dialog close is detected, we should call the close dialog functtion, and remove the dialog from the list. If we provide the filters for the dialog, the list will be extended(filter then can have another dialog, and it another filter and so on.., everything is on stack)
+      }))
   )
 
 (def-comp CPicker [metadata pickerkeycol pickercol pickerrows] b/AbstractPicker
@@ -298,16 +443,16 @@
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata (u/to-js-obj meta)
-         :column column
-         :data nil
-         :flags nil
-         :readonly true
-         :required false
-         :listeners #js {}
-         :picker #js {}
-         :maximoField fld
-         }))
+     {:metadata meta
+      :column column
+      :data nil
+      :flags nil
+      :readonly true
+      :required false
+      :listeners  {}
+      :picker  {}
+      :maximoField fld
+      }))
   UI
   (^override render
    [this])
@@ -320,6 +465,13 @@
    (let [section (b/get-parent this)
          column (b/get-column this)
          ex-picker (get-field-state section column "picker")]
+     (state-section-field-state-helper
+      section this
+      :list {"listContainer" list-container
+             "pickerKeyCol" pickerkeycol
+             "pickerCol" pickercol
+             "maxRows" pickerrows
+             "selectableF" selectableF})
      (aset ex-picker "list" (clj->js
                              {"listContainer" list-container
                               "pickerKeyCol" pickerkeycol
@@ -466,93 +618,13 @@
   )
 
 
-(defn transform-maxrows
-  [maxrows]
-  (map (fn [k]
-         (assoc (get maxrows k) :mxrow k))
-       (sort (keys maxrows))))
 
-(defn set-re-state
-  [obj key]
-  (let [val (c/get-state obj key)]
-    (set-wrapped-state;;MAYBE set-external-state (delayed until fetch finish
-     obj
-     (fn [_]
-       (clj->js
-        {key
-         (if (= :maxrows key)
-           (transform-maxrows val)
-           val
-           )})))))
-
-(defn schedule-state-update
-  [obj key]
-  (when-not (c/get-state obj :scheduled-updating)
-    (c/toggle-state obj :scheduled-updating true)
-    (js/setTimeout
-     (fn [_]
-       (c/toggle-state obj :scheduled-updating false)
-       (set-re-state obj key))
-     50)))
 
 (defn object-empty?
   [obj]
   (or (not obj)
       (= 0 (.-length (js/Object.keys obj)))))
 
-(defn state-row-upsert-helper
-  [grid _row f]
-  (let [row (b/get-maximo-row _row)
-        _rows-state (c/get-state grid :maxrows)
-        rows-state (if _rows-state _rows-state {})
-        _row-state (get rows-state row)
-        row-state (if _row-state _row-state {})
-        new-row-state (f row-state)]
-    (when (not= new-row-state row-state)
-      (let [new-rows-state (assoc rows-state row new-row-state)]
-        (c/toggle-state grid :maxrows new-rows-state)
-        (schedule-state-update grid :maxrows)))))
-
-(defn state-row-upsert-values
-  [grid row type values] ;;type is data or flags
-  (state-row-upsert-helper
-   grid row
-   (fn [row-data]
-     (update-in row-data [type] (fn [ex] (merge ex values))))))
-
-(defn state-row-upsert-value
-  [grid row type k v]
-  (state-row-upsert-helper
-   grid row
-   (fn [row-data]
-     (update-in row-data [type] (fn [ex] (assoc ex k v))))))
-
-(defn state-row-upsert-meta
-  [grid row meta value]
-  (state-row-upsert-helper
-   grid row
-   (fn [row-data]
-     (assoc row-data meta value))))
-
-(defn state-row-remove-meta
-  [grid row meta]
-  (state-row-upsert-helper
-   grid row
-   (fn [row-data]
-     (dissoc row-data meta))))
-
-(defn state-row-delete-helper
-  [grid _row]
-  (when-let [rows-state (c/get-state grid :maxrows)]
-    (let [row (b/get-maximo-row _row)
-          new-rows-state (dissoc rows-state row)]
-      (c/toggle-state grid :maxrows new-rows-state)
-      (schedule-state-update grid :maxrows))))
-
-(defn state-clear-rows-helper
-  [grid]
-  (c/toggle-state grid :maxrrows {})
-  (schedule-state-update grid :maxrows))
 
 
 
@@ -636,13 +708,6 @@
    [this]
    ;;moves pending to the actual state after the fetching is finished (perfomrance optimization for react)
    (c/remove-state this :re))
-  (set-external-state
-   [this fn-s]
-   (if (c/get-state this :fetching)
-     (let [_dl (c/get-state this :re)
-           dl (if _dl _dl {})]
-       (c/toggle-state this :re (fn-s dl)))
-     (set-wrapped-state this fn-s)))
   (set-row-state-meta
    [this row meta value]
    (state-row-upsert-meta this row meta value))
