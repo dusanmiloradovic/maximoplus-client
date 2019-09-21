@@ -195,11 +195,11 @@
 
 (defn state-section-set-all-fields
   [section type value]
-  (when-let [fields-state (c/get-state section :maxfields)
-             new-fields-state (map (fn [s] (assoc s type value))
-                                   fields-state)]
-    (c/toggle-state section :maxfields new-fields-state)
-    (schedule-state-update section :maxfields)))
+  (when-let [fields-state (c/get-state section :maxfields)]
+    (let [new-fields-state (map (fn [s] (assoc s type value))
+                                fields-state)]
+      (c/toggle-state section :maxfields new-fields-state)
+      (schedule-state-update section :maxfields))))
 
 (defn add-field-listener
   [component field type function]
@@ -262,7 +262,7 @@
   (^overide draw-grid-in-dialog [this listContainer list-grid])
   (^override close-list-dialog
    [this]
-   (state-section-pop-field-state-vector-helper (b/get-parent field) field :dialogs)))
+   (state-section-pop-field-state-vector-helper (b/get-parent field) field :dialogs))
   (^override get-selectable-grid
    [this listcontainer dialogcols selectableF]
    (let [section (b/get-parent field)
@@ -439,7 +439,7 @@
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
    [this field [readonly? required? :as flag]]
-   (state-section-field-state-helper this field :flags flag))
+   (state-section-field-state-helper this field :flags flag)
    (b/set-field-enabled this field (not readonly?))
    (b/set-field-required this field required?))
   (^override add-field-ui-listeners
