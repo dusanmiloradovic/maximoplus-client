@@ -6,6 +6,23 @@
   (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]])
   )
 
+(defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
+  ;;will be rendered just by updating the state
+  ;;each of these will internally handle the status change differently, but the concepts are the same
+  (set-row-state-data-or-flags [this row column type value])
+  (set-row-state-bulk-data-or-flags [this row type colvals])
+  (set-row-state-meta [this row meta value]);;any metadata on the row that can be interpreted by the implementation. Right now this is just "pick"
+  (remove-row-state-meta [this row meta])
+  (add-new-row-state-data [this row colvals colflags]);;colvals and colflags are initial flags and values for the row, to avoid re-rendering
+  (del-row-state-data [this row])
+  (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
+  (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
+  (get-external-state [this property])
+  (before-move-externals [this rows])
+  (move-externals [this])
+  (row-action [this mxrownum]);;instead of rowSelectedAction, which results in expensive js closure
+  )
+
 (defn not-used;;assure basecomponents don't call the method, not used in reactive. After the extensive testing, all methods having the call to this can be deleted
   []
   (throw (js/Error. "should not be called")))
@@ -139,7 +156,7 @@
         column-state (if _column-state _column-state {})
         new-column-state (f column-state)]
     (when (not= new-column-state column-state)
-      (let [new-fields-state (assoc fields-state column new-column-statate)]
+      (let [new-fields-state (assoc fields-state column new-column-state)]
         (c/toggle-state section :maxfields new-fields-state)
         (schedule-state-update section :maxfields)))))
 
@@ -149,6 +166,8 @@
    section field
    (fn [field-data]
      (assoc field-data type value))))
+
+(declare state-section-get-field-state-helper)
 
 (defn state-section-push-field-state-vector-helper
   [section field tyoe value]
@@ -184,6 +203,7 @@
   [section field]
   (let [new-field-state (get-new-field-state field)]
     (state-section-upsert-helper
+     section
      field
      (fn [field-data]
        (merge field-data new-field-state)))))
@@ -203,32 +223,14 @@
 
 (defn add-field-listener
   [component field type function]
-  (let [ex-listeneres (state-section-get-field-helper component field :listeners)]
-    (state-function-field-state-helper component field :listeners (assoc ex-listeners type function))))
+  (let [ex-listeners (state-section-get-field-state-helper component field :listeners)]
+    (state-section-field-state-helper component field :listeners (assoc ex-listeners type function))))
 
 (defn remove-field-listener
   [component field type]
-  (let [ex-listeneres (state-section-get-field-helper component field :listeners)]
-    (state-function-field-state-helper component field :listeners (dissoc ex-listeners type ))))
+  (let [ex-listeners (state-section-get-field-state-helper component field :listeners)]
+    (state-section-field-state-helper component field :listeners (dissoc ex-listeners type ))))
 ;;;
-
-(defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
-  ;;will be rendered just by updating the state
-  ;;each of these will internally handle the status change differently, but the concepts are the same
-  (set-row-state-data-or-flags [this row column type value])
-  (set-row-state-bulk-data-or-flags [this row type colvals])
-  (set-row-state-meta [this row meta value]);;any metadata on the row that can be interpreted by the implementation. Right now this is just "pick"
-  (remove-row-state-meta [this row meta])
-  (add-new-row-state-data [this row colvals colflags]);;colvals and colflags are initial flags and values for the row, to avoid re-rendering
-  (del-row-state-data [this row])
-  (add-columns-meta [this columns-meta]);;shorhand way to add the metadata for the columns
-  (get-new-field-state [this]);;this is for columns, each type may give different metadata and state (for example picker lists and text fields)
-  (get-external-state [this property])
-  (before-move-externals [this rows])
-  (move-externals [this])
-  (row-action [this mxrownum]);;instead of rowSelectedAction, which results in expensive js closure
-  )
-
 
 (def-comp ListDialog[container listContainer field dialogcols] b/AbstractListDialog
   (^override fn* [] (this-as this (googbase this container listContainer field dialogcols)))
@@ -318,7 +320,7 @@
    [this]
    (let [section (b/get-parent this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
-         clac (fn [x] (pop-field-state-arr section column "dialog"))]
+         clac (fn [x] (state-section-pop-field-state-vector-helper section this :dialogs))]
      (state-section-push-field-state-vector-helper
       section this :dialogs
       {:type "date"
@@ -328,7 +330,7 @@
    [this]
    (let [section (b/get-parent this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
-         clac (fn [x] (pop-field-state-arr section column "dialog"))]
+         clac (fn [x] (state-section-pop-field-state-vector-helper section this :dialogs))]
      (state-section-push-field-state-vector-helper
       section this :dialogs
       {:type "datetime"
@@ -337,7 +339,7 @@
   (^override show-gl-lookup
    [this orgid]
    (let [section (b/get-parent this)
-         clac (fn [x] (pop-field-state-arr section column "dialog"))
+         clac (fn [x] (state-section-pop-field-state-vector-helper section this :dialogs))
          that this]
      (state-section-push-field-state-vector-helper
       section this :dialogs
@@ -449,7 +451,7 @@
   (^override set-field-focus
    [this field]
    (when-not (-> field (aget "metadata") :picker)
-     (state-section-set-all-fields section :focused false)
+     (state-section-set-all-fields this :focused false)
      (state-section-field-state-helper this field :focused true)))
   Reactive
   (add-columns-meta
@@ -664,34 +666,30 @@
    (let [section (b/get-parent this)
          column (b/get-column this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
-         clac (fn [x] (pop-field-state-arr section column "dialog"))]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "date"
-          :defaultAction dac
-          :closeAction clac})))
+         clac (fn [x] (state-section-pop-field-state-vector-helper section this :dialogs))]
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "date"
+       :defaultAction dac
+       :closeAction clac})))
   (^override show-date-time-lookup
    [this]
    (let [section (b/get-parent this)
          column (b/get-column this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
-         clac (fn [x] (pop-field-state-arr section column "dialog"))]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "datetime"
-          :defaultAction dac
-          :closeAction clac})))
+         clac (fn [x] (state-section-pop-field-state-vector-helper section this :dialogs))]
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "datetime"
+       :defaultAction dac
+       :closeAction clac})))
   Reactive
   (get-new-field-state
    [this]
    (let [meta (aget this "metadata")
          column (b/get-column this)
          fld this]
-     #js{:metadata (u/to-js-obj meta)
+     {:metadata (u/to-js-obj meta)
          :column column
          :data nil
          :flags nil
