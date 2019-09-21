@@ -467,28 +467,19 @@
          ex-picker (get-field-state section column "picker")]
      (state-section-field-state-helper
       section this
-      :list {"listContainer" list-container
-             "pickerKeyCol" pickerkeycol
-             "pickerCol" pickercol
-             "maxRows" pickerrows
-             "selectableF" selectableF})
-     (aset ex-picker "list" (clj->js
-                             {"listContainer" list-container
-                              "pickerKeyCol" pickerkeycol
-                              "pickerCol" pickercol
-                              "maxRows" pickerrows
-                              "selectableF" selectableF}))
-     (set-field-state section column "picker" ex-picker)))
+      :picker
+      {:list {"listContainer" list-container
+              "pickerKeyCol" pickerkeycol
+              "pickerCol" pickercol
+              "maxRows" pickerrows
+              "selectableF" selectableF}})))
   (^override add-picker-list-internal
    [this picker-list])
   ;;by convention the implementing library should put the mp in the state containing the built maximoplus list. I will try to find a better way, maybe pick and unpick is not required
   (^override destroy-picker-list
    [this]
-   (let [section (b/get-parent this)
-         column (b/get-column this)
-         ex-picker (get-field-state section column "picker")]
-     (js-delete ex-picker "list")
-     (set-field-state section column "picker" ex-picker))))
+   (let [section (b/get-parent this)]
+     (state-section-field-remove-state-helper section this :picker))))
 
 (def-comp Section [container columns] b/Section
   (^override fn* [] (this-as this (googbase this container columns)))
