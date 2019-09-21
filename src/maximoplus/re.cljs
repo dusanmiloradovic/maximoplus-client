@@ -707,20 +707,10 @@
   UI
   (^override draw-section
    [this]
-   (set-wrapped-state
-    this
-    (fn [state]
-      #js{"maxfields" #js[]})));;same as for section
+   (state-section-clear-helper this))
   (^override add-rendered-child
    [this rendered-child child]
-   (set-wrapped-state
-    this
-    (fn [state]
-      (let [column (b/get-column child)
-            new-field-state (get-new-field-state child)
-            ex-fields (safe-arr-clone (aget state "maxfields"))]
-        (ar/conj! ex-fields new-field-state)
-        #js{"maxfields" ex-fields}))))
+   (state-section-new-field-helper this child))
   Row
   (^override create-field
    [this col-metadata]
@@ -747,8 +737,7 @@
      (c/toggle-state this :list-dialog d)
      (c/toggle-state d :parent-control this)
      (b/render-deferred d)
-     d))
-  )
+     d)))
 
 (def-comp GLDialog [field orgid] b/GLDialog
   (^override fn* []
