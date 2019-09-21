@@ -211,7 +211,9 @@
 (defn state-section-get-field-state-helper
   [section field type]
   (let [column (b/get-column field)]
-    (-> (c/get-state section :maxfields) column type)))
+    (-> (c/get-state section :maxfields)
+        (get column)
+        (get type))))
 
 (defn state-section-set-all-fields
   [section type value]
