@@ -150,6 +150,16 @@
    (fn [field-data]
      (assoc field-data type value))))
 
+(defn state-section-push-field-state-vector-helper
+  [section field tyoe value]
+  (let [ex (state-section-get-field-state-helper section field type)]
+    (state-section-field-state-helper section field type (cons value ex))))
+
+(defn state-section-pop-field-state-vector-helper
+  [section field tyoe]
+  (let [ex (state-section-get-field-state-helper section field type)]
+    (state-section-field-state-helper section field type (rest ex))))
+
 (defn state-section-field-remove-state-helper
   [section field type]
   (state-section-upsert-helper
@@ -183,94 +193,24 @@
   (let [column (b/get-column field)]
     (-> (c/get-state section :maxfields) column type)))
 
-;;;
-
-(defn set-field-state
-  [component column type value]
-  (set-wrapped-state
-   component
-   (fn[state]
-     (let [ex-state (safe-arr-clone (aget state "maxfields"))
-           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
-       (if field-state
-         (do
-           (aset field-state type value)
-           #js{"maxfields" ex-state})
-         #js{})))))
-
-(defn get-field-state
-  [component column type]
-  (-> component (get-wrapped-state "maxfields")(u/first-in-arr #(= column (aget % "column"))) (aget type)))
-
-(defn remove-field-state
-  [component column type]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [ex-state (safe-arr-clone (aget state "maxfields"))
-           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))]
-       (js-delete field-state type)
-       #js{"maxfields" ex-state}))))
+(defn state-section-set-all-fields
+  [section type value]
+  (when-let [fields-state (c/get-state section :maxfields)
+             new-fields-state (map (fn [s] (assoc s type value))
+                                   fields-state)]
+    (c/toggle-state section :maxfields new-fields-state)
+    (schedule-state-update section :maxfields)))
 
 (defn add-field-listener
-  [component column type function]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [ex-state (safe-arr-clone (aget state "maxfields"))
-           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
-           field-listeners (aget field-state "listeners")]
-       (aset field-listeners type function)
-       #js{"maxfields" ex-state}))))
+  [component field type function]
+  (let [ex-listeneres (state-section-get-field-helper component field :listeners)]
+    (state-function-field-state-helper component field :listeners (assoc ex-listeners type function))))
 
 (defn remove-field-listener
-  [component column type]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [ex-state (safe-arr-clone (aget state "maxfields"))
-           field-state (-> ex-state (u/first-in-arr #(= column (aget % "column"))))
-           field-listeners (aget field-state "listeners")]
-       (js-delete field-listeners type)
-       #js{"maxfields" ex-state}))))
-
-(defn set-all-fields-state
-  [component type state]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [fields (safe-arr-clone (aget state "maxfields"))]
-       (loop-arr [f fields]
-                 (aset f type state))
-       #js{"maxfields" fields}))))
-
-(defn push-field-state-arr
-  [component column type value]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [field-arr (safe-arr-clone (aget state "maxfields"))
-           [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
-           new-field-state (u/clone-object field-state)
-           field-arr-state (safe-arr-clone (aget new-field-state type)) ]
-       (ar/insert-before!  field-arr-state 0 value)
-       (aset new-field-state type field-arr-state)
-       (ar/assoc! field-arr ind new-field-state)
-       #js{"maxfields" field-arr}))))
-
-(defn pop-field-state-arr
-  [component column type]
-  (set-wrapped-state
-   component
-   (fn [state]
-     (let [field-arr (safe-arr-clone (aget state "maxfields"))
-           [field-state ind] (-> field-arr (u/find-in-arr #(= column (aget % "column"))))
-           new-field-state (u/clone-object field-state)
-           field-arr-state (safe-arr-clone (aget new-field-state type))]
-       (ar/remove-at! field-arr-state 0)
-       (aset new-field-state type field-arr-state)
-       (ar/assoc! field-arr ind new-field-state)
-       #js{"maxfields" field-arr}))))
+  [component field type]
+  (let [ex-listeneres (state-section-get-field-helper component field :listeners)]
+    (state-function-field-state-helper component field :listeners (dissoc ex-listeners type ))))
+;;;
 
 (defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
   ;;will be rendered just by updating the state
@@ -297,22 +237,23 @@
   (draw-grid-in-dialog [this listContainer listGrid])
   (^override close-list-dialog
    [this]
-   (pop-field-state-arr (b/get-parent field) (b/get-column field) "dialogs"))
+   (state-section-pop-field-state-vector-helper (b/get-parent field) field :dialogs))
   (^override get-selectable-grid
    [this listcontainer dialogcols selectableF]
    (let [section (b/get-parent field)
          th this
          f field
          dc dialogcols]
-     (push-field-state-arr section (b/get-column field) "dialogs"
-                           #js{:type "list"
-                               :defaultAction selectableF
-                               :listContainer listcontainer
-                               :closeAction (fn [_] (b/close-action th))
-                               :dialogCols dc
-                               :field f;;in field metadata we will have the list templates beforehand
-                               :closeLabel "Cancel"
-                               }))))
+     (state-section-push-field-state-vector-helper
+      section field :dialogs
+      {:type "list"
+       :defaultAction selectableF
+       :listContainer listcontainer
+       :closeAction (fn [_] (b/close-action th))
+       :dialogCols dc
+       :field f;;in field metadata we will have the list templates beforehand
+       :closeLabel "Cancel"
+       }))))
 
 (def-comp QbeListDialog [container listContainer field dialogcols] b/AbstractQbeListDialog
   (^override fn* [] (this-as this (googbase this container listContainer field dialogcols)))
@@ -321,22 +262,23 @@
   (^overide draw-grid-in-dialog [this listContainer list-grid])
   (^override close-list-dialog
    [this]
-   (pop-field-state-arr (b/get-parent field) (b/get-column field) "dialogs"))
+   (state-section-pop-field-state-vector-helper (b/get-parent field) field :dialogs)))
   (^override get-selectable-grid
    [this listcontainer dialogcols selectableF]
    (let [section (b/get-parent field)
          th this
          f field
          dc dialogcols]
-     (push-field-state-arr section (b/get-column field) "dialogs"
-                           #js{:type "qbelist"
-                               :defaultAction selectableF
-                               :listContainer listcontainer
-                               :closeAction (fn [_] (b/close-action th))
-                               :dialogCols dc
-                               :field f;;in field metadata we will have the list templates beforehand
-                               :closeLabel "OK"
-                               }))))
+     (state-section-push-field-state-vector-helper
+      section field :dialogs
+      {:type "qbelist"
+       :defaultAction selectableF
+       :listContainer listcontainer
+       :closeAction (fn [_] (b/close-action th))
+       :dialogCols dc
+       :field f;;in field metadata we will have the list templates beforehand
+       :closeLabel "OK"
+       }))))
 
 (def-comp TextField [metadata] b/TextField
   (^override fn* [] (this-as this (googbase this metadata)))
@@ -365,56 +307,44 @@
          dac (fn [x]
                (b/set-ld-value this x))
          clac (fn [x]
-                (pop-field-state-arr section column "dialog")
+                (state-section-pop-field-state-vector-helper section this :dialogs)
                 (u/debug "Long description lookup closing"))]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "ld"
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "ld"
           :defaultAction dac
-          :closeAction clac}))
-   )
+          :closeAction clac})))
   (^override show-date-lookup
    [this]
    (let [section (b/get-parent this)
-         column (b/get-column this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
          clac (fn [x] (pop-field-state-arr section column "dialog"))]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "date"
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "date"
           :defaultAction dac
           :closeAction clac})))
   (^override show-date-time-lookup
    [this]
    (let [section (b/get-parent this)
-         column (b/get-column this)
          dac (fn [x] (b/change-maximo-value this (c/formatToMaximoDate x)))
          clac (fn [x] (pop-field-state-arr section column "dialog"))]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "datetime"
-          :defaultAction dac
-          :closeAction clac})))
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "datetime"
+       :defaultAction dac
+       :closeAction clac})))
   (^override show-gl-lookup
    [this orgid]
    (let [section (b/get-parent this)
-         column (b/get-column this)
          clac (fn [x] (pop-field-state-arr section column "dialog"))
          that this]
-     (push-field-state-arr
-      section
-      column
-      "dialogs"
-      #js{:type "gl"
-          :field that
-          :orgid orgid
-          })))
+     (state-section-push-field-state-vector-helper
+      section this :dialogs
+      {:type "gl"
+       :field that
+       :orgid orgid
+       })))
   Reactive
   (get-new-field-state
    [this]
@@ -462,9 +392,7 @@
    [this metadata])
   (^override build-picker-list
    [this column list-container pickerkeycol pickercol pickerrows selectableF]
-   (let [section (b/get-parent this)
-         column (b/get-column this)
-         ex-picker (get-field-state section column "picker")]
+   (let [section (b/get-parent this)]
      (state-section-field-state-helper
       section this
       :picker
@@ -486,43 +414,21 @@
   UI
   (^override draw-section
    [this]
-   (set-wrapped-state
-    this
-    (fn [state]
-      #js{"maxfields" #js[]} ));;initial state
-   ) ;wrapper component will draw the frame for fields
+   (state-section-clear-helper this))
   (^override add-rendered-child
    [this rendered-child child]
-   (set-wrapped-state
-    this
-    (fn [state]
-      (let [column (b/get-column child)
-            new-field-state (get-new-field-state child)
-            ex-fields (safe-arr-clone (aget state "maxfields"))]
-        (ar/conj! ex-fields new-field-state)
-        (b/on-render child)
-        #js{"maxfields" ex-fields}))))
+   (state-section-new-field-helper this child))
   Row
   (^override set-row-field-value
    [this field value]
-   (if (-> field (aget "metadata") :picker)
-     (let [column (b/get-column field)
-           ex-picker (get-field-state this column "picker")]
-       (aset ex-picker "value" value)
-       (set-field-state this column "picker" ex-picker)
-       (b/set-field-value field value))
-     (this-as this
-       (let [column (b/get-column field)]
-         (set-field-state this column "data" value)))))
+   (state-section-field-state-helper this field :data value))
   (^override set-field-enabled
    [this field enabled]
-   (let [column (b/get-column field)]
-     (set-field-state this  column "enabled" enabled)
-     (set-field-state this column "readonly" (not enabled))))
+   (state-section-field-state-helper this field :enabled enabled)
+   (state-section-field-state-helper this field :readonly (not enabled)))
   (^override set-field-required
    [this field required]
-   (let [column (b/get-column field)]
-     (set-field-state this  column "required" required)))
+   (state-section-field-state-helper this field :required required))
   (^override create-field
    [this col-metadata]
    (if-let [is-picker (and col-metadata (:picker col-metadata))]
@@ -533,18 +439,18 @@
      (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
    [this field [readonly? required? :as flag]]
-   (set-field-state this (b/get-column field) "flags" (clj->js flag))
+   (state-section-field-state-helper this field :flags flag))
    (b/set-field-enabled this field (not readonly?))
    (b/set-field-required this field required?))
   (^override add-field-ui-listeners
    [this field listen-map]
    (doseq [[k v] listen-map]
-     (add-field-listener this (b/get-column field) (name k) v)))
+     (add-field-listener this field k v)))
   (^override set-field-focus
    [this field]
    (when-not (-> field (aget "metadata") :picker)
-     (set-all-fields-state this "focused" false)
-     (set-field-state this (b/get-column field) "focused" true)))
+     (state-section-set-all-fields section :focused false)
+     (state-section-field-state-helper this field :focused true)))
   Reactive
   (add-columns-meta
    [this columns-meta]
@@ -824,12 +730,12 @@
    )
   (^override set-row-field-value
    [this field value]
-   (set-field-state this (b/get-column field) "data" value))
+   (state-section-field-state-helper this field :data value))
   (^override set-field-enabled [this field enabled])
   (^override add-field-ui-listeners
    [this field listen-map]
    (doseq [[k v] listen-map]
-     (add-field-listener this (b/get-column field) (name k) v)))
+     (add-field-listener this field k v)))
   Reactive
   (add-columns-meta
    [this columns-meta]
