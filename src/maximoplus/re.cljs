@@ -161,30 +161,30 @@
         (schedule-state-update section :maxfields)))))
 
 (defn state-section-field-state-helper
-  [section field type value]
+  [section field _type value]
   (state-section-upsert-helper
    section field
    (fn [field-data]
-     (assoc field-data type value))))
+     (assoc field-data _type value))))
 
 (declare state-section-get-field-state-helper)
 
 (defn state-section-push-field-state-vector-helper
-  [section field tyoe value]
-  (let [ex (state-section-get-field-state-helper section field type)]
-    (state-section-field-state-helper section field type (cons value ex))))
+  [section field _type value]
+  (let [ex (state-section-get-field-state-helper section field _type)]
+    (state-section-field-state-helper section field _type (cons value ex))))
 
 (defn state-section-pop-field-state-vector-helper
-  [section field tyoe]
-  (let [ex (state-section-get-field-state-helper section field type)]
-    (state-section-field-state-helper section field type (rest ex))))
+  [section field _type]
+  (let [ex (state-section-get-field-state-helper section field _type)]
+    (state-section-field-state-helper section field _type (rest ex))))
 
 (defn state-section-field-remove-state-helper
-  [section field type]
+  [section field _type]
   (state-section-upsert-helper
    section field
    (fn [field-data]
-     (dissoc field-data type))))
+     (dissoc field-data _type))))
 
 (defn state-section-delete-helper
   [section field]
@@ -209,32 +209,32 @@
        (merge field-data new-field-state)))))
 
 (defn state-section-get-field-state-helper
-  [section field type]
+  [section field _type]
   (let [column (b/get-column field)]
     (-> (c/get-state section :maxfields)
         (get column)
-        (get type))))
+        (get _type))))
 
 (defn state-section-set-all-fields
-  [section type value]
+  [section _type value]
   (when-let [fields-state (c/get-state section :maxfields)]
     (let [new-fields-state (reduce-kv
                             (fn [m k v]
-                              (assoc m k (assoc v type value)))
+                              (assoc m k (assoc v _type value)))
                             {}
                             fields-state)]
       (c/toggle-state section :maxfields new-fields-state)
       (schedule-state-update section :maxfields))))
 
 (defn add-field-listener
-  [component field type function]
+  [component field _type function]
   (let [ex-listeners (state-section-get-field-state-helper component field :listeners)]
-    (state-section-field-state-helper component field :listeners (assoc ex-listeners type function))))
+    (state-section-field-state-helper component field :listeners (assoc ex-listeners _type function))))
 
 (defn remove-field-listener
-  [component field type]
+  [component field _type]
   (let [ex-listeners (state-section-get-field-state-helper component field :listeners)]
-    (state-section-field-state-helper component field :listeners (dissoc ex-listeners type ))))
+    (state-section-field-state-helper component field :listeners (dissoc ex-listeners _type ))))
 ;;;
 
 (def-comp ListDialog[container listContainer field dialogcols] b/AbstractListDialog
@@ -260,7 +260,8 @@
        :dialogCols dc
        :field f;;in field metadata we will have the list templates beforehand
        :closeLabel "Cancel"
-       }))))
+       })
+     nil)))
 
 (def-comp QbeListDialog [container listContainer field dialogcols] b/AbstractQbeListDialog
   (^override fn* [] (this-as this (googbase this container listContainer field dialogcols)))
@@ -285,7 +286,8 @@
        :dialogCols dc
        :field f;;in field metadata we will have the list templates beforehand
        :closeLabel "OK"
-       }))))
+       })
+     nil)))
 
 (def-comp TextField [metadata] b/TextField
   (^override fn* [] (this-as this (googbase this metadata)))
