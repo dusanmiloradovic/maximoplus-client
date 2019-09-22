@@ -218,8 +218,11 @@
 (defn state-section-set-all-fields
   [section type value]
   (when-let [fields-state (c/get-state section :maxfields)]
-    (let [new-fields-state (map (fn [s] (assoc s type value))
-                                fields-state)]
+    (let [new-fields-state (reduce-kv
+                            (fn [m k v]
+                              (assoc m k (assoc v type value)))
+                            {}
+                            fields-state)]
       (c/toggle-state section :maxfields new-fields-state)
       (schedule-state-update section :maxfields))))
 
