@@ -218,8 +218,11 @@
 (defn state-section-set-all-fields
   [section type value]
   (when-let [fields-state (c/get-state section :maxfields)]
-    (let [new-fields-state (map (fn [s] (assoc s type value))
-                                fields-state)]
+    (let [new-fields-state (reduce-kv
+                            (fn [m k v]
+                              (assoc m k (assoc v type value)))
+                            {}
+                            fields-state)]
       (c/toggle-state section :maxfields new-fields-state)
       (schedule-state-update section :maxfields))))
 
@@ -697,10 +700,10 @@
          :flags nil
          :readonly false
          :required false
-         :listeners #js {}
+         :listeners  {}
          :focused false
          :maximoField fld
-         :dialogs #js [];;this is the stack of dialogs, the first on the top should be displayed on top. For the mobile app, that probably means move the stack to the top level of navigator (only one dialog for page). But for the tablet and the desktop app, the dialog can be displayed locally next to the field. Most of the times, there will be only one dialog. When the dialog close is detected, we should call the close dialog functtion, and remove the dialog from the list. If we provide the filters for the dialog, the list will be extended(filter then can have another dialog, and it another filter and so on.., everything is on stack)
+         :dialogs  [];;this is the stack of dialogs, the first on the top should be displayed on top. For the mobile app, that probably means move the stack to the top level of navigator (only one dialog for page). But for the tablet and the desktop app, the dialog can be displayed locally next to the field. Most of the times, there will be only one dialog. When the dialog close is detected, we should call the close dialog functtion, and remove the dialog from the list. If we provide the filters for the dialog, the list will be extended(filter then can have another dialog, and it another filter and so on.., everything is on stack)
          })))
 
 (def-comp QbeSection [container columns] b/QbeSection
