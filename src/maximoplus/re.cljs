@@ -142,7 +142,7 @@
 
 (defn state-clear-rows-helper
   [grid]
-  (c/toggle-state grid :maxrrows {})
+  (c/toggle-state grid :maxrows {})
   (schedule-state-update grid :maxrows))
 
 ;;;SECTION
