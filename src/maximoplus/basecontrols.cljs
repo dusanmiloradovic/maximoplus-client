@@ -1082,6 +1082,28 @@
                 (reset _cnt nil nil))
               (on-reset this))}))
 
+(def-comp MboCommandContaienr [mbocont type command argControl] MboContainer
+  (^override fn* []
+   (this-as
+       this
+     (.call BaseComponent this);super-super konstruktor)
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)
+           f (if (= "MBOSET" (.toUpperCase type))
+               c/register-mboset-command
+               c/register-mbo-command)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :iscontainer true
+                      :rel-containers []
+                      :deferred deferred
+                      :parentid (c/get-id mbocont)})
+       (kk-branch!
+        mbocont this "init" f (c/get-id mbocont) command argControl
+        (fn [ok] (go (put! deferred ok))))
+       (add-child mbocont this)))))
 
 (mm/def-comp QueryMboContainer [appContainer] MboContainer
   (^override fn* []
