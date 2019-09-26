@@ -2964,10 +2964,11 @@
   (^override changed-row
    [this row]
    ;;I dont know if this is necessary
-   (dispose (c/get-state this :list-container))
-   (c/remove-state this :list-container)
-   (destroy-picker-list this)
-   (display-picker-list-internal this)
+   (when (c/get-state this :list-container)
+     (dispose (c/get-state this :list-container))
+     (c/remove-state this :list-container)
+     (destroy-picker-list this)
+     (display-picker-list-internal this))
    )
 
   )

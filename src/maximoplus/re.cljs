@@ -2,8 +2,10 @@
   (:require [maximoplus.core :as c]
             [maximoplus.arrays :as ar]
             [maximoplus.utils :as u]
+            [cljs.core.async :as a :refer [put!]]
             [maximoplus.basecontrols :as b :refer [UI Field Row Table ControlData Foundation Dialog Picker Workflow GL MessageProcess]])
-  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]])
+  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on react-call with-react-props react-prop react-update-field react-call-control react-loop-fields loop-arr]]
+                   [cljs.core.async.macros :refer [go]])
   )
 
 (defprotocol Reactive;;for the 1.1 -React. vue and skatejs components
@@ -375,7 +377,9 @@
 
 (def-comp CPicker [metadata pickerkeycol pickercol pickerrows] b/AbstractPicker
   (^override fn* []
-   (this-as this (googbase this metadata pickerkeycol pickercol pickerrows)))
+   (this-as this
+     (googbase this metadata pickerkeycol pickercol pickerrows)
+     (go (put! (c/get-state this :deferred) "ok"))))
   Reactive
   (get-new-field-state
    [this]
