@@ -2963,7 +2963,7 @@
                (unpick-row picker-list dr))))))))
   (^override changed-row
    [this row]
-   ;;I dont know if this is necessary
+   ;;
    (when (c/get-state this :list-container)
      (dispose (c/get-state this :list-container))
      (c/remove-state this :list-container)

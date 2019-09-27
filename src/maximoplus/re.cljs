@@ -308,8 +308,7 @@
    )
   (^override set-focus [this]
    (not-used))
-  (^override set-field-value [this value]
-   (not-used))
+  (^override set-field-value [this value]) ;;will be used for picker here noop
   (^override display-label [this value]
    (not-used))
   (^override show-ld-lookup [this]
@@ -427,13 +426,9 @@
   (set-field-value
    [this value]
    (let [section (b/get-parent this)
-         current-picker-state (state-section-get-field-state-helper section this :picker)]
-     (state-section-field-state-helper
-      section this
-      :picker
-      (assoc current-picker-state
-             :value
-             value)))))
+         current-value (state-section-get-field-state-helper section this :data)]
+     (when (not= value current-value)
+       (b/changed-row this nil)))))
 
 (def-comp Section [container columns] b/Section
   (^override fn* [] (this-as this (googbase this container columns)))
@@ -447,7 +442,8 @@
   Row
   (^override set-row-field-value
    [this field value]
-   (state-section-field-state-helper this field :data value))
+   (state-section-field-state-helper this field :data value)
+   (b/set-field-value field value))
   (^override set-field-enabled
    [this field enabled]
    (state-section-field-state-helper this field :enabled enabled)
