@@ -406,7 +406,7 @@
   (^override build-picker-list
    [this column list-container pickerkeycol pickercol pickerrows selectableF]
    (let [section (b/get-parent this)
-         current-picker-state (state-sectoin-get-field-state helper section this :picker)]
+         current-picker-state (state-section-get-field-state-helper section this :picker)]
      (state-section-field-state-helper
       section this
       :picker
@@ -427,10 +427,13 @@
   (set-field-value
    [this value]
    (let [section (b/get-parent this)
-         current-picker-state (state-sectoin-get-field-state helper section this :picker)]
-     (assoc current-picker-state
-            :value
-            value))))
+         current-picker-state (state-section-get-field-state-helper section this :picker)]
+     (state-section-field-state-helper
+      section this
+      :picker
+      (assoc current-picker-state
+             :value
+             value)))))
 
 (def-comp Section [container columns] b/Section
   (^override fn* [] (this-as this (googbase this container columns)))
