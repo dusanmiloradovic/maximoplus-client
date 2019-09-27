@@ -405,22 +405,32 @@
    [this metadata])
   (^override build-picker-list
    [this column list-container pickerkeycol pickercol pickerrows selectableF]
-   (let [section (b/get-parent this)]
+   (let [section (b/get-parent this)
+         current-picker-state (state-sectoin-get-field-state helper section this :picker)]
      (state-section-field-state-helper
       section this
       :picker
-      {:list {"listContainer" list-container
-              "pickerKeyCol" pickerkeycol
-              "pickerCol" pickercol
-              "maxRows" pickerrows
-              "selectableF" selectableF}})))
+      (assoc current-picker-state
+             :list {"listContainer" list-container
+                    "pickerKeyCol" pickerkeycol
+                    "pickerCol" pickercol
+                    "maxRows" pickerrows
+                    "selectableF" selectableF}))))
   (^override add-picker-list-internal
    [this picker-list])
   ;;by convention the implementing library should put the mp in the state containing the built maximoplus list. I will try to find a better way, maybe pick and unpick is not required
   (^override destroy-picker-list
    [this]
    (let [section (b/get-parent this)]
-     (state-section-field-remove-state-helper section this :picker))))
+     (state-section-field-remove-state-helper section this :picker)))
+  Field
+  (set-field-value
+   [this value]
+   (let [section (b/get-parent this)
+         current-picker-state (state-sectoin-get-field-state helper section this :picker)]
+     (assoc current-picker-state
+            :value
+            value))))
 
 (def-comp Section [container columns] b/Section
   (^override fn* [] (this-as this (googbase this container columns)))
