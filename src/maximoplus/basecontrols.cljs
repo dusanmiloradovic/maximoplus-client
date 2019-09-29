@@ -1921,6 +1921,7 @@
             (clear-control this)
             (c/toggle-state this :sec-curr-row -1)
             (set-enabled this false)
+            (init-data this)
             )
   (on-set-fieldflag
    [this row field _f ]
