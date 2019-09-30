@@ -353,7 +353,7 @@
 ;;TODO (low priority) multiple operators per column (i.e ='a' or !='b' or !='c' for example(
 (defn get-qbe-where
   [qbe]
-  (when-not (empty? qbe)
+  (if-not (empty? qbe)
     (let [bf (fn [k op v]
                (if (sequential? v)
                  (let [[s b]
@@ -376,7 +376,9 @@
          [(str s1 " and " s2) (concat b1 b2)])
        (map (fn [[k [op v]]]
               (bf k op v))
-            qbe)))))
+            qbe)))
+    "1=1";;by convention if qbe map is empty return all records
+    ))
 
 ;;just for the update, update object is specified
 ;;syntax {"b" "bla" "c "cla"}

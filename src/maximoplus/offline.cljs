@@ -120,7 +120,7 @@
   [control-name]
   ;;  (.log js/console (str "calling the clear table for" control-name))
 ;;  (println "calling clearTable " control-name)
-  (dml [{:type :delete :name control-name :where (fn [_] true)}]))
+  (dml [{:type :delete :name control-name :qbe nil}]))
 
 
 
@@ -145,6 +145,14 @@
 ;;       (.log js/console (str "********ending moving to offline " table-name)))
      )))
 
+(defn normalize-data
+  [obj]
+  (into
+   {}
+   (for [[k v] obj]
+     [k (if-not (sequential? v)
+          v
+          (u/transit-json v))])))
 
 (defn ^:export moveToOffline
   [control-name control-data]
@@ -153,7 +161,7 @@
 
 (defn ^:export moveFlagsToOffline
   [control-name control-data]
-  (moveToOfflineInternal (str control-name "_flags") control-data))
+  (moveToOfflineInternal (str control-name "_flags") (normalize-data control-data)))
 
 
 (defn ^:export table-count
@@ -392,7 +400,9 @@
   [rel-name parent-id & raw?]
   ;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
 ;;  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
-  (let [del-deferred (p/get-deferred)]
+  (let [del-qbe (when parent-id
+                  {"uniqueid" ["=" parent-id]})
+        del-deferred (p/get-deferred)]
     (do-offline 
      (fn [_]
        ;;(.log js/console (str "******starting delete for parent for " rel-name))
@@ -402,14 +412,8 @@
      (fn [_] (db/exist-object? rel-name))
      (fn [ok]
        (if ok
-         (dml [{:type :delete :name rel-name :where
-                #(if-not parent-id
-                   true
-                   (= parent-id (aget % "parentid"))) }
-               {:type :delete :name (str rel-name "_flags") :where
-                #(if-not parent-id
-                   true
-                   (= parent-id (aget % "parentid"))) }] true)
+         (dml [{:type :delete :name rel-name :qbe del-qbe}
+               {:type :delete :name (str rel-name "_flags") :qbe del-qbe }] true)
          (p/get-resolved-promise "no table")))
      (fn [_]
        ;;(.log js/console (str "******ending delete for parent for " rel-name))
@@ -830,30 +834,39 @@
      (dml1 {:type :select-by-key :name (-> pn :node :object-name) :key parent-id :key-name "uniqueid"} true true)
      (p/then (fn [res] (aget res "parentid"))))))
 
+(defn empty-columns-object
+  [columns val]
+  (loop [ks columns rez {}]
+    (if (empty? ks)
+      rez
+      (recur (rest ks) (assoc rez (first ks) val)))))
+
+;; TODO Urgently test this looks suspicious
+;; If the offline inserts happen in the middle of the existing data,
+;; update the existing data (increaser townum), and then insert the new row
 (defn add-at-index [object-name parent-id rownum]
   (let [uid (rand-int 10000000)
-        wheref (fn [x]
-                 (>= (js/parseInt (:rownum x)) (js/parseInt rownum))
-                 )]
+        qbewhere {"rownum" [">=" rownum]}]
     (->
      (get-column-names object-name)
      (p/then (fn [col-names]
-             (let [_vals (js-obj)
-                   _flgs (js-obj)]
-               (doseq [c col-names]
-                 (aset _vals c "")
-                 (aset _flgs c #js[false false]))
-               (aset _vals "parentid" parent-id)
-               (aset _flgs "parentid" parent-id)
-               (aset _flgs "readonly" false)
-               (aset _vals "readonly" false)
-               (aset _vals "rownum" rownum)
-               (aset _flgs "rownum" rownum)
-               (aset _vals "uniqueid" (str "new" uid))
-               (aset _flgs "uniqueid" (str "new" uid))
-               (aset _vals  "changedValue" #js{"_new" true})
-               (aset _vals "new" true)
-               (aset _vals "changed" true)
+               (let [_vals (merge
+                            (empty-columns-object col-names "")
+                            {"parentid" parentid
+                             "readonly" false
+                             "rownum" rownum
+                             "uniqueid" (str "new" uid)
+                             "changedValue" #js{"_new" true}
+                             "new" true
+                             "changed" true})
+                     _flgs
+                     (merge
+                      (empty-columns-object col-names (u/transit-json [false false]))
+                      {"parentid" parent-id
+                       "readonly" false
+                       "rownum" rownum
+                       "uniqueid" (str "new" uid)})]
+                 
                                         ;update of any key in indexeddb is not allowed, I have to delete the records first (parentid,rownum) is the secondary key
                                         ;and then re-insert again
                (->
