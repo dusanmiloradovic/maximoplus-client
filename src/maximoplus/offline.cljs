@@ -500,10 +500,10 @@
 (defn update-wf-tables
   [node-type node]
   (->
-   (dml [{:type :delete :name node-type :where (fn [_] true)}
-         {:type :delete :name (str node-type "_flags") :where (fn [_] true)}
-         {:type :delete :name (str "list_" node-type "_ACTIONID") :where  (fn [_] true)}
-         {:type :delete :name (str "list_" node-type "_ACTIONID_flags") :where (fn [_] true) }])
+   (dml [{:type :delete :name node-type :qbe nil}
+         {:type :delete :name (str node-type "_flags") :qbe nil}
+         {:type :delete :name (str "list_" node-type "_ACTIONID") :qbe nil}
+         {:type :delete :name (str "list_" node-type "_ACTIONID_flags") :qbe nil }])
    (p/then (fn [_]
            (let [actions (second node)
                  default-actionid (-> actions (aget 0) (aget "actionid"))
@@ -671,7 +671,7 @@
    (p/then (fn [rez]
            (-> rez (aget 0) (aget "stepsFinished"))))))
 
-
+;;TODO introduce qbe
 (defn deleteCompletedWFAction
   [table-name uniqueid]
   (dml1 {:type :delete :name "workflowPrefetch"
@@ -870,8 +870,8 @@
                                         ;update of any key in indexeddb is not allowed, I have to delete the records first (parentid,rownum) is the secondary key
                                         ;and then re-insert again
                (->
-                (dml [{:type :select :name object-name :where wheref}
-                      {:type :select :name (str object-name "_flags") :where wheref}])
+                (dml [{:type :select :name object-name :qbe qbewhere}
+                      {:type :select :name (str object-name "_flags") :qbe qbewhere}])
                 (p/then (fn [[selected-data selected-flags]]
                         (loop [data selected-data
                                flags selected-flags rez-data [] rez-flags []]
@@ -888,8 +888,8 @@
                                      (conj rez-flags _statement)))))))
                 (p/then (fn [[old-data old-flags]]
                         (->
-                         (dml [{:type :delete :name object-name :where wheref}
-                               {:type :delete :name (str object-name "_flags") :where wheref}])
+                         (dml [{:type :delete :name object-name :qbe qbewhere}
+                               {:type :delete :name (str object-name "_flags") :qbe qbewhere}])
                          (p/then (fn []
                                  (dml [{:type :put :name object-name :data old-data}
                                        {:type :put :name (str object-name "_flags") :data old-flags}])
