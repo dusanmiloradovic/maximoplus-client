@@ -852,7 +852,7 @@
      (p/then (fn [col-names]
                (let [_vals (merge
                             (empty-columns-object col-names "")
-                            {"parentid" parentid
+                            {"parentid" parent-id
                              "readonly" false
                              "rownum" rownum
                              "uniqueid" (str "new" uid)
