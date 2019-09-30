@@ -996,6 +996,7 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :singlembo true
                       :iscontainer true
                       :rel-containers []
                       :deferred deferred

@@ -2095,7 +2095,8 @@
 (defn delete-for-parent [control-name parent-id & raw?]
   "implementation should return promise"
   (let [table-name  (aget rel-map control-name)]
-    (offline/delete-for-parent table-name parent-id (first raw?))))
+    (when-not (get-state control-name :singlembo)
+      (offline/delete-for-parent table-name parent-id (first raw?)))))
 
 
                                         ;offline delete should be atomic, so recursive delete should not be done here, instead just prepare the hierarchy of control names to be deleted and call the atomic function in offline.cljs
