@@ -1881,7 +1881,7 @@
      ))
   (init-data
    [this]
-   (println "Init data secit")
+;;   (println "Init data secit")
    (mm/p-deferred
     this
     (let [currow (get-currow container)
