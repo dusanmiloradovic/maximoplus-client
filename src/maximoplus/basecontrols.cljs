@@ -958,9 +958,12 @@
      (p-deferred-on
       dfrd
       (doseq [c  (get-children this)]
-        (when-not (c/get-state c :iscontainer)
-          (clear-control c)
-          (init-data c)))
+        (if-not (c/get-state c :iscontainer)
+          (do
+            (clear-control c)
+            (init-data c))
+          (when @c/is-offline ;;check why this is not necessary online
+            (re-register-and-reset c cb errb))))
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
@@ -1022,9 +1025,12 @@
      (c/toggle-state this :deferred dfrd)
      (p-deferred-on dfrd
                     (doseq [c  (get-children this)]
-                      (when-not (c/get-state c :iscontainer)
-                        (clear-control c)
-                        (init-data c))))
+                      (if-not (c/get-state c :iscontainer)
+                        (do
+                          (clear-control c)
+                          (init-data c))
+                        (when @c/is-offline ;;check why this is not necessary online
+                          (re-register-and-reset c cb errb)))))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
       idcont
