@@ -120,7 +120,7 @@
   [control-name]
   ;;  (.log js/console (str "calling the clear table for" control-name))
 ;;  (println "calling clearTable " control-name)
-  (dml [{:type :delete :name control-name :qbe nil}]))
+  (dml [{:type :delete :name control-name}]))
 
 
 
@@ -387,7 +387,9 @@
   [rel-name parent-id & raw?]
   (do-offline
    (fn [_]
-       (dml [{:type :select :name rel-name :where #(= parent-id (aget % "parentid"))}] true true))
+     (dml [{:type :select
+            :name rel-name
+            :qbe {"parentid" ["=" parent-id]}}] true true))
    (fn [rez]
      (let [_len (.-length rez)]
        (loop [i 0 vec []]
@@ -402,7 +404,9 @@
 ;;  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
   (let [del-qbe (when parent-id
                   {"uniqueid" ["=" parent-id]})
-        del-deferred (p/get-deferred)]
+        del-deferred (p/get-deferred)
+        del-statement {:type :delete :name rel-name}
+        del-statement-flags {:type :delete :name (str rel-name "_flags")}]
     (do-offline 
      (fn [_]
        ;;(.log js/console (str "******starting delete for parent for " rel-name))
@@ -412,8 +416,8 @@
      (fn [_] (db/exist-object? rel-name))
      (fn [ok]
        (if ok
-         (dml [{:type :delete :name rel-name :qbe del-qbe}
-               {:type :delete :name (str rel-name "_flags") :qbe del-qbe }] true)
+         (dml [(if del-qbe (assoc del-statement :qbe del-qbe) del-statement)
+               (if del-qbe (assoc del-statement-flags :qbe del-qbe) del-statement-flags)] true)
          (p/get-resolved-promise "no table")))
      (fn [_]
        ;;(.log js/console (str "******ending delete for parent for " rel-name))

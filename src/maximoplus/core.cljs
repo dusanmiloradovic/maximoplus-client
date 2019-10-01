@@ -2009,9 +2009,14 @@
 
 (defn- get-parent-uniqueid
   [containerid]
-  (if-let [parent-id (get-state containerid :parentid)]
-    (get-state parent-id :uniqueid)
-    (p/get-resolved-promise nil)))
+  (let [_parent-id (get-state containerid :parentid)
+        singlembo?  (get-state containerid :singlembo)
+        parent-id (if singlembo?
+                    (get-state _parent-id :parentid)
+                    _parent-id)]
+    (if parent-id
+      (get-state parent-id :uniqueid)
+      (p/get-resolved-promise nil))))
 
 
 (defn offline-table-count
