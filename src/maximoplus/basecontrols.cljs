@@ -1008,6 +1008,12 @@
      (add-child mbocont this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
   Container
+  (^override get-currow
+   [this]
+   (if-not @c/is-offline
+     ;;for offline read the current row from the parent container
+     (c/get-state this :currrow)
+     (get-currow (get-parent this))))
   (^override re-register-and-reset
    [this cb errb]
    (let [idcont (c/get-id mbocont)
