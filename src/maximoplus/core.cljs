@@ -962,25 +962,34 @@
                    (if-not rd-data _dta (assoc! _dta column  rd-data))
                    (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ])))))))))
 
+(defn get-parent-rownum
+  [containerid]
+  (let [parentid (get-state containerid :parentid)]
+    (get-state parentid :currrow)))
+
 (defn fetched-row-callback [control-name rd-evt & offline?]
   (when (first rd-evt)
-    (let [[rownum dta flg] (get-fetched-row-data rd-evt)]
+    (let [[rownum dta flg] (get-fetched-row-data rd-evt)
+          _rownum (if-not
+                     (get-state control-name :singlembo)
+                    rownum
+                   (get-parent-rownum control-name))]
       (put-object-data! control-name rownum dta)
       (put-object-flags! control-name rownum flg)
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid")))
-;;      (println "fetched row callback " control-name " offline enabled? " (is-offline-enabled control-name))
+      ;;      (println "fetched row callback " control-name " offline enabled? " (is-offline-enabled control-name))
       (when (and (not offline?)(is-offline-enabled control-name))
         "dont move to offline storage if already offline"
         (let [rel-name (aget rel-map control-name)
-              o-dta (assoc dta "rownum" rownum)
-              o-flags (assoc flg "rownum" rownum)]
-  ;;        (u/debug "should move to offline for rel-name " rel-name)
+              o-dta (assoc dta "rownum" _rownum)
+              o-flags (assoc flg "rownum" _rownum)]
+          ;;        (u/debug "should move to offline for rel-name " rel-name)
           (p/then
            (get-parent-uniqueid control-name)
            (fn [parent-uniqueid]
-;;             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
+             ;;             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
              (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
              (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
@@ -2017,6 +2026,8 @@
     (if parent-id
       (get-state parent-id :uniqueid)
       (p/get-resolved-promise nil))))
+
+
 
 
 (defn offline-table-count
