@@ -2016,18 +2016,34 @@
   (let [rel-name (aget rel-map object-name)]
     (offline/insert-qbe rel-name qbe)))
 
+(defn get-first-non-single
+  [containerid]
+  (if-not
+      (and  containerid
+          (get-state containerid :singlembo))
+    containerid
+    (when-let [parent-id (get-state containerid :parentid)]
+      (if-not (get-state parent-id :singlembo)
+        parent-id
+        (get-first-non-single parent-id)))))
+
 (defn- get-parent-uniqueid
   [containerid]
-  (let [_parent-id (get-state containerid :parentid)
-        singlembo?  (get-state containerid :singlembo)
-        parent-id (if singlembo?
-                    (get-state _parent-id :parentid)
-                    _parent-id)]
+  (let [single-mbo? (get-state containerid :singlembo)
+        parent-id (if single-mbo?
+                    (when-let [first-nonsingle (get-first-non-single containerid)]
+                      (get-state first-nonsingle :parentid))
+                    (when containerid
+                      (get-first-non-single
+                       (get-state containerid :parentid))))]
     (if parent-id
-      (get-state parent-id :uniqueid)
+      (let [currrow-parent (get-state parent-id :currrow)
+            parent-uniqueid (get-local-data parent-id currrow-parent "_uniqueid")]
+        (println " container " containerid " parent " parent-id
+                 " row = " currrow-parent
+                 " unique-id=" parent-uniqueid)
+        (p/get-resolved-promise parent-uniqueid))
       (p/get-resolved-promise nil))))
-
-
 
 
 (defn offline-table-count
