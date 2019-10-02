@@ -3,7 +3,8 @@
             [clojure.string :refer [replace split join]]
             [maximoplus.utils :as u]
             [maximoplus.promises :as p]
-            [maximoplus.arrays :as ar])
+            [maximoplus.arrays :as ar]
+            )
   
   )
 
@@ -57,16 +58,15 @@
 ;;Instead of the create-lock which is difficult to synchronize, I will create the columns-lock. If the table doens't exist, once it is created the promise will be populated with the list of columns. If it does, it will query the sqlite, find the columns and populate the promise.
 ;;One more important case is altering the table. In that case, the new promise has to be created
 
+(def ^:export globalFunctions
+  #js{"getSQLDatabase" (fn[database-name]
+                         (.openDatabase js/window database-name "1.0" database-name (* 5 1024 1024)))})
 
 (defn get-database
   []
   (when-not @database
-    (when (= "SQLITENATIVE" @dialect)
-      (throw (js/Error. "For React Native the database must be set from outside")))
     (reset! database
-            (case @dialect
-              "WEBSQL" (.openDatabase js/window @databaseName "1.0" @databaseName (* 5 1024 1024))
-              "SQLITE" (.openDatabase (aget js/window "sqlitePlugin") #js{"location" "default" "name" @databaseName}))))
+            (.call (aget globalFunctions "getSQLDatabase") nil @databaseName)))
   @database)
 
 (defmulti sql-oper (fn [operation] (:type operation)))
