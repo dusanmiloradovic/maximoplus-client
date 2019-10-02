@@ -2039,9 +2039,6 @@
     (if parent-id
       (let [currrow-parent (get-state parent-id :currrow)
             parent-uniqueid (get-local-data parent-id currrow-parent "_uniqueid")]
-        (println " container " containerid " parent " parent-id
-                 " row = " currrow-parent
-                 " unique-id=" parent-uniqueid)
         (p/get-resolved-promise parent-uniqueid))
       (p/get-resolved-promise nil))))
 
