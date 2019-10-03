@@ -73,37 +73,63 @@
   [table-name & raw?]
   (db/exist-object? table-name ))
 
+;;TODO low priority repalce json with transit
+
+(defn merge-meta
+  [ex-meta new-meta]
+  (let [_ex-meta (js->clj ex-meta :keywordize-keys true)]
+    (loop [nm new-meta rez _ex-meta]
+      (if  (empty? nm)
+        rez
+        (let [ma (first nm)
+              attribute-name (:attributeName ma)
+              ex-already?  (filter (fn [x]
+                                   (= attribute-name (:attributeName x)))
+                                  ex-meta)]
+          (recur (rest nm) (if-not (empty? ex-already?)
+                             rez
+                             (conj rez ma))))))))
+
 (defn moveMeta
   [object-name object-meta]
-;;  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
+  ;;  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
+  (println "moveMeta" object-name " meta:" object-meta)
   (let [prom (p/get-deferred)]
     (swap! object-promises assoc object-name prom)
     (do-offline
      (fn [_]
-       (dml
-        [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName" }] true true))
+       ;;       (dml
+       ;;        [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName" }] true true))
+       (db/select {:key object-name
+                   :key-name "objectName"
+                   :name "objectMeta"}))
      (fn [res]
-       (let [existing (aget res 0)]
-         (if (empty? existing)
-           (do
-             (println "creating " object-name " from " object-meta)
-             (->
-              (ddl
-               [{:type :create :name object-name :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}
-                {:type :create :name (str object-name "_flags") :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}])
-              (p/then (fn [_]
+;;       (println "--->>>>>>>> select meta " res)
+       (let [existing (first res)]
+         (->
+          (ddl
+           [{:type :create :name object-name :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}
+            {:type :create :name (str object-name "_flags") :key "uniqueid" :index-columns [#js["parentid" "rownum"]] :columns-meta object-meta}])
+          (p/then (fn []
+                    (if-not existing
+                      (do
+  ;;                      (println "creating " object-name " from " object-meta)
                         (dml
-                         [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true)))))
-           (db/update {:key object-name
-                       :name "objectMeta"
-                       :key-name "objectName"
-                       :update (fn [meta]
-                                 (aset meta "columnsMeta" (clj->js object-meta))
-                                 meta) }))))
+                         [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true))
+                      (let [merged-meta (merge-meta (aget (first res) "columnsMeta")
+                                                    object-meta)]
+;;                        (println "merged meta " merged-meta)
+                        (db/update {:key object-name
+                                    :name "objectMeta"
+                                    :qbe {"objectName" object-name}
+                                    :key-name "objectName"
+                                    :update (fn [meta]
+                                              (aset meta "columnsMeta" (clj->js merged-meta))
+                                              meta) }))))))))
      (fn [_] 
-;;       (.log js/console (str  "meta move has finished for" object-name))
+       ;;       (.log js/console (str  "meta move has finished for" object-name))
        (when-not (p/has-fired? prom )
-;;         (.log js/console "firing object promise!!!!!!!!!")
+         ;;         (.log js/console "firing object promise!!!!!!!!!")
          (p/callback prom))))))
 
 (defn column-in-meta?
