@@ -471,9 +471,18 @@
 ;;  (println "move to offline " rel-name " and " uniqueId " and " parentId " and " dta)
   (offline/moveToOffline rel-name (assoc dta "uniqueid" uniqueId "parentid" parentId) ))
 
+;;(defn prepare-flags-for-offline
+;;  [flags]
+;;  (into {}
+;;        (for [[k v] flags]
+;;          [k (u/transit-json v)])))
+
 (defn ^:export moveFlagsToOffline
   [rel-name uniqueId parentId flgs]
-  (offline/moveFlagsToOffline rel-name (assoc flgs "uniqueid" uniqueId "parentid" parentId) ))
+  (offline/moveFlagsToOffline rel-name (assoc
+                                        flgs
+;;                                        (prepare-flags-for-offline flgs)
+                                              "uniqueid" uniqueId "parentid" parentId) ))
 
 (defn add-relationship [name _object parent-name]
   (let [object (.toLowerCase _object)]

@@ -113,8 +113,8 @@
          #js[table-name]
          (fn[tx results]
            (let [rows (-> results (aget "rows"))]
-             (if (> (alength rows) 0)
-               (let [row (aget rows 0)
+             (if (> (aget rows "length") 0)
+               (let [row (.item rows 0)
                      _sql (aget row "sql")
                      col-string (replace _sql #"^.+\((.+)\).*" "$1")
                      splitted (split col-string #",\s?")
@@ -393,7 +393,7 @@
    [nil []]
    (map
     (fn [[k v]]
-      [(str k "= ?") v])
+      [(str "\"" k "\"=?") v])
     update-attrs)))
 
 (defmethod sql-oper :select [k]
@@ -490,7 +490,9 @@
                      rez-js
                      (clj->js rez-js))
                    )))))
-           (fn [err] (reject err))))))))) 
+           (fn [err]
+             (println "!!!!!!!!!!" operations)
+             (reject err))))))))) 
 
 (defn ddl
   [operations & ops]
