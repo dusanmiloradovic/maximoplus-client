@@ -397,9 +397,11 @@
                                   (let [k (first dta-keys)]
                                     (if (or (= k "uniqueid") (= k "parentid")(= k "changed") (= k "rownum") (= k "new") (= k "readonly") (= k "changedValue") )
                                       (assoc obj-rez (replace k "_dot_" ".")   (aget dta-obj k))
-                                      (let [flg (db/get-flags-array (aget flags-obj k))
-                                            required? (when flg (aget flg 1))
-                                            readonly? (when flg (aget flg 0))
+                                      (let [flg (db/get-flags-array
+                                                 (u/transit-read
+                                                  (aget flags-obj k)))
+                                            required? (when flg (get flg 1))
+                                            readonly? (when flg (get flg 0))
                                             dkey (replace k "_dot_" ".")
                                             dval (aget dta-obj k)
                                             compval [dval

@@ -362,9 +362,9 @@
   (-get-flags-array
     [this val]
     (if-not val
-      #js[true,false]
+      [true,false]
       (let [[ro rq] (.split val ",")]
-        #js[(if (= "true" ro) true false) (if (= "true" rq) true false)])))
+        [(if (= "true" ro) true false) (if (= "true" rq) true false)])))
   (-get-object-meta
     [this object-name]
     (->
