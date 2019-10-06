@@ -86,13 +86,6 @@
   (after-fetch [this cb]);promise executed on fetch
   (register-columns [this columns cb errb])
   (deregister-columns [this columns])
-  (late-register [control]);if the container was created offline and it goes online it needs to register on the server. Same goes if the session is expired during offline, and our login method keeps us on page without re-registering everything again
-  (get-offline-objects-tree [control])
-  (get-offline-changes [control])
-  (post-offline-changes [control cb errb])
-  (save-offline-changes [control cb errb])
-  (rollback-offline-changes [control cb errb])
-  (offline-post-finished [control res])
   (move-to-uniqueid [control uniqueid cb errb])
   (get-local-data-by-uniqueid [control uniqueid])
   (get-unique-id [container]);just for unique containers
@@ -612,6 +605,63 @@
   (is-offline-enabled
    [this]
    (c/get-state this :offlineenabled))
+    (cont-late-register
+   [this]
+   (kk! this "init" c/register-mainset mboname
+        (fn [ok]
+          (go (put! (c/get-state this :deferred) ok)))
+        nil))
+  (get-offline-objects-tree
+   [this]
+   (let [ret
+         {:object-name (aget c/rel-map (c/get-id this))}
+         relcos (vec (filter (fn [x] (c/is-offline-enabled x)) (get-rel-containers this)))]
+     (if (empty? relcos)
+       ret
+       (assoc ret :children (vec (map c/get-offline-objects-tree relcos))))))
+  (get-offline-changes
+   [this]
+   (->
+    (off/get-change-tree (c/get-offline-objects-tree this))
+    (p/then
+     (fn [changes]
+       (let [ch-tree
+             (prewalk
+              (fn [n]
+                (if-not (map? n)
+                  n
+                  (if-let [on (:object-name n)]
+                    (assoc n :relationship
+                           (aget (@c/container-registry
+                                  (aget c/rel-map-reverse on))
+                                 "rel"))
+                    n))) changes)]
+         (when-not (c/empty-data-tree? ch-tree)
+           (-> ch-tree clj->js u/create-json)))))))
+  (post-offl-changes
+   [this cb errb]
+
+   (->
+    (c/get-offline-changes this)
+    (p/then (fn [changes]
+              (when-not (empty? changes)
+                (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
+    (p/then (fn [res]
+              (c/offline-post-finished this (first res))))))
+  (save-offl-changes 
+   [this cb errb]
+   (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)
+   )
+  (rollback-offl-changes 
+   [this cb errb]
+   (kk! this "rollbackOfflineChanges" c/rollback-offline-changes  cb errb)
+   )
+  (offline-post-finished 
+   [this res]
+   (u/debug "OFFLINE POST FINISHED")
+   (println res)
+   ;;(println (u/transit-read res))
+   )
   Container
   (comp-clone-shallow
    [this parent]
@@ -638,63 +688,6 @@
   (get-rel-containers
    [this]
    (c/get-state this :rel-containers)
-   )
-  (late-register
-   [this]
-   (kk! this "init" c/register-mainset mboname
-        (fn [ok]
-          (go (put! (c/get-state this :deferred) ok)))
-        nil))
-  (get-offline-objects-tree
-   [this]
-   (let [ret
-         {:object-name (aget c/rel-map (c/get-id this))}
-         relcos (vec (filter (fn [x] (c/is-offline-enabled x)) (get-rel-containers this)))]
-     (if (empty? relcos)
-       ret
-       (assoc ret :children (vec (map get-offline-objects-tree relcos))))))
-  (get-offline-changes
-   [this]
-   (->
-    (off/get-change-tree (get-offline-objects-tree this))
-    (p/then
-     (fn [changes]
-       (let [ch-tree
-             (prewalk
-              (fn [n]
-                (if-not (map? n)
-                  n
-                  (if-let [on (:object-name n)]
-                    (assoc n :relationship
-                           (aget (@c/container-registry
-                                  (aget c/rel-map-reverse on))
-                                 "rel"))
-                    n))) changes)]
-         (when-not (c/empty-data-tree? ch-tree)
-           (-> ch-tree clj->js u/create-json)))))))
-  (post-offline-changes
-   [this cb errb]
-
-   (->
-    (get-offline-changes this)
-    (p/then (fn [changes]
-              (when-not (empty? changes)
-                (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
-    (p/then (fn [res]
-              (offline-post-finished this (first res))))))
-  (save-offline-changes 
-   [this cb errb]
-   (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)
-   )
-  (rollback-offline-changes 
-   [this cb errb]
-   (kk! this "rollbackOfflineChanges" c/rollback-offline-changes  cb errb)
-   )
-  (offline-post-finished 
-   [this res]
-   (u/debug "OFFLINE POST FINISHED")
-   (println res)
-   ;;(println (u/transit-read res))
    )
   (move-to-uniqueid 
    [this uniqueid cb errb]
@@ -862,14 +855,15 @@
        (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok] (go (put! deferred ok)))
-            nil)))) 
+            nil))))
+  Offline
+  (cont-late-register
+   [this]
+   (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))
   Container
   (^override comp-clone-shallow
    [this parent]
    (AppContainer. mboname appname))
-  (late-register
-   [this]
-   (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))
   (use-stored-query
    [this queryName]
    (c/use-stored-query (c/get-id this) queryName))
@@ -890,13 +884,13 @@
          (when ex?
            (let [table-name (aget c/rel-map (c/get-id this))]
              (->
-              (get-offline-changes this)
+              (c/get-offline-changes this)
               (p/then (fn [changes]
                         (when-not (empty? changes)
                           (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
               (p/then (fn [res]
                         (off/debug-table table-name)
-                        (offline-post-finished this (first res))
+                        (c/offline-post-finished this (first res))
                         (aset this "offlinePosting" false)
                         (swap! c/offline-posted assoc (c/get-id this) true)
                         (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
@@ -933,6 +927,11 @@
        (add-child mbocont this)
        (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this)))))
   Offline
+  (^override cont-late-register
+   [this]
+   (println "rel container late register " rel " and " (c/get-id mbocont))
+   (mm/kk-branch-nocb! mbocont this "register" 
+                       c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (is-offline-enabled
    [this]
    (c/is-offline-enabled (get-parent this)));;it doesn't make sense to have offline enabled for rel container, but not for main. Basically the change will allow to define the offline enabled only once in the project(for the app container), all the rules should be inherited from that
@@ -940,11 +939,6 @@
   (^override comp-clone-shallow
    [this parent]
    (RelContainer. parent rel))
-  (^override late-register
-   [this]
-   (println "rel container late register " rel " and " (c/get-id mbocont))
-   (mm/kk-branch-nocb! mbocont this "register" 
-                       c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (re-register
    [this]
    ;;simlified version used for offline offloading
@@ -1039,7 +1033,8 @@
         (go (put! dfrd ok)))
       (fn [err]
         (go (put! dfrd err))))))
-  (^override late-register
+  Offline
+  (^override cont-late-register
    [this]
    (mm/kk-branch-nocb! mbocont this "register"
                         c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))

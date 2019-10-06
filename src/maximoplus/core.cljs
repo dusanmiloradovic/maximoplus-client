@@ -51,6 +51,29 @@
 (declare bulk-ev-dispf)
 (declare error-dispf)
 
+(defprotocol Component ;base protocol for the components
+  (get-id [component])
+  (get-state [component key])
+  (toggle-state [component key value])
+  (set-states [component kv])
+  (get-container [component]);virtually all will have this
+  (get-col-attrs [component])
+  (remove-state [component key])
+  )
+
+(defprotocol Offline
+  (is-offline-enabled [container])
+  (set-offline-enabled [container flag])
+  (set-offline-enabled-nodel [container flag])
+  (cont-late-register [control]);if the container was created offline and it goes online it needs to register on the server. Same goes if the session is expired during offline, and our login method keeps us on page without re-registering everything again
+  (get-offline-objects-tree [control])
+  (get-offline-changes [control])
+  (post-offl-changes [control cb errb])
+  (save-offl-changes [control cb errb])
+  (rollback-offl-changes [control cb errb])
+  (offline-post-finished [control res])
+  )
+
 (defn simple-receive [_channel f]
   (go
     (<! _channel);;ignore what is put, just delay until the completion of init
@@ -74,8 +97,11 @@
       (u/debug "Going online")
       (net/start-server-push-receiving bulk-ev-dispf error-dispf)
       (swap! is-offline (fn [_] false))
-      (register-controls-on-online);late online registration for the controls that have been registered offline 
-      )))
+      (register-controls-on-online);late online registration for the controls that have been registered offline
+      (doseq [c (get-app-containers)]
+        (post-offl-changes c
+                           (fn [ok] (println "offline posting finished"))
+                           (fn [err] (println err)))))))
 
 ;;(defn listen-offline
 ;;  []
@@ -153,20 +179,7 @@
   (send-command [component command command-f command-cb command-errb]);;this shouuld replace the container command promises, all the callbacks will be processed via command channel
   )
 
-(defprotocol Component ;base protocol for the components
-  (get-id [component])
-  (get-state [component key])
-  (toggle-state [component key value])
-  (set-states [component kv])
-  (get-container [component]);virtually all will have this
-  (get-col-attrs [component])
-  (remove-state [component key])
-  )
 
-(defprotocol Offline
-  (is-offline-enabled [container])
-  (set-offline-enabled [container flag])
-  (set-offline-enabled-nodel [container flag]))
 
 (declare container-registry)
 
@@ -2189,7 +2202,7 @@
     (p/prom-all (doall
                  (map (fn [c]
                         (->
-                         (.lateRegister c)
+                         (cont-late-register c)
                          (p/then (fn [_](mm/kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
