@@ -93,7 +93,7 @@
 (defn moveMeta
   [object-name object-meta]
   ;;  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
-  (println "moveMeta" object-name " meta:" object-meta)
+;;  (println "moveMeta" object-name " meta:" object-meta)
   (let [prom (p/get-deferred)]
     (swap! object-promises assoc object-name prom)
     (do-offline

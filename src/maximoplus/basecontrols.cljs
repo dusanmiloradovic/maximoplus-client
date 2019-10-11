@@ -471,6 +471,9 @@
    [this kvs]
    (swap! (aget this "state") merge kvs)
    )
+  (debug-state
+   [this]
+   (println "for id=" (c/get-id this) ", state keys=" (keys @(aget this "state"))))
   Foundation
   (add-meta [this column metaKey metaValue]
             (c/add-col-attr this column metaKey metaValue))
@@ -806,7 +809,6 @@
            (kk! this "getQbe"
                 c/get-qbe-with-offline
                 (fn [e]
-;;                  (println "got qbe " e)
                   (let [ qbe (-> (get e 0)  u/vec-to-map)]
                     (when qbe
                       (aset this "qbe" qbe)
@@ -860,6 +862,19 @@
   (cont-late-register
    [this]
    (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))
+  (cont-late-register-init
+   [this]
+   (let [_qbe (c/get-state this :qbe)
+         qbe (when _qbe
+               (partition 2 _qbe))
+         orderby (c/get-state this :orderby)]
+     (when qbe
+       (doseq  [[k v] qbe]
+         (kk-nocb! this "qbe" c/set-qbe-with-offline k v)))
+     (when orderby
+       (kk-nocb! this "orderby" c/set-order-by orderby))
+     (kk-nocb! this "reset" c/reset )
+     ))
   Container
   (^override comp-clone-shallow
    [this parent]

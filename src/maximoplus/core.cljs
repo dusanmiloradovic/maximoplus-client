@@ -53,6 +53,7 @@
 
 (defprotocol Component ;base protocol for the components
   (get-id [component])
+  (debug-state [component])
   (get-state [component key])
   (toggle-state [component key value])
   (set-states [component kv])
@@ -66,6 +67,7 @@
   (set-offline-enabled [container flag])
   (set-offline-enabled-nodel [container flag])
   (cont-late-register [control]);if the container was created offline and it goes online it needs to register on the server. Same goes if the session is expired during offline, and our login method keeps us on page without re-registering everything again
+  (cont-late-register-init [control]);;after it was registered, init the data
   (get-offline-objects-tree [control])
   (get-offline-changes [control])
   (post-offl-changes [control cb errb])
@@ -200,6 +202,9 @@
     [component]
     (get-container (@container-registry component))
     )
+  (debug-state
+    [component]
+    (debug-state (@container-registry component)))
   )
 
 (extend-protocol Offline
@@ -620,6 +625,7 @@
 
 (defcmd get-qbe [control-name]
   (fn [evt]
+    (toggle-state control-name :qbe qbe)
     (when (is-offline-enabled control-name)
       (offline-insert-qbe control-name (nth evt 0)))))
 
@@ -2198,25 +2204,26 @@
 
 
 (defn late-register 
-  [containers]
+  [containers & is-rel?] ;;relcontainers, just register don't reset
   (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
     (p/prom-all (doall
                  (map (fn [c]
+                        (println "qbe0:" (get-state c :qbe))
                         (->
                          (cont-late-register c)
                          (p/then (fn [_](kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
-              ;;                     (kk-nocb! c "reset" reset)
-                                   ))
-;;                         (p/then (fn [_]
-;;                                   (let [{start :start numrows :numrows} (get-state c :init-data)]
-;;                                     (kk-nocb! c "fetch" fetch start numrows))))
+                                   (if-not (first is-rel?)
+                                     (cont-late-register-init c)
+                                     (p/get-resolved-promise "rel"))))
                          (p/then (fn [_]
-                                   (when-let [ch-rels (.getRelContainers c)]
-                                     (late-register ch-rels))))))
+;;                                   (when-let [ch-rels (.getRelContainers c)]
+                                   ;;                                     (late-register ch-rels true))
+                                   (println "late-register finished reset re-registers children")
+                                   ))))
                       containers)))))
 
 (defn register-controls-on-online
