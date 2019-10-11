@@ -519,8 +519,8 @@
   (do
     (add-relationship control-name main-object nil))
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
@@ -546,8 +546,8 @@
 (defcmd register-maximo-menu
   [control-name]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
@@ -558,10 +558,10 @@
 
 (defcmd set-qbe [control-name qbe-attr qbe-expr]
   (fn [evt]
-    (let [qbe (nth evt 0)]
+    (let [qbe (first evt)]
       (toggle-state control-name :qbe qbe)
       (when (is-offline-enabled control-name)
-        (offline-insert-qbe control-name (nth evt 0))))))
+        (offline-insert-qbe control-name (first evt))))))
 
 (defn offline-set-qbe [control-name qbe-attr qbe-expr cb errb]
   (->
@@ -574,7 +574,7 @@
 
 (defcmd add-control-columns [control-name columns]
   (fn[evt]
-    (let [metadata  (nth evt 0)]
+    (let [metadata  (first evt)]
       (overwrite-metadata control-name metadata))))
 
 (defn offline-add-control-columns [control-name object-name columns cb errb]
@@ -625,14 +625,14 @@
 
 (defcmd get-qbe [control-name]
   (fn [evt]
-    (toggle-state control-name :qbe qbe)
+    (toggle-state control-name :qbe (first evt))
     (when (is-offline-enabled control-name)
-      (offline-insert-qbe control-name (nth evt 0)))))
+      (offline-insert-qbe control-name (first evt)))))
 
 (defcmd get-columns-qbe [control-name columns]
   (fn [evt]
     (when (is-offline-enabled control-name)
-      (offline-insert-qbe control-name (nth evt 0)))))
+      (offline-insert-qbe control-name (first evt)))))
 
 (defcmd set-order-by [control-name column]
   (fn [evt]
@@ -663,7 +663,7 @@
 
 (defcmd get-option-descriptions [control-name]
   (fn[evt]
-    (swap! option-descriptions assoc control-name  (nth evt 0))
+    (swap! option-descriptions assoc control-name  (first evt))
     ))
 
 (defn get-option-description
@@ -673,8 +673,8 @@
 
 
 (defn process-register-list-callback-event [list-name evt]
-  (let [resp  (nth evt 0)
-        already-reg (nth resp 0)
+  (let [resp  (first evt)
+        already-reg (first resp)
         ]
     (if (= "none" already-reg)
       (add-peer-control nil list-name)
@@ -844,7 +844,7 @@
 
 (defcmd add-at-end [control-name]
   (fn [evt]
-    (let [rd-evt  (nth evt 0)]
+    (let [rd-evt  (first evt)]
 					;     (u/debug  "add at end  got ok")
       ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
@@ -856,7 +856,7 @@
 
 (defcmd add-at-index [control-name ind]
   (fn [evt]
-    (let [rd-evt  (nth evt 0)] 
+    (let [rd-evt  (first evt)] 
       (dispatch-peers! control-name "add-at-index" {:row (first rd-evt) :data (second rd-evt)})
                                         ;     (u/debug "add at index " {"row" (first rd-evt) "data" (second rd-evt)})
       )))
@@ -1026,7 +1026,7 @@
 
 (defcmd fetch [control-name]
   (fn [evt]
-    (let [rd-evt  (nth evt 0)] 
+    (let [rd-evt  (first evt)] 
       (fetched-row-callback control-name rd-evt)
       )))
 
@@ -1034,7 +1034,7 @@
 
 (defcmd fetch-no-move [control-name]
   (fn [evt]
-    (let [rd-evt  (nth evt 0)] 
+    (let [rd-evt  (first evt)] 
       (fetched-row-callback control-name rd-evt)
       )))
 
@@ -1067,8 +1067,8 @@
     					;    (u/debug "fetching multi-rows for :" control-name)
 					;   (u/debug "fetch-multi-rows:" evt)
                                         ;    (u/debug-exception evt)
-    (when-not (= "norow" (nth evt 0))
-      (doseq [rd-evt  (nth evt 0)]
+    (when-not (= "norow" (first evt))
+      (doseq [rd-evt  (first evt)]
         (fetched-row-callback control-name rd-evt)
         )
 ;;      (println "dispatching fetch-finished for " control-name)
@@ -1622,8 +1622,8 @@
 (defcmd-with-prepare register-mboset-with-one-mbo [control-name parent-control uniqueid]
   (add-relationship control-name (aget rel-map parent-control) nil)
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;      (u/debug (str "registering of  mboset with one mbo got ok"))
       (add-peer-control nil control-name))))
@@ -1643,8 +1643,8 @@
 
 (defcmd register-mboset-with-one-mbo-ind [control-name parent-control parent-index]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;     (u/debug (str "registering of  mboset with one mbo got ok"))
       (add-peer-control nil control-name)
@@ -1654,8 +1654,8 @@
 (defcmd-with-prepare register-mboset-byrel [control-name rel-name parent-control]
   (add-relationship control-name rel-name parent-control)
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)]
+    (let [resp (first evt)
+          already-reg (first resp)]
       (if (= "none" already-reg)
         (add-peer-control nil control-name)
         (add-peer-control already-reg control-name)))))
@@ -1669,8 +1669,8 @@
 
 (defcmd register-mbo-command [control-name parent-control command arg-control]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (if (= "none" already-reg)
         (add-peer-control nil control-name)
@@ -1678,8 +1678,8 @@
 
 (defcmd register-mboset-command [control-name parent-control command arg-control]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (if (= "none" already-reg)
         (add-peer-control nil control-name)
@@ -1756,8 +1756,8 @@
 
 (defcmd initiate-wf [actionsset-name control-name app-name director-name ]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (if (= "none" already-reg)
         (add-peer-control nil actionsset-name)
@@ -1768,8 +1768,8 @@
 
 (defcmd execute-reassign-wf [actionsset-name director-name]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (if (= "none" already-reg)
         (add-peer-control nil actionsset-name)
@@ -1824,8 +1824,8 @@
 (defcmd re-register-mboset-byrel
   [control-name rel-name parent-control]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (clear-control-data control-name)
       (if (= "none" already-reg)
@@ -1835,8 +1835,8 @@
 (defcmd re-register-mboset-with-one-mbo
   [control-name parent-control parent-id]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
       (clear-control-data control-name)
       (if (= "none" already-reg)
@@ -1854,8 +1854,8 @@
 (defcmd register-query-mboset
   [control-name app]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
@@ -1866,8 +1866,8 @@
   [control-name]
   (add-relationship control-name "wfassignment" nil);just for the offline, i have yet to see how it will work once it is offline
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
+    (let [resp (first evt)
+          already-reg (first resp)
           ]
                                         ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
@@ -1877,8 +1877,8 @@
   [control-name]
   (add-relationship control-name "person" nil)
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)]
+    (let [resp (first evt)
+          already-reg (first resp)]
       (add-peer-control nil control-name)
 ;just for the offline, i have yet to see how it will work once it is offline
       )))
@@ -1892,16 +1892,12 @@
 (defcmd register-bookmark-mboset
   [control-name app]
   (fn [evt]
-    (let [resp (nth evt 0)
-          already-reg (nth resp 0)
-          ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
-      (add-peer-control nil control-name)
-      )))
+    (let [resp (first evt)
+          already-reg (first resp)]
+      (add-peer-control nil control-name))))
 
 (defcmd use-stored-query
-  [control-name query-name]
-  )
+  [control-name query-name])
 
 
 (defcmd register-gl-format ;istovremeno registruje format i mboset
