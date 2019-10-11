@@ -11,7 +11,7 @@
    [cljs.core.async :as a :refer [put! promise-chan <! timeout]]
    )
   (:require-macros 
-   [maximoplus.macros :as mm :refer [p-deferred-on p-deferred]]
+   [maximoplus.macros :as mm :refer [p-deferred-on p-deferred defcmd defcmd-with-prepare defcmd-post offline-alt-noobj offline-alt kk! kk-nocb!]]
    [cljs.core.async.macros :refer [go go-loop]]))
 
 (declare yesnocancelproxy)
@@ -509,7 +509,7 @@
         (aset rel-map name r-obj-name)
         (aset rel-map-reverse r-obj-name name)))))
 
-(mm/defcmd-with-prepare register-main-mboset
+(defcmd-with-prepare register-main-mboset
   [control-name main-object]
   (do
     (add-relationship control-name main-object nil))
@@ -532,13 +532,13 @@
   (toggle-state control-name :registered-from-offline true)
   (when cb (cb "done")))
 
-(mm/offline-alt-noobj register-main-mboset-with-offline register-main-mboset offline-register-main-mboset [control-name main-object])
+(offline-alt-noobj register-main-mboset-with-offline register-main-mboset offline-register-main-mboset [control-name main-object])
 
 (defn ^:export register-mainset
   [control-name main-object cb errb]
   (register-main-mboset-with-offline control-name main-object cb errb))
 
-(mm/defcmd register-maximo-menu
+(defcmd register-maximo-menu
   [control-name]
   (fn [evt]
     (let [resp (nth evt 0)
@@ -551,21 +551,23 @@
 
 (declare offline-insert-qbe)
 
-(mm/defcmd set-qbe [control-name qbe-attr qbe-expr]
+(defcmd set-qbe [control-name qbe-attr qbe-expr]
   (fn [evt]
-    (when (is-offline-enabled control-name)
-      (offline-insert-qbe control-name (nth evt 0)))))
+    (let [qbe (nth evt 0)]
+      (toggle-state control-name :qbe qbe)
+      (when (is-offline-enabled control-name)
+        (offline-insert-qbe control-name (nth evt 0))))))
 
 (defn offline-set-qbe [control-name qbe-attr qbe-expr cb errb]
   (->
    (offline/insert-offline-qbe (aget rel-map control-name) qbe-attr qbe-expr)
    (p/then (fn [ok] (when cb (cb ok))))))
 
-(mm/offline-alt-noobj set-qbe-with-offline set-qbe offline-set-qbe [control-name qbe-attr qbe-expr])
+(offline-alt-noobj set-qbe-with-offline set-qbe offline-set-qbe [control-name qbe-attr qbe-expr])
 
 (declare overwrite-metadata)
 
-(mm/defcmd add-control-columns [control-name columns]
+(defcmd add-control-columns [control-name columns]
   (fn[evt]
     (let [metadata  (nth evt 0)]
       (overwrite-metadata control-name metadata))))
@@ -592,11 +594,11 @@
                 (errb err))
       err))))
 
-(mm/offline-alt add-control-columns-with-offline add-control-columns offline-add-control-columns [control-name columns])
+(offline-alt add-control-columns-with-offline add-control-columns offline-add-control-columns [control-name columns])
 
-(mm/defcmd delete [control-name])
+(defcmd delete [control-name])
 
-(mm/defcmd undelete [control-name])
+(defcmd undelete [control-name])
 
 (defn offline-delete [control-name cb errb]
   (->
@@ -610,49 +612,50 @@
    (p/then (fn [puid] (offline/row-undelete (aget rel-map control-name)  puid (get-state control-name :currrow))))
    (p/then (fn [ok] (when cb (cb ok))))))
 
-(mm/offline-alt-noobj delete-with-offline delete offline-delete [control-name])
+(offline-alt-noobj delete-with-offline delete offline-delete [control-name])
 
-(mm/offline-alt-noobj undelete-with-offline undelete offline-undelete [control-name])
+(offline-alt-noobj undelete-with-offline undelete offline-undelete [control-name])
 
-(mm/defcmd remove-control-columns [control-name columns])
+(defcmd remove-control-columns [control-name columns])
 
-(mm/defcmd get-qbe [control-name]
+(defcmd get-qbe [control-name]
   (fn [evt]
     (when (is-offline-enabled control-name)
       (offline-insert-qbe control-name (nth evt 0)))))
 
-(mm/defcmd get-columns-qbe [control-name columns]
+(defcmd get-columns-qbe [control-name columns]
   (fn [evt]
     (when (is-offline-enabled control-name)
       (offline-insert-qbe control-name (nth evt 0)))))
 
-(mm/defcmd set-order-by [control-name column])
+(defcmd set-order-by [control-name column]
+  (fn [evt]
+    (toggle-state control-name :orderby column)))
 
-(mm/defcmd set-current-app [control-name app])
+(defcmd set-current-app [control-name app])
 
 (defn offline-set-current-app [control-name app cb errb]
-  (when cb (cb app))
-  )
+  (when cb (cb app)))
 
-(mm/offline-alt-noobj set-current-app-with-offline set-current-app offline-set-current-app [control-name app])
+(offline-alt-noobj set-current-app-with-offline set-current-app offline-set-current-app [control-name app])
 
-(mm/defcmd set-unique-app [control-name app unique-id])
+(defcmd set-unique-app [control-name app unique-id])
 
-(mm/defcmd set-unique-id [control-name unique-id])
+(defcmd set-unique-id [control-name unique-id])
 
-(mm/defcmd run-mbo-command [control-name command arg-control])
+(defcmd run-mbo-command [control-name command arg-control])
 
-(mm/defcmd access-to-option [control-name option])
+(defcmd access-to-option [control-name option])
 
-(mm/defcmd run-mboset-command [control-name command arg-control])
+(defcmd run-mboset-command [control-name command arg-control])
 
-(mm/defcmd command-on-selection [control-name command])
+(defcmd command-on-selection [control-name command])
 
-(mm/defcmd mboset-count [control-name])
+(defcmd mboset-count [control-name])
 
 (def option-descriptions (atom {}))
 
-(mm/defcmd get-option-descriptions [control-name]
+(defcmd get-option-descriptions [control-name]
   (fn[evt]
     (swap! option-descriptions assoc control-name  (nth evt 0))
     ))
@@ -671,7 +674,7 @@
       (add-peer-control nil list-name)
       (add-peer-control already-reg list-name))))
 
-(mm/defcmd-with-prepare register-list [list-name mbocontainer-name column-name force-qbe?]
+(defcmd-with-prepare register-list [list-name mbocontainer-name column-name force-qbe?]
   (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
     (add-relationship list-name (str "list_" (.toLowerCase cont-obj-name) "_" (.toLowerCase column-name)) nil))
   (fn[evt] (process-register-list-callback-event list-name evt)))
@@ -695,18 +698,18 @@
           (add-relationship list-name (str "list_" (.toLowerCase (aget rel-map mbocontainer-name)) "_" (.toLowerCase column-name)) nil)
           (cb "done")))))))
 
-(mm/offline-alt-noobj register-list-with-offline register-list offline-register-list [list-name mbocontainer-name column-name force-qbe?])
+(offline-alt-noobj register-list-with-offline register-list offline-register-list [list-name mbocontainer-name column-name force-qbe?])
 
-(mm/defcmd register-qbe-list [list-name mbocontainer-name  column-name]
+(defcmd register-qbe-list [list-name mbocontainer-name  column-name]
   (fn[evt] (process-register-list-callback-event list-name evt))
   )
 
-(mm/defcmd get-key-attributes [control-name])
+(defcmd get-key-attributes [control-name])
 
-(mm/defcmd smart-fill [fill-list-name mbocontainer-name column-name value]
+(defcmd smart-fill [fill-list-name mbocontainer-name column-name value]
   (fn[evt] (process-register-list-callback-event fill-list-name evt)))
 
-(mm/defcmd set-value-from-list [mbocontainer-name list-name column-name])
+(defcmd set-value-from-list [mbocontainer-name list-name column-name])
 
 (declare offline-set-value)
 
@@ -721,9 +724,9 @@
       (when cb (cb val))
       val))))
 
-(mm/offline-alt-noobj set-value-from-list-with-offline set-value-from-list offline-set-value-from-list [mbocontainer-name list-name column-name])
+(offline-alt-noobj set-value-from-list-with-offline set-value-from-list offline-set-value-from-list [mbocontainer-name list-name column-name])
 
-(mm/defcmd set-qbe-from-list [mbocontainer-name list-name column-name])
+(defcmd set-qbe-from-list [mbocontainer-name list-name column-name])
 
 (defn offline-set-qbe-from-list [mbocontainer-name list-name column-name cb errb]
   (->
@@ -757,7 +760,7 @@
                   (offlinePrepareOne (get-id container))))
           errbh (fn [err] 
                   (when errback-handler (errback-handler err)))]
-      (mm/kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
+      (kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
       
 
 
@@ -774,12 +777,12 @@
     true
     (get-column-metadata container-name column)))
 
-(mm/defcmd move-to [control-name row])
+(defcmd move-to [control-name row])
 
-                                        ;(mm/defcmd set-value [control-name attribute value])
+                                        ;(defcmd set-value [control-name attribute value])
 
                                         ;ovo radim zato sto setovanje long description-a ne okida set-value za isti mbo, a ne zelim da radim ovo samo za long description
-(mm/defcmd-with-prepare set-value [control-name attribute value]
+(defcmd-with-prepare set-value [control-name attribute value]
   (let [currow (get-state control-name :currrow)
         ]
     (dispatch-upd control-name currow attribute value)
@@ -813,27 +816,27 @@
         (dispatch-upd control-name  currow attribute (get-local-data control-name  currow attribute))
         (when errb (u/debug err) (errb err)))))))
 
-(mm/offline-alt set-value-with-offline set-value offline-set-value [control-name attribute value])
+(offline-alt set-value-with-offline set-value offline-set-value [control-name attribute value])
 
 
-(mm/defcmd set-zombie [control-name attribute value])
+(defcmd set-zombie [control-name attribute value])
 
 
 
-(mm/defcmd save [control-name])
+(defcmd save [control-name])
 
-(mm/defcmd forward [control-name] (fn [evt]
+(defcmd forward [control-name] (fn [evt]
                                     (u/debug (str "forward  got ok with the result" evt))
                                     (toggle-state control-name :firstrow false)
                                     (toggle-state control-name :lastrow (not= "ok" (first evt)))))
 
-(mm/defcmd backward [control-name] (fn [evt]
+(defcmd backward [control-name] (fn [evt]
                                      (do
                                        (u/debug (str "backward  got ok with the result" evt))
                                        (toggle-state control-name :lastrow false)
                                        (toggle-state control-name :firstrow (not= "ok" (first evt))))))
 
-(mm/defcmd add-at-end [control-name]
+(defcmd add-at-end [control-name]
   (fn [evt]
     (let [rd-evt  (nth evt 0)]
 					;     (u/debug  "add at end  got ok")
@@ -845,7 +848,7 @@
   )
 
 
-(mm/defcmd add-at-index [control-name ind]
+(defcmd add-at-index [control-name ind]
   (fn [evt]
     (let [rd-evt  (nth evt 0)] 
       (dispatch-peers! control-name "add-at-index" {:row (first rd-evt) :data (second rd-evt)})
@@ -858,7 +861,7 @@
    (p/then (fn [puid] (offline/add-at-index (aget rel-map control-name) puid  ind)))
    (p/then (fn [ok] (when cb (cb ok))))))
 
-(mm/offline-alt-noobj add-at-index-with-offline add-at-index offline-add-at-index [control-name ind])
+(offline-alt-noobj add-at-index-with-offline add-at-index offline-add-at-index [control-name ind])
 
 
 (declare put-object-flags!)
@@ -1015,15 +1018,15 @@
              (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
              (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
-(mm/defcmd fetch [control-name]
+(defcmd fetch [control-name]
   (fn [evt]
     (let [rd-evt  (nth evt 0)] 
       (fetched-row-callback control-name rd-evt)
       )))
 
-(mm/defcmd fetch-current [control-name]);;no need to update the local data here, this will be used just in GraphQL
+(defcmd fetch-current [control-name]);;no need to update the local data here, this will be used just in GraphQL
 
-(mm/defcmd fetch-no-move [control-name]
+(defcmd fetch-no-move [control-name]
   (fn [evt]
     (let [rd-evt  (nth evt 0)] 
       (fetched-row-callback control-name rd-evt)
@@ -1052,7 +1055,7 @@
     (fn [err] (when errb err) (u/debug err)))))
 
 
-(mm/defcmd fetch-multi-rows [control-name start-row num-rows]
+(defcmd fetch-multi-rows [control-name start-row num-rows]
   (fn [evt]
 
     					;    (u/debug "fetching multi-rows for :" control-name)
@@ -1066,7 +1069,7 @@
       (dispatch-peers! control-name "fetch-finished" {}))
     (fn [err])))
 
-(mm/defcmd multi-select [control-name value start-row num-rows])
+(defcmd multi-select [control-name value start-row num-rows])
 
 (defn loop-cmd
   "loops the commands with the callback. we need to put the commands as defined by macro as argument"
@@ -1153,7 +1156,7 @@
           (when cb (cb "ok")))
         (fetch-multi-rows-with-offline mctl r nrs cb errb)))))
 
-(mm/defcmd reset [control-name] (fn [x]
+(defcmd reset [control-name] (fn [x]
                                         ;                  (u/debug "reset went ok with the result" x)
                                   ))
 
@@ -1164,7 +1167,7 @@
   (when cb (cb "done"))
   )
 
-(mm/offline-alt-noobj reset-with-offline reset offline-reset [control-name])
+(offline-alt-noobj reset-with-offline reset offline-reset [control-name])
 
 
 (defn get-column-metadata
@@ -1610,7 +1613,7 @@
   [control]
   (-> (@object-data control) :metadata second :mboPersistent))
 
-(mm/defcmd-with-prepare register-mboset-with-one-mbo [control-name parent-control uniqueid]
+(defcmd-with-prepare register-mboset-with-one-mbo [control-name parent-control uniqueid]
   (add-relationship control-name (aget rel-map parent-control) nil)
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1626,13 +1629,13 @@
 
 
 
-(mm/offline-alt-noobj register-mboset-with-one-mbo-with-offline
+(offline-alt-noobj register-mboset-with-one-mbo-with-offline
                       register-mboset-with-one-mbo
                       offline-register-mboset-with-one-mbo
                       [control-name parent-control uniqueid]
                       )
 
-(mm/defcmd register-mboset-with-one-mbo-ind [control-name parent-control parent-index]
+(defcmd register-mboset-with-one-mbo-ind [control-name parent-control parent-index]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1642,7 +1645,7 @@
       ))
   )
 
-(mm/defcmd-with-prepare register-mboset-byrel [control-name rel-name parent-control]
+(defcmd-with-prepare register-mboset-byrel [control-name rel-name parent-control]
   (add-relationship control-name rel-name parent-control)
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1656,9 +1659,9 @@
   (add-peer-control nil control-name)
   (when cb (cb "done")))
 
-(mm/offline-alt-noobj register-mboset-byrel-with-offline register-mboset-byrel offline-register-mboset-byrel [control-name rel-name parent-control])
+(offline-alt-noobj register-mboset-byrel-with-offline register-mboset-byrel offline-register-mboset-byrel [control-name rel-name parent-control])
 
-(mm/defcmd register-mbo-command [control-name parent-control command arg-control]
+(defcmd register-mbo-command [control-name parent-control command arg-control]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1667,7 +1670,7 @@
         (add-peer-control nil control-name)
         (add-peer-control already-reg control-name)))))
 
-(mm/defcmd register-mboset-command [control-name parent-control command arg-control]
+(defcmd register-mboset-command [control-name parent-control command arg-control]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1679,7 +1682,7 @@
 (def wf-directors (atom {}))
 
 
-(mm/defcmd register-wf-director [control-name app-name process-name director-name]
+(defcmd register-wf-director [control-name app-name process-name director-name]
   (fn [evt]
     (swap! wf-directors assoc director-name [control-name process-name app-name])))
 
@@ -1688,10 +1691,10 @@
   (when cb (cb "ok"))
   )
 
-(mm/offline-alt-noobj register-wf-director-with-offline register-wf-director offline-register-wf-director
+(offline-alt-noobj register-wf-director-with-offline register-wf-director offline-register-wf-director
                       [control-name app-name process-name director-name])
 
-(mm/defcmd unregister-wf-director [director-name]
+(defcmd unregister-wf-director [director-name]
   (fn [evt] (swap! wf-directors dissoc director-name)))
 
 (defn offline-unregister-wf-director [director-name cb errb]
@@ -1699,11 +1702,11 @@
   (when cb (cb "ok"))
   )
 
-(mm/offline-alt-noobj unregister-wf-director-with-offline unregister-wf-director offline-unregister-wf-director [director-name])
+(offline-alt-noobj unregister-wf-director-with-offline unregister-wf-director offline-unregister-wf-director [director-name])
 
 
 
-(mm/defcmd route-wf [actionsset-name control-name app-name director-name ])
+(defcmd route-wf [actionsset-name control-name app-name director-name ])
 
 (defn offline-route-wf [actionset-name control-name app-name director-name cb errb]
   (->
@@ -1720,11 +1723,11 @@
    (p/then-catch
     (fn [err] (when errb (errb err)) err))))
 
-(mm/offline-alt-noobj route-wf-with-offline route-wf offline-route-wf [actionset-name control-name app-name director-name])
+(offline-alt-noobj route-wf-with-offline route-wf offline-route-wf [actionset-name control-name app-name director-name])
 
 
 
-(mm/defcmd choose-wf-actions [actionsset-name director-name])
+(defcmd choose-wf-actions [actionsset-name director-name])
 
 (defn offline-choose-wf-actions [actionsset-name director-name cb errb]
   (let [control-name (first (@wf-directors director-name))
@@ -1743,9 +1746,9 @@
                  )))
      (p/then-catch (fn [err] (when errb (errb err)) err)))))
 
-(mm/offline-alt-noobj choose-wf-actions-with-offline choose-wf-actions offline-choose-wf-actions [actionset-name director-name])
+(offline-alt-noobj choose-wf-actions-with-offline choose-wf-actions offline-choose-wf-actions [actionset-name director-name])
 
-(mm/defcmd initiate-wf [actionsset-name control-name app-name director-name ]
+(defcmd initiate-wf [actionsset-name control-name app-name director-name ]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1755,9 +1758,9 @@
         (add-peer-control already-reg actionsset-name))))
   )
 
-(mm/defcmd reassign-wf [actionsset-name director-name])
+(defcmd reassign-wf [actionsset-name director-name])
 
-(mm/defcmd execute-reassign-wf [actionsset-name director-name]
+(defcmd execute-reassign-wf [actionsset-name director-name]
   (fn [evt]
     (let [resp (nth evt 0)
           already-reg (nth resp 0)
@@ -1766,18 +1769,18 @@
         (add-peer-control nil actionsset-name)
         (add-peer-control already-reg actionsset-name)))))
 
-(mm/defcmd cancel-wf [director-name])
+(defcmd cancel-wf [director-name])
 
-(mm/defcmd is-active-wf [control-name])
+(defcmd is-active-wf [control-name])
 
 (defn offline-is-active-wf [control-name cb errb]
   (cb true)
   true
   )
 
-(mm/offline-alt-noobj is-active-wf-with-offline is-active-wf offline-is-active-wf [control-name])
+(offline-alt-noobj is-active-wf-with-offline is-active-wf offline-is-active-wf [control-name])
 
-(mm/defcmd prefetch-wf-for-offline
+(defcmd prefetch-wf-for-offline
                                         ;this one doesn't use the wf director becuse it would actually start the workflow
   [control-name process-name]
   )
@@ -1794,10 +1797,10 @@
      (p/then (fn [_]
                (offline/insert-offline-wf-with-id table-name uniqueid dta))))))
 
-(mm/defcmd-post offline-replay-wf [control-name app-name process-name wf-steps])
+(defcmd-post offline-replay-wf [control-name app-name process-name wf-steps])
 
 
-(mm/defcmd unregister-control [control-name]
+(defcmd unregister-control [control-name]
   (fn [evt]
                                         ;    (u/debug "unregistering went ok with the result " evt)
     (swap! object-data #(dissoc % control-name))))
@@ -1808,11 +1811,11 @@
   (swap! object-data #(dissoc % control-name))
   (when cb (cb "ok")))
 
-(mm/offline-alt unregister-control-with-offline unregister-control offline-unregister-control [control-name])
+(offline-alt unregister-control-with-offline unregister-control offline-unregister-control [control-name])
 
 (declare re-register-mboset-byrel-with-offline)
 
-(mm/defcmd re-register-mboset-byrel
+(defcmd re-register-mboset-byrel
   [control-name rel-name parent-control]
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1823,7 +1826,7 @@
         (add-peer-control nil control-name)
         (add-peer-control already-reg control-name)))))
 
-(mm/defcmd re-register-mboset-with-one-mbo
+(defcmd re-register-mboset-with-one-mbo
   [control-name parent-control parent-id]
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1842,7 +1845,7 @@
                                            (fetch control-name)
                                            )))
 
-(mm/defcmd register-query-mboset
+(defcmd register-query-mboset
   [control-name app]
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1853,7 +1856,7 @@
       )))
 
 
-(mm/defcmd-with-prepare register-inbox-mboset
+(defcmd-with-prepare register-inbox-mboset
   [control-name]
   (add-relationship control-name "wfassignment" nil);just for the offline, i have yet to see how it will work once it is offline
   (fn [evt]
@@ -1864,7 +1867,7 @@
       (add-peer-control nil control-name)
       )))
 
-(mm/defcmd-with-prepare register-person-mboset
+(defcmd-with-prepare register-person-mboset
   [control-name]
   (add-relationship control-name "person" nil)
   (fn [evt]
@@ -1880,7 +1883,7 @@
   (p-deferred-on @page-init-channel
           (register-inbox-mboset control-name cb errb)))
 
-(mm/defcmd register-bookmark-mboset
+(defcmd register-bookmark-mboset
   [control-name app]
   (fn [evt]
     (let [resp (nth evt 0)
@@ -1890,23 +1893,23 @@
       (add-peer-control nil control-name)
       )))
 
-(mm/defcmd use-stored-query
+(defcmd use-stored-query
   [control-name query-name]
   )
 
 
-(mm/defcmd register-gl-format ;istovremeno registruje format i mboset
+(defcmd register-gl-format ;istovremeno registruje format i mboset
   [glname orgid]
   (fn [evt]
     (add-peer-control nil glname)))
 
-(mm/defcmd set-segment 
+(defcmd set-segment 
   [glname segment-values segment-no orgid])
 
-(mm/defcmd post-yes-no-cancel-input 
+(defcmd post-yes-no-cancel-input 
   [ex-id user-input])
 
-(mm/defcmd remove-yes-no-cancel-input 
+(defcmd remove-yes-no-cancel-input 
   [ex-id])
 
 (defn simulate-error-response
@@ -2103,19 +2106,19 @@
   (p/get-resolved-promise "ok")
   )
 
-(mm/offline-alt re-register-mboset-byrel-with-offline
+(offline-alt re-register-mboset-byrel-with-offline
                 re-register-mboset-byrel
                 offline-re-register-mboset-byrel
                 [container-id rel-name parent-control])
 
-(mm/offline-alt re-register-mboset-with-one-mbo-with-offline
+(offline-alt re-register-mboset-with-one-mbo-with-offline
                 re-register-mboset-with-one-mbo
                 offline-re-register-mboset-with-one-mbo
                 [container-id parent-control parent-id])
 
-(mm/offline-alt mboset-count-with-offline mboset-count offline-table-count [containerid])
+(offline-alt mboset-count-with-offline mboset-count offline-table-count [containerid])
 
-(mm/offline-alt get-qbe-with-offline get-qbe offline-get-qbe [containerid])
+(offline-alt get-qbe-with-offline get-qbe offline-get-qbe [containerid])
 
 (defn offline-move-to 
   "we assume move-to will come from controls so here just the echo plus the event dispatch will be done"
@@ -2132,9 +2135,9 @@
       (when cb (cb [rownum]))))
    (p/then-catch (fn [err] (when errb (errb err)) err))))
 
-(mm/offline-alt fetch-multi-rows-with-offline fetch-multi-rows fetch-multi-rows-offline [control-name start-row num-rows])
+(offline-alt fetch-multi-rows-with-offline fetch-multi-rows fetch-multi-rows-offline [control-name start-row num-rows])
 
-(mm/offline-alt move-to-with-offline move-to offline-move-to [control-name rownum])
+(offline-alt move-to-with-offline move-to offline-move-to [control-name rownum])
 
 (defn get-ids-for-parent [control-name parent-id & raw?]
   "implementation should return promise"
@@ -2203,14 +2206,14 @@
                  (map (fn [c]
                         (->
                          (cont-late-register c)
-                         (p/then (fn [_](mm/kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
+                         (p/then (fn [_](kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
-              ;;                     (mm/kk-nocb! c "reset" reset)
+              ;;                     (kk-nocb! c "reset" reset)
                                    ))
 ;;                         (p/then (fn [_]
 ;;                                   (let [{start :start numrows :numrows} (get-state c :init-data)]
-;;                                     (mm/kk-nocb! c "fetch" fetch start numrows))))
+;;                                     (kk-nocb! c "fetch" fetch start numrows))))
                          (p/then (fn [_]
                                    (when-let [ch-rels (.getRelContainers c)]
                                      (late-register ch-rels))))))
@@ -2275,13 +2278,13 @@
   (offline/getFinishedOfflineWFs (aget rel-map control-name))
   )
 
-(mm/defcmd-post post-offline-changes [control-name data])
+(defcmd-post post-offline-changes [control-name data])
 
-(mm/defcmd save-offline-changes [control-name])
+(defcmd save-offline-changes [control-name])
 
-(mm/defcmd rollback-offline-changes [control-name])
+(defcmd rollback-offline-changes [control-name])
 
-(mm/defcmd move-to-uniqueid [control-name uniqueid])
+(defcmd move-to-uniqueid [control-name uniqueid])
 
 (def ^:export globalFunctions
   #js{"globalDisplayWaitCursor" globalDisplayWaitCursor
