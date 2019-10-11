@@ -2206,14 +2206,16 @@
                         (->
                          (cont-late-register c)
                          (p/then (fn [_](kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
+                         (p/then (fn []
+                                   (when-let [ch-rels (.getRelContainers c)]
+                                     (late-register ch-rels true))))
                          (p/then (fn [_]
                                    (clear-data-cache (get-id c))
                                    (if-not (first is-rel?)
                                      (cont-late-register-init c)
                                      (p/get-resolved-promise "rel"))))
                          (p/then (fn [_]
-;;                                   (when-let [ch-rels (.getRelContainers c)]
-                                   ;;                                     (late-register ch-rels true))
+
                                    (println "late-register finished reset re-registers children")
                                    ))))
                       containers)))))
