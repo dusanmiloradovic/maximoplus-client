@@ -73,7 +73,6 @@
   (move-prev [this cb errb])
   (del-row [this callback errback])
   (undel-row [this callback errback])
-  (get-currow [this])
   (get-local-data [this rownum])
   (save [this cb errb])
   (get-qbe [this cb errb])
@@ -425,7 +424,7 @@
   (let [container (c/get-container control)
         nrs (js/parseInt noRows)
         force (first forceFetch)]
-    (let [currow (get-currow container)]
+    (let [currow (c/get-currow container)]
       (if (or (not currow) (= -1 currow))
         (do
           (.then
@@ -585,6 +584,8 @@
                 nil)
            )))
   Component
+  (get-currow [this]
+              (c/get-state this :currrow))
   (get-container
    [this]
    this)
@@ -608,7 +609,7 @@
   (is-offline-enabled
    [this]
    (c/get-state this :offlineenabled))
-    (cont-late-register
+  (cont-late-register
    [this]
    (kk! this "init" c/register-mainset mboname
         (fn [ok]
@@ -661,6 +662,12 @@
    )
   (offline-post-finished 
    [this res]
+   ;;I will save the offline changes by default. If there is any need to  keep it not saved, it may be customized here
+   (->
+    (kk-nocb! this "saveOfflineChanges" c/save-offline-changes)
+    (p/then (fn [_]
+              
+              )))
    (u/debug "OFFLINE POST FINISHED")
    (println res)
    ;;(println (u/transit-read res))
@@ -714,7 +721,7 @@
    (kk! this "getKeyAttributes" c/get-key-attributes  cb errb))
   (get-field-local-value
    [this column] 
-   (c/get-local-data (c/get-id this) (get-currow this) column)
+   (c/get-local-data (c/get-id this) (c/get-currow this) column)
    )
   (get-row-count 
    [this callback errback]
@@ -800,10 +807,8 @@
    [this rownum cb errb]
    (kk! this "move"
         c/move-to-with-offline  rownum cb errb))
-  (get-currow [this]
-              (c/get-state this :currrow))
   (get-local-data [this rownum]
-                  (let [_rn (if rownum (js/parseInt rownum) (get-currow this))]
+                  (let [_rn (if rownum (js/parseInt rownum) (c/get-currow this))]
                     (c/get-local-data-all-attrs (c/get-id this) _rn)))
   (get-qbe [this cb errb]
            (kk! this "getQbe"
@@ -845,8 +850,7 @@
               (doseq [_cnt (get-rel-containers this)]
                 (re-register-and-reset _cnt nil nil))
               (on-reset this))
-    }
-   ))
+    }))
 
 (def-comp AppContainer [mboname appname] MboContainer
   (^override fn* []
@@ -1020,13 +1024,14 @@
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
-  Container
+  Component
   (^override get-currow
    [this]
    (if-not @c/is-offline
      ;;for offline read the current row from the parent container
      (c/get-state this :currrow)
-     (get-currow (get-parent this))))
+     (c/get-currow (get-parent this))))
+  Container
   (^override re-register-and-reset
    [this cb errb]
    (let [idcont (c/get-id mbocont)
@@ -1053,7 +1058,7 @@
   (^override cont-late-register
    [this]
    (mm/kk-branch-nocb! mbocont this "register"
-                        c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))
+                       c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer
   (^override fn* []
@@ -1259,7 +1264,7 @@
                           (on-set-control-index this (get e :currrow)))
     "update-mboflag" (fn [e]
                        (let [row (get e :rownum)]
-                         (when (= row (get-currow (c/get-container this)))
+                         (when (= row (c/get-currow (c/get-container this)))
                            (on-set-readonly this (c/str->bool (get e :readonly))))))
     "update-fieldflag" (fn [e] (on-set-fieldflag this (get e :rownum) (get e :field) (get e :flag)))
     "update-control-data"
@@ -1269,7 +1274,7 @@
             value (get e :value)
             ]
         (when
-            (= rownum (get-currow (c/get-container this)))
+            (= rownum (c/get-currow (c/get-container this)))
           (on-set-max-value this column value)))
       )
     })
@@ -1543,7 +1548,7 @@
          container (aget ctrl "container")
          cid (c/get-id container)
          column (:attributeName metadata )
-         curr-row (get-currow container)
+         curr-row (c/get-currow container)
          smartfill? (aget this "canSmartFill")
          _value (if (instance? js/Date value)
                   (c/formatToMaximoDate value)
@@ -1574,7 +1579,7 @@
                             container (aget ctrl "container")
                             cid (c/get-id container)
                             column (:attributeName metadata)
-                            curr-row (get-currow container)
+                            curr-row (c/get-currow container)
                             rowid (c/get-id-from-row cid curr-row)
                             ]
                         (set-row-field-value (get-parent this) this
@@ -1867,14 +1872,14 @@
   ControlData
   (set-flags-from-local
    [this]
-   (when-let [flags (c/get-local-flags (c/get-id container) (js/parseInt (get-currow container)))]
+   (when-let [flags (c/get-local-flags (c/get-id container) (js/parseInt (c/get-currow container)))]
      (doseq [field (keys flags)]
        (when-let [_f (get-field this field)]
          (set-field-flag this _f (flags field))))))
   (add-row 
    [this x]
    (let [_xrow (:row x)]
-     (when ( = _xrow (get-currow container))
+     (when ( = _xrow (c/get-currow container))
        (set-enabled this true)
        (let [data (:data x)
              ks (keys data)
@@ -1908,7 +1913,7 @@
 ;;   (println "Init data secit")
    (mm/p-deferred
     this
-    (let [currow (get-currow container)
+    (let [currow (c/get-currow container)
           cb-handler (get-callback-handler this)
           err-handler (get-errback-handler this)]
       (if (or (not currow) (= -1 currow))
@@ -1936,7 +1941,7 @@
            
            (p/then fc (fn [fullfill]
                         (aset this "fpause" false)
-                        (mm/c! this "fetch" fetch-data container (get-currow container) 1))))
+                        (mm/c! this "fetch" fetch-data container (c/get-currow container) 1))))
          (mm/c! this "fetch" fetch-data container row 1)))))
   (on-fetched-row [this x]
                   (when (:row x)
@@ -1951,7 +1956,7 @@
    [this row field _f ]
    (let [readonly? (aget _f 0)
          required? (aget _f 1)]
-     (when  (= row (get-currow container))
+     (when  (= row (c/get-currow container))
        (when-let [f  (get-field this field)]
          (set-field-enabled this f (not  (c/str->bool readonly?)))
          (set-field-required this f (c/str->bool required?))))))
@@ -1965,7 +1970,7 @@
                           (on-set-control-index this (get e :currrow)))
     "update-mboflag" (fn [e]
                        (let [row (get e :rownum)]
-                         (when (= row (get-currow container))
+                         (when (= row (c/get-currow container))
                            (on-set-readonly this (c/str->bool (get e :readonly))))))
     "update-fieldflag" (fn [e] (on-set-fieldflag this (get e :rownum) (get e :field) (get e :flag)))
     "update-control-data"
@@ -1975,7 +1980,7 @@
             value (get e :value)
             ]
         (when
-            (= rownum (get-currow container))
+            (= rownum (c/get-currow container))
           (on-set-max-value this column value))))}
    ))
 
@@ -2470,7 +2475,7 @@
                              (let [row-to (first e)]
                                (c/toggle-state this :highlighted row-to)))))
   (move-control-next [this]
-                     (let [curr-row (get-currow container)
+                     (let [curr-row (c/get-currow container)
                            fmr (get-firstmaxrow this)
                            nrs (get-numrows this)
                            ]
@@ -2480,7 +2485,7 @@
                        (move-control-to-row this (inc curr-row))))
   
   (move-control-prev [this]
-                     (let [curr-row (get-currow container)
+                     (let [curr-row (c/get-currow container)
                            fmr (get-firstmaxrow this)
                            ]
                        (when-not (= 0 curr-row)
@@ -2510,7 +2515,7 @@
   (row-selected-action
    [this row-control]
    (when-let [mr (get-maximo-row row-control)]
-     (let [currow (get-currow container)
+     (let [currow (c/get-currow container)
            selectableF (c/get-state this :selectableF)]
                                         ;the following gives the more responsive grid to the user (if the move to is slow, user may feel the whole maximo as slow)
        ;;       (println "Row selected action current container row " currow " and row to move = " mr)
@@ -2844,7 +2849,7 @@
                                                                     (fn [err] (println err))) ;;force state qbe update
                                                          (init-qbe-values parentC)
                                                          (set-focus field)))))
-             ;;(c/dispatch-upd  (c/get-id listContainer) (get-currow listContainer) "_SELECTED" new-sel)
+             ;;(c/dispatch-upd  (c/get-id listContainer) (c/get-currow listContainer) "_SELECTED" new-sel)
              )))))))
 
 (mm/def-comp AbstractListDialog [container listContainer field dialogcols] VisualComponent

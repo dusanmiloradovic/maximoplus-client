@@ -60,6 +60,7 @@
   (get-container [component]);virtually all will have this
   (get-col-attrs [component])
   (remove-state [component key])
+  (get-currow [component]) ;;temporarily move to this protocol, the whole container protocol should be moved to core
   )
 
 (defprotocol Offline
@@ -205,6 +206,9 @@
   (debug-state
     [component]
     (debug-state (@container-registry component)))
+  (get-currow
+    [component]
+    (get-currow (@container-registry component)))
   )
 
 (extend-protocol Offline
@@ -605,13 +609,13 @@
 (defn offline-delete [control-name cb errb]
   (->
    (get-parent-uniqueid control-name)
-   (p/then (fn [puid] (offline/row-delete (aget rel-map control-name) puid (get-state control-name :currrow))))
+   (p/then (fn [puid] (offline/row-delete (aget rel-map control-name) puid (get-currow control-name))))
    (p/then (fn [ok] (when cb (cb ok))))))
 
 (defn offline-undelete [control-name cb errb]
   (->
    (get-parent-uniqueid control-name)
-   (p/then (fn [puid] (offline/row-undelete (aget rel-map control-name)  puid (get-state control-name :currrow))))
+   (p/then (fn [puid] (offline/row-undelete (aget rel-map control-name)  puid (get-currow control-name))))
    (p/then (fn [ok] (when cb (cb ok))))))
 
 (offline-alt-noobj delete-with-offline delete offline-delete [control-name])
@@ -718,7 +722,7 @@
 
 (defn offline-set-value-from-list [mbocontainer-name list-name column-name cb errb]
   (->
-   (offline/getReturnListValue (aget rel-map list-name) (get-state list-name :currrow))
+   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name))
    (p/then
     (fn [val]
       (offline-set-value mbocontainer-name (aget rel-map mbocontainer-name) column-name val nil errb)))
@@ -733,7 +737,7 @@
 
 (defn offline-set-qbe-from-list [mbocontainer-name list-name column-name cb errb]
   (->
-   (offline/getReturnListValue (aget rel-map list-name) (get-state list-name :currrow))
+   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name))
    (p/then
     (fn [val]
       ;;the difference here is that qbe may consist of multiple values, so when user picks two lines, qbe should read them both (_selected flag is Y)
@@ -786,24 +790,24 @@
 
                                         ;ovo radim zato sto setovanje long description-a ne okida set-value za isti mbo, a ne zelim da radim ovo samo za long description
 (defcmd-with-prepare set-value [control-name attribute value]
-  (let [currow (get-state control-name :currrow)
+  (let [currow (get-currow control-name)
         ]
     (dispatch-upd control-name currow attribute value)
     )
   
   (fn [_] 
-    (let [currow (get-state control-name :currrow)]
+    (let [currow (get-currow control-name)]
       (put-object-data-attrval! control-name currow attribute value)
       )
     );kada je sve ok treba da apdjetujem local storage, jer se za slucaj ld to ne desava
   (fn [err] 
                                         ;    (u/debug "set-value error")
-    (let [currow (get-state control-name :currrow)]
+    (let [currow (get-currow control-name)]
       (dispatch-upd control-name  currow attribute (get-local-data control-name  currow attribute))
       )))
 
 (defn offline-set-value [control-name rel-name attribute value cb errb]
-  (let [currow (get-state control-name :currrow)]
+  (let [currow (get-currow control-name)]
     (dispatch-upd control-name currow attribute value)
     (->
      (get-parent-uniqueid control-name)
@@ -1713,7 +1717,7 @@
 
 (defn offline-route-wf [actionset-name control-name app-name director-name cb errb]
   (->
-   (offline/routeWF (aget rel-map control-name) (get-state control-name :currrow))
+   (offline/routeWF (aget rel-map control-name) (get-currow control-name))
    (p/then (fn [rez]
              (let [nac (-> rez (aget 0) (aget "actions"))]
                (when-not (= nac "empty")
@@ -1735,7 +1739,7 @@
 (defn offline-choose-wf-actions [actionsset-name director-name cb errb]
   (let [control-name (first (@wf-directors director-name))
         table-name (aget rel-map control-name)
-        rownum (get-state control-name :currrow)]
+        rownum (get-currow control-name)]
     (->
      (offline/chooseWFAction table-name rownum)
      (p/then (fn [rez]
@@ -2213,11 +2217,7 @@
                                    (clear-data-cache (get-id c))
                                    (if-not (first is-rel?)
                                      (cont-late-register-init c)
-                                     (p/get-resolved-promise "rel"))))
-                         (p/then (fn [_]
-
-                                   (println "late-register finished reset re-registers children")
-                                   ))))
+                                     (p/get-resolved-promise "rel"))))))
                       containers)))))
 
 (defn register-controls-on-online

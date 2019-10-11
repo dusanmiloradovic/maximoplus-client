@@ -364,20 +364,20 @@
     (do-offline
      (fn [_] (db/get-offline-qbe-where table-name parent-id) )
      (fn [condition]
-;;       (println "For table " table-name " got the qbe condition " condition)
+       ;;       (println "For table " table-name " got the qbe condition " condition)
        (->
         (dml1 (merge
                {:type :select :name table-name :start _sr :rows _nr :order-by "rownum" :index-column #js["parentid" "rownum"]}
                condition) true true );;TODO order by in the offline mode (ascending and descending). Rownum is necessary for sqlite
         (p/then (fn [dta]
-                (if (empty? dta)
-                  [#js[] #js[]]
-                  (let [uniqueids (map (fn [x] (aget x "uniqueid")) dta)
-                        wff-flags (fn [x] (some (fn [y] (= (aget x "uniqueid") y)) uniqueids))]
-                    (->
-                     (dml1 {:type :select :name (str table-name "_flags") :where wff-flags :qbe {"uniqueid" ["=" uniqueids]} :start 0 :rows _nr} true true)
-                     (p/then (fn [flgs]
-                             [dta flgs])))))))))
+                  (if (empty? dta)
+                    [#js[] #js[]]
+                    (let [uniqueids (map (fn [x] (aget x "uniqueid")) dta)
+                          wff-flags (fn [x] (some (fn [y] (= (aget x "uniqueid") y)) uniqueids))]
+                      (->
+                       (dml1 {:type :select :name (str table-name "_flags") :where wff-flags :qbe {"uniqueid" ["=" uniqueids]} :start 0 :rows _nr} true true)
+                       (p/then (fn [flgs]
+                                 [dta flgs])))))))))
      (fn [[dta flgs]]
        (let [dta-len (.-length dta)]
          (loop [i 0 rez []]
@@ -397,9 +397,8 @@
                                   (let [k (first dta-keys)]
                                     (if (or (= k "uniqueid") (= k "parentid")(= k "changed") (= k "rownum") (= k "new") (= k "readonly") (= k "changedValue") )
                                       (assoc obj-rez (replace k "_dot_" ".")   (aget dta-obj k))
-                                      (let [flg (db/get-flags-array
-                                                 (u/transit-read
-                                                  (aget flags-obj k)))
+                                      (let [flg (u/transit-read
+                                                 (aget flags-obj k))
                                             required? (when flg (get flg 1))
                                             readonly? (when flg (get flg 0))
                                             dkey (replace k "_dot_" ".")
