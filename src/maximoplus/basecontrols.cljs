@@ -809,10 +809,11 @@
            (kk! this "getQbe"
                 c/get-qbe-with-offline
                 (fn [e]
-                  (let [ qbe (-> (get e 0)  u/vec-to-map)]
-                    (when qbe
-                      (aset this "qbe" qbe)
-                      (cb qbe))))
+                  (when-let [qbe (-> (get e 0)  u/vec-to-map)]
+                    (c/toggle-state this :qbe (get e 0))
+                    (println "got the qbe:" qbe)
+                    (aset this "qbe" qbe)
+                    (cb qbe)))
                 errb
                 ))
   App
@@ -2130,6 +2131,7 @@
      fld))
   Qbe
   (init-qbe-values [this]
+                   (println "init qbe values")
                    (get-qbe container  
                             (fn [qbe]
                               (set-row-values this qbe))
@@ -2834,9 +2836,12 @@
                      (set-row-value parentC column qbe)) nil)))))
             nil)
            (do
-             (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel 
+             (println "setting qbe from list")
+             (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel
                            (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
                                                        (fn[_]
+                                                         (c/get-qbe (c/get-id container) (fn [ok])
+                                                                    (fn [err] (println err))) ;;force state qbe update
                                                          (init-qbe-values parentC)
                                                          (set-focus field)))))
              ;;(c/dispatch-upd  (c/get-id listContainer) (get-currow listContainer) "_SELECTED" new-sel)

@@ -543,16 +543,13 @@
   [control-name main-object cb errb]
   (register-main-mboset-with-offline control-name main-object cb errb))
 
-(defcmd register-maximo-menu
+(defcmd register-maximo-menu;;not realy used anymore
   [control-name]
   (fn [evt]
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
-      (add-peer-control nil control-name)
-      ))
-  )
+         (add-peer-control nil control-name))))
 
 (declare offline-insert-qbe)
 
@@ -2206,7 +2203,6 @@
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
     (p/prom-all (doall
                  (map (fn [c]
-                        (println "qbe0:" (get-state c :qbe))
                         (->
                          (cont-late-register c)
                          (p/then (fn [_](kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
