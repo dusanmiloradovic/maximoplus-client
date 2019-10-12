@@ -644,14 +644,27 @@
            (-> ch-tree clj->js u/create-json)))))))
   (post-offl-changes
    [this cb errb]
-
    (->
     (c/get-offline-changes this)
     (p/then (fn [changes]
-              (when-not (empty? changes)
-                (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
-    (p/then (fn [res]
-              (c/offline-post-finished this (first res))))))
+              (if-not (empty? changes)
+                (->
+                 (kk-nocb! this "postOfflineChanges" c/post-offline-changes changes)
+                 (p/then (fn [res]
+                           (let [dispF (aget c/globalFunctions "globalOfflinePostError")]
+                             (dispF;;this may return promise(so the user can interact
+                              (clj->js
+                               (map (fn [[id message]]
+                                      {:id id
+                                       :message message
+                                       :data (get-local-data-by-uniquid this id)})
+                                    (first res)))))
+                           ))
+                 (p/then (fn [_]
+                           ;;TODO reconsider is auto save the best option. Another option is to give the user the choise to save or rollback
+                           (kk-nocb! this "saveOfflineChanges" c/save-offline-changes)))
+                 (p/then (fn [_] (off/clear-changed-values))))
+                (p/get-resolved-promise "empty"))))))
   (save-offl-changes 
    [this cb errb]
    (kk! this "saveOfflineChanges" c/save-offline-changes  cb errb)

@@ -75,6 +75,7 @@
   (save-offl-changes [control cb errb])
   (rollback-offl-changes [control cb errb])
   (offline-post-finished [control res])
+  (display-offline-post-errors [control])
   )
 
 (defn simple-receive [_channel f]
@@ -2287,6 +2288,10 @@
 
 (defcmd move-to-uniqueid [control-name uniqueid])
 
+(defn display-offline-post-error
+  [errors]
+  (println "Offline Post Errors:" errors))
+
 (def ^:export globalFunctions
   #js{"globalDisplayWaitCursor" globalDisplayWaitCursor
       "globalRemoveWaitCursor" globalRemoveWaitCursor
@@ -2296,6 +2301,7 @@
       "globalFinishCallHandler" globalFinishCallHandler
       "global_login_function" global-login-function
       "handleErrorMessage" handleErrorMessage
+      "globalOfflinePostError" display-offline-post-error
       "forceLongPoll" false
       }
   );one level of indirection required so the functions can be overriden when they are compiled with the advanced compilation

@@ -377,7 +377,7 @@
        (map (fn [[k [op v]]]
               (bf k op v))
             qbe)))
-    []
+    ["1=1" []];;qbe where qbe binds
     ))
 
 ;;just for the update, update object is specified

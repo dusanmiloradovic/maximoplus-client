@@ -149,6 +149,25 @@
   (dml [{:type :delete :name control-name}]))
 
 
+(defn clear-changed-values
+  []
+  ;;after the offline post has been saced, clear the changed values
+  (->
+   (db/select {:qbe {}
+               :name "objectMeta"})
+   (p/then
+    (fn [res]
+      (dml (map (fn [r]
+                  (let [object-name (aget % "objectName")]
+                    {:type :update
+                     :name object-name
+                     :qbe {}
+                     :ipdateObject {"changedValue" ""} 
+                     }
+                    ))
+                res)))))
+  
+  )
 
 (defn moveToOfflineInternal
   [table-name control-data]
