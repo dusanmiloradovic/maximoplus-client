@@ -3038,26 +3038,28 @@
            nextApp (-> e (get 0) (get "nextApp"))
            nextTab (-> e (get 0) (get "nextTab"))
            atInteractionNode (-> e (get 0) (get "atInteractionNode"))
-           ]
-       (aset this "warnings" (-> e (get 0) ( get "warnings")))
-       (aset this "title" (-> e (get 0) ( get "title")))
-       (aset this "body"  (-> e (get 0) ( get "body")))
+           warnings (-> e (get 0) ( get "warnings"))
+           title (-> e (get 0) ( get "title"))
+           body (-> e (get 0) ( get "body"))]
+       (c/toggle-state wfControl :atInteractionNode false)
        (if (= "empty" act)
          (do
            (if atInteractionNode
              (if (= "ROUTEWF" nextAction)
                (route-wf wfControl)
-               (do
-                 (when (or nextApp nextTab nextAction)
-                                        ;for some reason when it gets the exception, it goes to the interaction node
+               (if (or nextApp nextTab nextAction)
+                 (do
+                   (c/toggle-state wfControl :atInteractionNode true)
+                   (when body
+                     (set-warnings wfControl nil body title))
                    (handle-interaction wfControl nextApp nextTab nextAction))
-                 (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))))
+                 (set-warnings wfControl warnings body title)))
              (do
-               (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))
+               (set-warnings wfControl warnings body title)
                (wf-finished wfControl))) )
          (do 
            (aset this "objectName" (-> e (get 0) (get "actions") (get 1)))
-           (set-warnings wfControl (aget this "warnings") (aget this "body") (aget this "title"))))))))
+           (set-warnings wfControl warnings body title)))))))
 
 (def-comp WorkflowControl [appContainer processName] VisualComponent
   (fn* []
@@ -3180,7 +3182,8 @@
             (c/toggle-state this :wf-finished false)
             (let [cont  (get-wf-command-container this c/route-wf-with-offline [(c/get-id appContainer) (aget appContainer "appname") (c/get-id this) ])]
               (mm/p-deferred cont
-                             (draw-wf-input-actions-internal this cont)
+                             (when-not (c/get-state this :atInteractionNode)
+                               (draw-wf-input-actions-internal this cont))
                              cont)))
   (reassign-wf [this]
                (let [cont (get-wf-command-container  this c/reassign-wf [(c/get-id this)])]
@@ -3194,7 +3197,8 @@
   (choose-wf-action [this]
                     (let [cont    (get-wf-command-container this c/choose-wf-actions-with-offline [ (c/get-id this)]) ]
                       (mm/p-deferred cont
-                                     (draw-wf-input-actions-internal this cont)
+                                     (when-not (c/get-state this :atInteractionNode)
+                                       (draw-wf-input-actions-internal this cont))
                                      cont)))
   (set-warnings
    [control warnings body title]
