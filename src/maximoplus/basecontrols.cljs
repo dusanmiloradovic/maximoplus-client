@@ -657,7 +657,7 @@
                                (map (fn [[id message]]
                                       {:id id
                                        :message message
-                                       :data (get-local-data-by-uniquid this id)})
+                                       :data (get-local-data-by-uniqueid this id)})
                                     (first res)))))
                            ))
                  (p/then (fn [_]
