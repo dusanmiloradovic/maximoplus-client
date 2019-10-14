@@ -158,7 +158,7 @@
    (p/then
     (fn [res]
       (dml (map (fn [r]
-                  (let [object-name (aget c "objectName")]
+                  (let [object-name (aget r "objectName")]
                     {:type :update
                      :name object-name
                      :qbe {}
