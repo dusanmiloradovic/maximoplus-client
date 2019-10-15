@@ -410,7 +410,7 @@
     (when (and qbe sql-where) (throw (js/Error. "Both qbe and sqlwhere present")))
     [[(str "select rowid, * from " object-name
            (when sql-where (str " where " sql-where))
-           (when qbe-where (str " where " qbe-where))
+           (when qbe-where (str (if sql-where " and " " where ") qbe-where))
            (when order-by (str " order by " order-by))
            (when numrows (str " LIMIT " numrows (when start-row (str " OFFSET " start-row)))))
       (if qbe-binds (clj->js qbe-binds)  #js[]) ]]
@@ -469,7 +469,7 @@
                    (let [a (first arr)
                          prm (p/get-promise
                               (fn [_resolve _reject]
-;;                               (u/debug "^^^^^" (first a) ".." (second a))
+                                (u/debug "^^^^^" (first a) ".." (second a))
                                 (.executeSql tx (first a) (second a)
                                              (fn [tx ok] (_resolve ok)))))]
                      (recur (rest arr) (conj rez prm))))))

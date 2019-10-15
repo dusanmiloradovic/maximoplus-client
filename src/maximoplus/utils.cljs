@@ -64,7 +64,12 @@
   )
 
 (defn transit-read [x]
-  (transit/read transit-reader x))
+  (try
+    (transit/read transit-reader x)
+    (catch js/Error r
+      (println "$$$$$$$$$$$$$error by transit read")
+      (println x)
+      nil)))
 
 (defn transit-encode-uri [x]
   (js/encodeURIComponent (transit-json x)))

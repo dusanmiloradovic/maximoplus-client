@@ -162,7 +162,7 @@
                     {:type :update
                      :name object-name
                      :qbe {}
-                     :ipdateObject {"changedValue" ""} 
+                     :updateObject {"changedValue" nil} 
                      }
                     ))
                 res)))))
@@ -358,18 +358,19 @@
      (->
       (dml [{:type :select-by-key :name table-name :key id :key-name "uniqueid"}]);;For sqlite, we have first to select
       (p/then (fn [[rez]]
-              (let [_cv (-> rez first db/get-changed-value)
-                    cv (if _cv (do (aset _cv attribute value) _cv) (clj->js {attribute value}))
-                    update-object {"changedValue" (db/convert-changed-value cv)
-                                   attribute value}]
-                (dml [{:type :update-by-key :name table-name
-                       :key id :key-name "uniqueid"
-                       :updateObject update-object
-                       :update (fn [x]
-                                 (aset x "changed" true)
-                                 (aset x attribute value)
-                                 (db/set-changed-value x cv)
-                                 x)}]))))))))
+                (when-let [rz (first rez)]
+                  (let [_cv (db/get-changed-value rz)
+                        cv (if _cv (do (aset _cv attribute value) _cv) (clj->js {attribute value}))
+                        update-object {"changedValue" (db/convert-changed-value cv)
+                                       attribute value}]
+                    (dml [{:type :update-by-key :name table-name
+                           :key id :key-name "uniqueid"
+                           :updateObject update-object
+                           :update (fn [x]
+                                     (aset x "changed" true)
+                                     (aset x attribute value)
+                                     (db/set-changed-value x cv)
+                                     x)}])))))))))
 
 
 

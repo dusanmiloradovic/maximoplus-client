@@ -45,7 +45,6 @@
   @is-offline
   )
 
-(declare register-controls-on-online)
 (declare any-offline-enabled?)
 
 (declare bulk-ev-dispf)
@@ -101,7 +100,8 @@
       (u/debug "Going online")
       (net/start-server-push-receiving bulk-ev-dispf error-dispf)
       (swap! is-offline (fn [_] false))
-      (register-controls-on-online);late online registration for the controls that have been registered offline
+      ;;if the offline period was brief, this will post the changes, otherwise if the session had
+      ;;expired, it will go to the login function, and page-init will post the changes
       (doseq [c (get-app-containers)]
         (post-offl-changes c
                            (fn [ok] (println "offline posting finished"))
@@ -1379,7 +1379,7 @@
   [control-name uniqueid]
   (loop [i 0]
     (when-let [lc (get-local-data-all-attrs control-name i)]
-      (if (= uniqueid (get lc "_uniqueid"))
+      (if (= uniqueid (get (:data lc) "_uniqueid"))
         lc
         (recur (inc i))))))
 
@@ -1597,6 +1597,12 @@
           (let [app-cont (get-app-containers)]
             (when page-already-opened
               (late-register app-cont)))))
+       (p/then
+        (fn []
+          (doseq [c (get-app-containers)]
+            (post-offl-changes c
+                               (fn [ok] (println "offline posting finished"))
+                               (fn [err] (println err))))))
        (p/then-catch
         (fn [err]
           (reset! page-init-called false)
@@ -2211,21 +2217,6 @@
                                      (p/get-resolved-promise "rel"))))))
                       containers)))))
 
-(defn register-controls-on-online
-  []
-  (->
-   (-> (get-main-containers (fn [cid] (get-state cid :registered-from-offline))) 
-       late-register)
-   (p/then (fn [res]
-             (when (= "empty" res);that means no controls was registered offline. It was registered online, then went offine and back. If the control is registered offline, it should establish the session and we will post the offline changes just on init data(otherwise the changes would be overwritten by data from the server)
-               (doseq [c (get-main-containers)]
-                 (when (and (not (aget c "offlinePosting"))
-                            (.isOfflineEnabled c));posting also happen in init-data-with-off, this is a lock so it doesn't post twice
-                   (aset c "offlinePosting" true)
-                   (->
-                    (.postOfflineChanges c)
-                    (p/then (fn [res]
-                              (aset c "offlinePosting" false)))))))))))
 
 (defn register-controls-post-login
   "this has to be tested and thought about more. Currently all login methods in demos either open the login page and destroy the current page, or destroy it manually. This one will agai call everything. The question is what happens with the data that was changed offline in this case"
