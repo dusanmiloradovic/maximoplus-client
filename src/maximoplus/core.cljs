@@ -1564,13 +1564,6 @@
       (ar/pop! arr)
       (recur arr))))
 
-(defn new-offline-post
-  []
-  ;;This will be chain of promises that will post offline changes, prompt the user for save or delete, and finally delete
-  ;;the offline changes
-  (p/get-resolved-promise "test")
-  )
-
 (declare get-main-containers)
 
 (defn ^:export page-init
@@ -1599,9 +1592,6 @@
                                         (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
                                         ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
                                         ))))
-       (p/then
-        (fn [_]
-          (new-offline-post)))
        (p/then
         (fn [_]
           (let [app-cont (get-app-containers)]
