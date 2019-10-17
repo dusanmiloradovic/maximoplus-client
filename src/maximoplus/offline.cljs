@@ -27,7 +27,6 @@
 (defn enable-offline
   []
   (when-not (p/has-fired? offline-enabled)
-    ;;(db/setEngine (db/get-default-engine))
     (p/callback offline-enabled "enabled")))
 
 (declare get-object-meta-deferred)
