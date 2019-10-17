@@ -171,7 +171,7 @@
 
 (defn moveToOfflineInternal
   [table-name control-data]
-;;  (println "moving to offline" table-name)
+  (println "moving to offline" table-name)
   (when (and control-data (get control-data "uniqueid"))
     (do-offline
 ;;     (fn [_]
@@ -448,7 +448,7 @@
 (defn delete-for-parent
   [rel-name parent-id & raw?]
   ;;  (.log js/console (str "*****delete for parent " rel-name " and id " parent-id))
-;;  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
+  (println "calling delete for paretn for " rel-name " and parent id " parent-id)
   (let [del-qbe (when parent-id
                   {"uniqueid" ["=" parent-id]})
         del-deferred (p/get-deferred)
@@ -458,17 +458,18 @@
      (fn [_]
        ;;(.log js/console (str "******starting delete for parent for " rel-name))
        (@object-promises rel-name))
-     (fn [_]
-       (swap! object-promises assoc rel-name del-deferred))
-     (fn [_] (db/exist-object? rel-name))
+;;     (fn [_]
+;;       (swap! object-promises assoc rel-name del-deferred))
+  ;;   (fn [_] (db/exist-object? rel-name))
      (fn [ok]
        (if ok
          (dml [(if del-qbe (assoc del-statement :qbe del-qbe) del-statement)
                (if del-qbe (assoc del-statement-flags :qbe del-qbe) del-statement-flags)] true)
          (p/get-resolved-promise "no table")))
-     (fn [_]
-       ;;(.log js/console (str "******ending delete for parent for " rel-name))
-       (p/callback del-deferred)))))
+;;     (fn [_]
+;;       ;;(.log js/console (str "******ending delete for parent for " rel-name))
+;;       (p/callback del-deferred))
+     )))
 
 
                                         ;move the function from core.cljs to here because it has to be atomic, otherwise inserts that come after delete may be deleted
@@ -954,7 +955,7 @@
 (defn bulk-update-data-and-flags
   [table-name cache-data]
   ;;when alter table has been done, the new columns have been added without the data. The easiest fix is to repopulate data from the cache
-  (println "calling bulk update data")
+;;  (println "calling bulk update data")
   (loop [dta-u [] flags-u [] cache-data cache-data]
     (if (empty? cache-data)
       (db/update-after-alter table-name {:data dta-u :flags flags-u})
