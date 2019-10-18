@@ -210,6 +210,25 @@
   (get-currow
     [component]
     (get-currow (@container-registry component)))
+  nil
+  (toggle-state
+    [component key value])
+  (get-state
+    [component key]
+    nil)
+  (set-states
+    [component kv])
+  (get-container
+    [component]
+    nil
+    )
+  (debug-state
+    [component]
+    nil)
+  (get-currow
+    [component]
+    nil
+    )
   )
 
 (extend-protocol Offline

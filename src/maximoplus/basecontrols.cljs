@@ -3728,7 +3728,8 @@
               (then
                (fn [e]
                  (.dispose lc)
-                 (off/mark-as-preloaded list-table-name)))
+                 (off/mark-as-preloaded list-table-name)
+                 (off/mark-as-preloaded (str list-table-name "_flags"))))
               (then
                (fn [_]
                  (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns)))))))))))))

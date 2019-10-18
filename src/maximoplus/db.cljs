@@ -470,6 +470,7 @@
                            (preloaded? (:name object))
                            (p/then
                             (fn [prel?]
+                  ;;            (println "preloaded?" (:name object) "=" prel?)
                               (when (or (= :select operation-type )
                                         (= :select-by-key operation-type )
                                         (= :select-all operation-type )
@@ -572,6 +573,7 @@
 
 (defn preloaded?
   [table-name]
+;;  (println "PRELOAD CACHE:" @preloaded-cache)
   (if (= "objectMeta" table-name)
     (p/get-resolved-promise false)
     (let [cached (@preloaded-cache table-name)]
@@ -583,6 +585,7 @@
            (p/then
             (fn [meta]
               (when meta
+  ;;              (println "--------------->" meta)
                 (aget meta "preloaded"))))
            (p/then
             (fn [preloaded?]
