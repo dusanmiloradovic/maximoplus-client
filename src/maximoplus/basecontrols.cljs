@@ -1809,7 +1809,9 @@
      (when column-map (column-map (.toUpperCase column)))))
   (create-field
    [this column-metadata]
-   (let [col-metadata  column-metadata
+   (let [col-metadata  (if (:isALNDomain column-metadata)
+                         (assoc column-metadata :listColumns #js["value" "description"])
+                         column-metadata)
          tp (get col-metadata "maxType")
          fld (condp = tp
                "VIRTUAL" (VirtualActionField. col-metadata)

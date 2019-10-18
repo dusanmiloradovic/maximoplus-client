@@ -452,13 +452,18 @@
    [this field required]
    (state-section-field-state-helper this field :required required))
   (^override create-field
-   [this col-metadata]
-   (if-let [is-picker (and col-metadata (:picker col-metadata))]
-     (let [pickerkeycol (:pickerkeycol col-metadata)
-           pickercol (:pickercol col-metadata)
-           pickerrows (:pickerrows col-metadata)]
-       (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
-     (TextField. col-metadata)));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
+   [this column-metadata]
+;;   (println "create-field " column-metadata)
+   (let [col-metadata  (if (:isALNDomain column-metadata)
+                         (assoc column-metadata :listColumns #js["value" "description"])
+                         column-metadata)]
+  ;;   (println "col-metadata" col-metadata)
+     (if-let [is-picker (and col-metadata (:picker col-metadata))]
+       (let [pickerkeycol (:pickerkeycol col-metadata)
+             pickercol (:pickercol col-metadata)
+             pickerrows (:pickerrows col-metadata)]
+         (CPicker. col-metadata  pickerkeycol pickercol pickerrows))
+       (TextField. col-metadata))));the types will be controlled from react. The only difference I see is that if the field is a picker, than it is fundamentally different, and has to controlled from here. This will be done by adding to the metadata of the section.
   (^override set-field-flag
    [this field [readonly? required? :as flag]]
    (state-section-field-state-helper this field :flags flag)
