@@ -27,6 +27,7 @@
 (defn enable-offline
   []
   (when-not (p/has-fired? offline-enabled)
+    (.call (aget globalFunctions "listenOffline" ) nil)
     (p/callback offline-enabled "enabled")))
 
 (declare get-object-meta-deferred)
@@ -591,6 +592,7 @@
        "handleWFOnStopNode" (fn [] (handleErrorMessage "Offline workflow completed, reached stop node"))
        "handleOfflineErrorMessage" handle-error-message
        "defaultDBEngine" db/get-default-engine-name
+       "listenOffline" (fn[] (println "WARNING: Offline listener not defined"))
        }
   
   )

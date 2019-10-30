@@ -142,7 +142,7 @@
     (.close @event-source)
     (reset! event-source nil)))
 
-(defn listen-offline [cb]
+(defn ^:export listenOffline [cb]
   (let [oh (goog.events.OnlineHandler.)]
     (when-not (.isOnline oh)
       (cb true));ensure that the offline flag will be set to 1 immediately, so the controls don't depend on the event
