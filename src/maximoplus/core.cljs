@@ -117,8 +117,6 @@
 (defn str->bool [x]
   (if (or (= true x) (= "true" x)) true false))
 
-
-
 (defn remove-incl [a b]
   (loop [a a b b]
     (let [rf (first b)
@@ -126,7 +124,6 @@
       (if-not rf
         a
         (recur (remove #(= rf %) a) rs)))))
-
 
 (defn remove-incl-arr [a b]
   (let [ret (ar/clone a)]
