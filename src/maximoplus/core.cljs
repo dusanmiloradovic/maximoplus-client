@@ -103,9 +103,10 @@
       ;;if the offline period was brief, this will post the changes, otherwise if the session had
       ;;expired, it will go to the login function, and page-init will post the changes
       (doseq [c (get-app-containers)]
-        (post-offl-changes c
-                           (fn [ok] (println "offline posting finished"))
-                           (fn [err] (println err)))))))
+        (when (is-offline-enabled c)
+          (post-offl-changes c
+                             (fn [ok] (println "offline posting finished"))
+                             (fn [err] (println err))))))))
 
 ;;(defn listen-offline
 ;;  []
@@ -1619,9 +1620,10 @@
        (p/then
         (fn []
           (doseq [c (get-app-containers)]
-            (post-offl-changes c
-                               (fn [ok] (println "offline posting finished"))
-                               (fn [err] (println err))))))
+            (when (is-offline-enabled c)
+              (post-offl-changes c
+                                 (fn [ok] (println "offline posting finished"))
+                                 (fn [err] (println err)))))))
        (p/then-catch
         (fn [err]
           (reset! page-init-called false)
