@@ -36,14 +36,26 @@
 (declare offlineMetaMove)
 (declare late-register)
 (declare get-app-containers)
-(def is-offline (atom false))
 
 (enable-console-print!)
 
-(defn ^:export isOffline
-  []
-  @is-offline
-  )
+;;it is not always possible to know syncrhonously if the app is online or offline (important when starting app in offline mode(
+(def offline-app-status (atom (p/get-deferred)))
+(def is-offline (atom false));;few cases still required
+(defn set-offline-internal-status
+  [status]
+  (reset! is-offline status)
+  (if (p/has-fired? @offline-app-status)
+    (reset! offline-app-status (p/get-resolved-promise status))
+    (p/callback @offline-app-status status)))
+
+(declare globalFunctions)
+(declare setGlobalFunction)
+
+(setGlobalFunction "startedOffline" (fn [] (p/get-resolved-promise false)))
+;;this is just a placeholder function, every template has to implement real scenario
+
+
 
 (declare any-offline-enabled?)
 
@@ -95,11 +107,13 @@
       (u/debug "Going offline")
       (net/stop-server-push-receiving)
       (swap! is-offline (fn [_] true))
+      (set-offline-internal-status true)
       (reset! offline-posted {}))
     (do
       (u/debug "Going online")
       (net/start-server-push-receiving bulk-ev-dispf error-dispf)
       (swap! is-offline (fn [_] false))
+      (set-offline-internal-status false)
       ;;if the offline period was brief, this will post the changes, otherwise if the session had
       ;;expired, it will go to the login function, and page-init will post the changes
       (doseq [c (get-app-containers)]
@@ -780,9 +794,12 @@
                       tc (vec (clojure.set/union old-cols new-cols))]
                   (swap! registered-columns assoc container-name tc))
                 (when cb-handler (cb-handler ok))
-                (when (and (.isOfflineEnabled container) 
-                           (not @is-offline))
-                  (offlinePrepareOne (get-id container))))
+                (-> @offline-app-status
+                    (p/then
+                     (fn [offline?]
+                       (when (and (.isOfflineEnabled container) 
+                                  (not offline?))
+                         (offlinePrepareOne (get-id container)))))))
           errbh (fn [err] 
                   (when errback-handler (errback-handler err)))]
       (kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
@@ -1451,10 +1468,14 @@
   (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
-    (when (and (is-offline-enabled control-name) (not @offline-move-in-progress) (not @is-offline));must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
-      (->
-       (get-parent-uniqueid control-name)
-       (p/then (fn ([puid] (deleteOfflineData control-name puid))))))
+    (-> @offline-app-status
+        (p/then
+         (fn [offline?]
+           (when (and (is-offline-enabled control-name) (not @offline-move-in-progress) (not offline?));must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
+             (->
+              (get-parent-uniqueid control-name)
+              (p/then (fn ([puid] (deleteOfflineData control-name puid)))))))))
+
     (dispatch-peers! control-name "reset" {:data "dummy"})))
 
 (defn command-mboset [ev]
@@ -1566,13 +1587,20 @@
 (defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
-  (when-not @is-offline
-    (net/start-server-push-receiving bulk-ev-dispf error-dispf)))
+  (-> @offline-app-status
+      (p/then
+       (fn [offline?]
+         (when-not offline?
+           (net/start-server-push-receiving bulk-ev-dispf error-dispf))))))
 
 (defn stop-receiving-events
   []
-  (when-not @is-offline
-    (net/stop-server-push-receiving)))
+  (-> @offline-app-status
+      (p/then
+       (fn [offline?]
+         (when-not offline?
+           (net/stop-server-push-receiving)
+           (net/start-server-push-receiving bulk-ev-dispf error-dispf))))))
 
 (defn- internal-page-destructor
   []
@@ -1586,45 +1614,53 @@
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
-  (internal-page-destructor)
-  (reset! page-init-called true)
+  (when-not @page-init-called
+    (internal-page-destructor)
+    (reset! page-init-called true)
+    (->
+     (.call (aget globalFunctions "startedOffline"))
+     (p/then (fn [offline?]
+               (set-offline-internal-status offline?)))))
   (stop-receiving-events)
-  (if @is-offline
-    (go (put! @page-init-channel "offline"))
-    (let [page-already-opened @page-opened]
-      (reset! page-opened true)
-      (->
-       (p/get-promise (fn [resolve reject]
-                        (net/send-get (net/init)
-                                      (fn [_ts] 
-                                        (reset! logging-in  false)
-                                        (net/set-tabsess! (first _ts) )
-                                        (go (put! @page-init-channel (first _ts)))
-                                        (start-receiving-events)
-                                        (resolve (first _ts)))
-                                      (fn [err]
-                                        (reset! page-init-called false)
-                                        (reset! page-init-channel (promise-chan))
-                                        (swap! logging-in (fn [_] true))
-                                        (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
-                                        ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
-                                        ))))
-       (p/then
-        (fn [_]
-          (let [app-cont (get-app-containers)]
-            (when page-already-opened
-              (late-register app-cont)))))
-       (p/then
-        (fn []
-          (doseq [c (get-app-containers)]
-            (when (is-offline-enabled c)
-              (post-offl-changes c
-                                 (fn [ok] (println "offline posting finished"))
-                                 (fn [err] (println err)))))))
-       (p/then-catch
-        (fn [err]
-          (reset! page-init-called false)
-          (reset! page-init-channel (promise-chan))))))))
+  (-> @offline-app-status
+      (p/then
+       (fn [offline?]
+         (if offline?
+           (go (put! @page-init-channel "offline"))
+           (let [page-already-opened @page-opened]
+             (reset! page-opened true)
+             (->
+              (p/get-promise (fn [resolve reject]
+                               (net/send-get (net/init)
+                                             (fn [_ts] 
+                                               (reset! logging-in  false)
+                                               (net/set-tabsess! (first _ts) )
+                                               (go (put! @page-init-channel (first _ts)))
+                                               (start-receiving-events)
+                                               (resolve (first _ts)))
+                                             (fn [err]
+                                               (reset! page-init-called false)
+                                               (reset! page-init-channel (promise-chan))
+                                               (swap! logging-in (fn [_] true))
+                                               (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
+                                               ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
+                                               ))))
+              (p/then
+               (fn [_]
+                 (let [app-cont (get-app-containers)]
+                   (when page-already-opened
+                     (late-register app-cont)))))
+              (p/then
+               (fn []
+                 (doseq [c (get-app-containers)]
+                   (when (is-offline-enabled c)
+                     (post-offl-changes c
+                                        (fn [ok] (println "offline posting finished"))
+                                        (fn [err] (println err)))))))
+              (p/then-catch
+               (fn [err]
+                 (reset! page-init-called false)
+                 (reset! page-init-channel (promise-chan)))))))))))
 
 
 (defn get-control-metadata
@@ -2000,15 +2036,18 @@
                   (yesnocancelErrorHandler ex-message ex-group ex-key fnproxy))
                 (errf err)))
             (errf err)))]
-    (if @is-offline
-      (errf (offline-error-response))
-      (do
-        (when-not @page-init-called
-          (page-init))
-        (p-deferred-on @page-init-channel
-                (if post?
-                  (net/send-post (net/command) data okf proxy-error)
-                  (net/send-get (str (net/command) "?" data) okf proxy-error)))))))
+    (-> @offline-app-status
+        (p/then
+         (fn [offline?]
+           (if offline?
+             (errf (offline-error-response))
+             (do
+               (when-not @page-init-called
+                 (page-init))
+               (p-deferred-on @page-init-channel
+                              (if post?
+                                (net/send-post (net/command) data okf proxy-error)
+                                (net/send-get (str (net/command) "?" data) okf proxy-error))))))))))
 
                                         ;helper function for macro, to reduce the generated file size
 
@@ -2268,9 +2307,12 @@
                                                (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (cb ok)))
                                                (cb ok)))
                                     (fn [err]
-                                      (if (and (not @is-offline) finished?)
-                                        (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (errb err)))
-                                        (errb err))))
+                                      (-> @offline-app-status
+                                          (p/then
+                                           (fn [offline?]
+                                             (if (and (not offline?) finished?)
+                                               (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (errb err)))
+                                               (errb err)))))))
                  (errb "No finished offline workflow steps for container"))))
      (p/then-catch (fn [err] (when errb err) err)))))
 
