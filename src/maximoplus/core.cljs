@@ -49,12 +49,6 @@
     (reset! offline-app-status (p/get-resolved-promise status))
     (p/callback @offline-app-status status)))
 
-(declare globalFunctions)
-(declare setGlobalFunction)
-
-(setGlobalFunction "startedOffline" (fn [] (p/get-resolved-promise false)))
-;;this is just a placeholder function, every template has to implement real scenario
-
 
 
 (declare any-offline-enabled?)
@@ -2344,6 +2338,7 @@
       "handleErrorMessage" handleErrorMessage
       "globalOfflinePostError" display-offline-post-error
       "forceLongPoll" false
+      "startedOffline" (fn [] (p/get-resolved-promise false))
       }
   );one level of indirection required so the functions can be overriden when they are compiled with the advanced compilation
 
