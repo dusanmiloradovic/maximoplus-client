@@ -618,7 +618,7 @@
          (offline/get-object-meta object-name)
          (p/then
           (fn [metadata]
-            (let [cmeta (js->clj (aget metadata "columnsMeta"))]
+            (let [cmeta (js->clj (aget metadata "columnsMeta") :keywordize-keys true)]
               (overwrite-metadata control-name cmeta)
               (cb cmeta))))))))
    (p/then-catch
@@ -1272,8 +1272,7 @@
         _attr-metadata (get-column-metadata  cont column)
         col-attr-metadata (get (get-col-attrs control) column)
         attr-name-virt (get col-attr-metadata "attributeName")
-        attr-metadata (if _attr-metadata _attr-metadata (when attr-name-virt (get-column-metadata cont attr-name-virt) ))
-        ]
+        attr-metadata (if _attr-metadata _attr-metadata (when attr-name-virt (get-column-metadata cont attr-name-virt) ))]
     (merge attr-metadata col-attr-metadata)))
 
 (defn get-column-attribute

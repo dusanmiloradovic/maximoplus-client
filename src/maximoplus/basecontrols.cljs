@@ -3667,30 +3667,38 @@
 (defn ^:export reloadPreloadedList
   [container col-name]
   (let [table-name (get-offline-list-name container col-name)]
-    (->
-     (clearOfflinePreloadedList container col-name)
-     (p/then
-      (fn [_]
-        (off/getObjectMeta table-name)))
-     (p/then
-      (fn [object-meta]
-        (let [return-column (-> object-meta (aget table-name) (aget "returnColumn"))
-              list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
-          (listToOffline container col-name list-columns return-column true)))))))
+    (-> @c/offline-app-status
+        (p/then
+         (fn [offline?]
+           (when-not offline?
+             (->
+              (clearOfflinePreloadedList container col-name)
+              (p/then
+               (fn [_]
+                 (off/getObjectMeta table-name)))
+              (p/then
+               (fn [object-meta]
+                 (let [return-column (-> object-meta (aget table-name) (aget "returnColumn"))
+                       list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
+                   (listToOffline container col-name list-columns return-column true)))))))))))
 
-(defn ^:export reloadPreloadedLists
+"(defn ^:export reloadPreloadedLists
   []
-  (->
-   (off/get-lists true)
-   (p/then (fn [res]
-             (doseq [l res]
-               (let [[_ table column] (split l "_")
-                     container-name
-                     (aget c/rel-map-reverse
-                           (first (filter #(= table (.toUpperCase %)) (js-keys c/rel-map-reverse))))
-                     container (@c/registered-components container-name)]
-;;                 (println "container = " container-name " and column =" column)
-                 (reloadPreloadedList container column)))))))
+  (-> @c/offline-app-status
+      (p/then
+       (fn [offline?]
+         (when-not offline?
+           (->
+            (off/get-lists true)
+            (p/then (fn [res]
+                      (doseq [l res]
+                        (let [[_ table column] (split l \"_\")
+                              container-name
+                              (aget c/rel-map-reverse
+                                    (first (filter #(= table (.toUpperCase %)) (js-keys c/rel-map-reverse))))
+                              container (@c/registered-components container-name)]
+                          ;;                 (println \"container = \" container-name \" and column =\" column)
+                          (reloadPreloadedList container column)))))))))))"
 
 (defn ^:export addOfflineListReturnColumn
   [container column value-column]
@@ -3706,39 +3714,44 @@
         list-table-name (str "list_" (.toLowerCase table-name) "_" (.toLowerCase column))]
     (mm/p-deferred 
      container
-     (->
-      (off/preloaded? list-table-name)
-      (p/then
-       (fn [preloaded?]
-         (when (or (not preloaded?) force?)
-           (let [lc (ListContainer. container column false)]
-             (c/set-offline-enabled lc true)
-             (..
-              (c/register-columns lc list-columns nil nil)
-              (then
-               (fn [_]
-                 (off/delete-old-records list-table-name)))
-              (then
-               (fn [_]
-                 (get-row-count lc nil nil)))
-              (then
-               (fn [e]
-                 (let [cnt (get e 0)]
-                   (fetch-data lc 0 cnt nil nil))))
-              (then
-               (fn [_]
-                 (c/add-list-offline-return-column (c/get-id lc) value-column)))
-              (then
-               (fn [_]
-                 (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
-              (then
-               (fn [e]
-                 (.dispose lc)
-                 (off/mark-as-preloaded list-table-name)
-                 (off/mark-as-preloaded (str list-table-name "_flags"))))
-              (then
-               (fn [_]
-                 (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns)))))))))))))
+     (-> @c/offline-app-status
+         (p/then
+          (fn [offline?]
+            (when-not
+                offline?
+              (->
+               (off/preloaded? list-table-name)
+               (p/then
+                (fn [preloaded?]
+                  (when (or (not preloaded?) force?)
+                    (let [lc (ListContainer. container column false)]
+                      (c/set-offline-enabled lc true)
+                      (..
+                       (c/register-columns lc list-columns nil nil)
+                       (then
+                        (fn [_]
+                          (off/delete-old-records list-table-name)))
+                       (then
+                        (fn [_]
+                          (get-row-count lc nil nil)))
+                       (then
+                        (fn [e]
+                          (let [cnt (get e 0)]
+                            (fetch-data lc 0 cnt nil nil))))
+                       (then
+                        (fn [_]
+                          (c/add-list-offline-return-column (c/get-id lc) value-column)))
+                       (then
+                        (fn [_]
+                          (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
+                       (then
+                        (fn [e]
+                          (.dispose lc)
+                          (off/mark-as-preloaded list-table-name)
+                          (off/mark-as-preloaded (str list-table-name "_flags"))))
+                       (then
+                        (fn [_]
+                          (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns)))))))))))))))))
 
 (defn get-unique-ids-container-prom
   [container]

@@ -218,7 +218,7 @@
       (p/then
        (fn [columns]
          ;;        (u/debug ":create for object " object-name)
-;;         (u/debug ":create for " object-name " got columns")
+         (u/debug ":create for " object-name " got columns")
   ;;       (.log js/console (clj->js columns))
          (if-not columns ;;new table
            (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
