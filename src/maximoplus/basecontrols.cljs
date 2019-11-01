@@ -1063,7 +1063,9 @@
                         (do
                           (clear-control c)
                           (init-data c))
-                        (when @c/is-offline ;;check why this is not necessary online
+                        (when (and
+                               @c/is-offline
+                               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
                           (re-register-and-reset c cb errb)))))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
