@@ -197,6 +197,9 @@
           v
           (u/transit-json v))])))
 
+;;!!!!!!!!!!!!!!!!!!!!IDEJA
+;;Za app container pomeraj samo posecene rekorde, automatski uradi move za sve njegove rel (proveri kolko je to skupa operacija)
+
 (defn ^:export moveToOffline
   [control-name control-data]
   (moveToOfflineInternal control-name control-data))
