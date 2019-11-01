@@ -104,7 +104,6 @@
                    :key-name "objectName"
                    :name "objectMeta"}))
      (fn [res]
-       (println object-name "new meta" object-meta "--->>>>>>>> select meta "  (first res))
        (let [existing (first res)]
          (->
           (ddl
@@ -118,7 +117,6 @@
                          [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true))
                       (let [merged-meta (merge-meta (aget (first res) "columnsMeta")
                                                     object-meta)]
-                        (println "!!!!!!!!!!!!!!!!!!merged meta " merged-meta)
                         (db/update {:key object-name
                                     :name "objectMeta"
                                     :qbe {"objectName" object-name}
