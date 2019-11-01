@@ -981,7 +981,7 @@
    (kk-nocb! this "re-register" c/register-mboset-byrel rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
    ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
-
+   (println "calling re-register and reset " rel " and id " (c/get-id this))
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
@@ -995,8 +995,11 @@
           (-> @c/offline-app-status
               (p/then
                (fn [offline?]
-                 (when offline? ;;check why this is not necessary online
-                   (re-register-and-reset c cb errb)))))))
+                  (when
+                     (and
+                      offline?
+                      (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
+                    (re-register-and-reset c cb errb)))))))
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
@@ -1057,8 +1060,9 @@
          _unid (aget this "contuniqueid")
          dfrd (promise-chan)]
      (c/toggle-state this :deferred dfrd)
-     (p-deferred-on dfrd
-                    (doseq [c  (get-children this)]
+     (p-deferred-on
+      dfrd
+      (doseq [c  (get-children this)]
                       (if-not (c/get-state c :iscontainer)
                         (do
                           (clear-control c)

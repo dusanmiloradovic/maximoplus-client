@@ -984,7 +984,6 @@
 
 (defn get-local-data [control-name row column]
   (let [od (@object-data control-name)]
-;;    (println od)
     (->  od (get row) :data (get column))))
 
 (defn get-local-data-fetch-size
@@ -1030,7 +1029,10 @@
 
 (defn fetched-row-callback [control-name rd-evt & offline?]
   (when (first rd-evt)
-    (let [[rownum dta flg] (get-fetched-row-data rd-evt)
+    (let [[rownum _dta flg] (get-fetched-row-data rd-evt)
+          dta (if-not (get _dta "_uniqueid")
+                (assoc _dta "_uniqueid" (get _dta "uniqueid"));;happens when fetching starting from offline
+                _dta)
           _rownum (if-not
                      (get-state control-name :singlembo)
                     rownum
