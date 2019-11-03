@@ -1908,7 +1908,6 @@
          (set-field-flag this _f (flags field))))))
   (add-row 
    [this x]
-   (println "Section add row, container = " (c/get-id container) "curr row=" (c/get-currow container) x)
    (let [_xrow (:row x)]
      (when ( = _xrow (c/get-currow container))
        (set-enabled this true)
@@ -1941,7 +1940,7 @@
      ))
   (init-data
    [this]
-   (println "Init data secit" (c/get-id container))
+;;   (println "Init data secit" (c/get-id container))
    (mm/p-deferred
     this
     (let [currow (c/get-currow container)
