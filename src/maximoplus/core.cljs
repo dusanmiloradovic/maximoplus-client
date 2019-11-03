@@ -1640,7 +1640,9 @@
       (p/then
        (fn [offline?]
          (if offline?
-           (go (put! @page-init-channel "offline"))
+           (do
+             (reset! page-opened true)
+             (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
              (reset! page-opened true)
              (->
