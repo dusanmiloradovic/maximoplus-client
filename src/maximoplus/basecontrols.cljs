@@ -767,6 +767,8 @@
    ;;fetching queue is the performance optimization
    ;;many times we can't control how the data in controls is initialized, and the controls just repeadetly call the fetch-data , thus hurting the performance. there will be the queue for fetch, and once is done, the fetch for the same number of rows can be done, otherwise is discarded. This is safe to do because for one container server operations are serialized, and it is not possible to move to other record before the fetch has been finished.
    (assert (and start numrows) "Fetching must have the starting row and the number of rows specified")
+   (when (= -1 (c/get-state this :currrow));;fix for offline
+     (c/toggle-state this :currrow start))
    (when-not (c/get-state this :fetch-queue)
      (c/set-states this
                    {:fetch-queue (atom [])})
@@ -1753,6 +1755,7 @@
      (set-row-field-value this fld "")))
   (on-set-max-value
    [this column value]
+;;   (println "***************Section on-set-max-value, container = " (c/get-id container) column value)
    (doseq [fld (get-children this)]
      (when (= (get-column fld) (.toUpperCase column))
        (set-row-field-value this fld value))))
@@ -1905,6 +1908,7 @@
          (set-field-flag this _f (flags field))))))
   (add-row 
    [this x]
+   (println "Section add row, container = " (c/get-id container) "curr row=" (c/get-currow container) x)
    (let [_xrow (:row x)]
      (when ( = _xrow (c/get-currow container))
        (set-enabled this true)
@@ -1937,7 +1941,7 @@
      ))
   (init-data
    [this]
-;;   (println "Init data secit")
+   (println "Init data secit" (c/get-id container))
    (mm/p-deferred
     this
     (let [currow (c/get-currow container)
