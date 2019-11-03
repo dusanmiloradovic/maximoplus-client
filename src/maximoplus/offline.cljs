@@ -813,12 +813,14 @@
 
 (defn get-change-tree
   [tree]
-  (let [offline-objs (:containers
-                      (accumulate-tree tree
-                                       (fn [acc n]
-                                         (let [_conts (:containers acc)
-                                               conts (if _conts _conts [(-> acc :object-name)])]
-                                           (assoc acc :containers (conj conts (-> n :object-name)))))))]
+  (let [offline-objs (filter some?
+                             (:containers
+                              (accumulate-tree tree
+                                               (fn [acc n]
+                                                 (let [_conts (:containers acc)
+                                                       conts (if _conts _conts [(-> acc :object-name)])]
+                                                   (assoc acc :containers (conj conts (-> n :object-name))))))))]
+    (println "!!!!!!change-tree offline-objs" offline-objs)
     (->
      (p/prom-all (doall (map db/get-changed-object-values offline-objs)))
      (p/then (fn [vals]
