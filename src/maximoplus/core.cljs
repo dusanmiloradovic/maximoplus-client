@@ -49,6 +49,16 @@
     (reset! offline-app-status (p/get-resolved-promise status))
     (p/callback @offline-app-status status)))
 
+(declare page-init-called)
+(declare page-init-channel)
+
+(defn process-push-receiving-error
+  [err]
+  (net/stop-server-push-receiving)
+  (println "Push receiving error")
+  (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401])
+
+  )
 
 
 (declare any-offline-enabled?)
@@ -103,18 +113,26 @@
       (swap! is-offline (fn [_] true))
       (set-offline-internal-status true)
       (reset! offline-posted {}))
-    (do
-      (u/debug "Going online")
-      (net/start-server-push-receiving bulk-ev-dispf error-dispf)
-      (swap! is-offline (fn [_] false))
-      (set-offline-internal-status false)
-      ;;if the offline period was brief, this will post the changes, otherwise if the session had
-      ;;expired, it will go to the login function, and page-init will post the changes
-      (doseq [c (get-app-containers)]
-        (when (is-offline-enabled c)
-          (post-offl-changes c
-                             (fn [ok] (println "offline posting finished"))
-                             (fn [err] (println err))))))))
+    (if (= "123" (net/get-tabsess))
+      (do;;if it was started when offine
+        (u/debug "Going online")
+        (net/stop-server-push-receiving)
+        (swap! is-offline (fn [_] false))
+        (set-offline-internal-status false)
+        (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401]))
+      (do
+        (u/debug "Going online")
+        (net/start-server-push-receiving bulk-ev-dispf process-push-receiving-error)
+        (swap! is-offline (fn [_] false))
+        (set-offline-internal-status false)
+        ;;if the offline period was brief, this will post the changes, otherwise if the session had
+        ;;expired, it will go to the login function, and page-init will post the changes
+        (doseq [c (get-app-containers)]
+          (when (is-offline-enabled c)
+            (post-offl-changes c
+                               (fn [ok] (println "offline posting finished"))
+                               (fn [err] (println err)))))))
+      ))
 
 ;;(defn listen-offline
 ;;  []
@@ -1577,8 +1595,6 @@
         ))))
 
 
-
-
 (defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
@@ -1586,7 +1602,10 @@
       (p/then
        (fn [offline?]
          (when-not offline?
-           (net/start-server-push-receiving bulk-ev-dispf error-dispf))))))
+           (net/start-server-push-receiving
+            bulk-ev-dispf
+            process-push-receiving-error
+            ))))))
 
 (defn stop-receiving-events
   []
@@ -1595,7 +1614,7 @@
        (fn [offline?]
          (when-not offline?
            (net/stop-server-push-receiving)
-           (net/start-server-push-receiving bulk-ev-dispf error-dispf))))))
+)))))
 
 (defn- internal-page-destructor
   []

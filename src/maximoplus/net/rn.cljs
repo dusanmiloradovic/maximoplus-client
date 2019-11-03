@@ -39,7 +39,9 @@
                              (callback data))))
       (.addEventListener _event-source "error"
                          (fn [error]
-                           (u/debug "SSE error, probably session end")))))
+                           (u/debug "SSE error, probably session end")
+                           (error-callback error)
+                           ))))
   (-stop-server-push-receiving
     [this]
     (when-let [^js/RNEventSource es @event-source]

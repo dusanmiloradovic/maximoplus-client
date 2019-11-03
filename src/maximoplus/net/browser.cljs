@@ -132,8 +132,9 @@
     (.addEventListener ev-s "error"
                        (fn [error]
                          ;;SSE doesn't give any specifics of the error, so error handler is not appropriate. Only time I saw it happning is on logout
-                         (u/debug "SSE error, probably session end")
-                        ; (error-callback error)
+         ;;                (u/debug "SSE error, probably session end")
+           ;;              (.log js/console error)
+                         (error-callback error)
                          ))))
 
 (defn sse-stop
