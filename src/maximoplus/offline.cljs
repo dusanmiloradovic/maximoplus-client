@@ -5,12 +5,14 @@
    [maximoplus.promises :as p]
    [maximoplus.db :as db :refer [ddl dml]]
    [maximoplus.net :as net :refer [get-tabsess]]
+   [cljs.core.async :as a :refer [put! promise-chan <! timeout chan]]
    )
   (:use [clojure.string :only [join replace split blank?]]
         [clojure.set :only [difference]])
   (:require-macros 
    [maximoplus.macros :as mm :refer [do-offline]]
-   [maximoplus.db :refer [dml1]]))
+   [maximoplus.db :refer [dml1]]
+   [cljs.core.async.macros :refer [go go-loop]]))
 
 (declare globalFunctions)
 
@@ -90,16 +92,31 @@
                              rez
                              (conj rez ma))))))))
 
+(def incoming-meta (chan));;I have to synchronize meta move commands, promises are problematic with our architecture
+(def meta-moving (atom (promise-chan)));;indicated operation in progress (running if not reelased)
+(go (put! @meta-moving "initial"));;initially no command is running
+
+(declare move-meta-oper)
+
 (defn moveMeta
   [object-name object-meta]
-  ;;  (.log js/console (str "!!!!!!!!!! Move meta for " object-name))
-;;  (println "moveMeta" object-name " meta:" object-meta)
-  (let [prom (p/get-deferred)]
-    (swap! object-promises assoc object-name prom)
+  (let [prom  (p/get-deferred)];;for outside functions that expect promise
+    (go (put! incoming-meta [object-name object-meta prom]))
+    prom))
+
+(go-loop []
+  (<! @meta-moving)
+  (let [[object-name object-meta prom] (<! incoming-meta)]
+    (move-meta-oper object-name object-meta prom)
+    (recur)))
+
+(defn move-meta-oper
+  [object-name object-meta prom]
+  ;;  (println "moveMeta" object-name " meta:" object-meta)
+  (let [prom-ch (promise-chan)]
+    (reset! meta-moving prom-ch)
     (do-offline
      (fn [_]
-       ;;       (dml
-       ;;        [{:type :select-by-key :name "objectMeta" :key object-name :key-name "objectName" }] true true))
        (db/select {:key object-name
                    :key-name "objectName"
                    :name "objectMeta"}))
@@ -112,7 +129,6 @@
           (p/then (fn []
                     (if-not existing
                       (do
-                        ;;(println "creating " object-name " from " object-meta)
                         (dml
                          [{:type :put :name "objectMeta" :data #js {"objectName" object-name "columnsMeta" object-meta}}] true))
                       (let [merged-meta (merge-meta (aget (first res) "columnsMeta")
@@ -125,10 +141,8 @@
                                               (aset meta "columnsMeta" (clj->js merged-meta))
                                               meta) }))))))))
      (fn [_] 
-       ;;       (.log js/console (str  "meta move has finished for" object-name))
-       (when-not (p/has-fired? prom )
-         ;;         (.log js/console "firing object promise!!!!!!!!!")
-         (p/callback prom))))))
+       (go (put! prom-ch "done"))
+       (p/callback prom "done")))))
 
 (defn column-in-meta?
   [control-meta column]
