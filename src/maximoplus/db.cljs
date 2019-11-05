@@ -236,6 +236,7 @@
                   {:type :select-by-key :name list-table-name :key id :key-name "uniqueid"}             
                   ] true true)
                 (p/then (fn [res]
+                          (println "**" (-> res (aget 0)))
                           (let [return-column (-> res (aget 0) (aget "returnColumn") (.toUpperCase))
                                 ret-obj (-> res (aget 1))]
                             (aget ret-obj return-column)))))))))
@@ -408,6 +409,7 @@
          (-select this {:name "objectMeta" :key list-table-name :key-name "objectName"})
          (p/then
           (fn [res]
+            (println "**" (first res))
             (let [return-column (-> res first (aget "returnColumn") (.toUpperCase))]
               (->
                (dml1 {:name list-table-name :type :select-by-key :key id :key-name "uniqueid"})

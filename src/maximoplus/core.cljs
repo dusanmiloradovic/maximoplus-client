@@ -728,7 +728,9 @@
 (defcmd-with-prepare register-list [list-name mbocontainer-name column-name force-qbe?]
   (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
     (add-relationship list-name (str "list_" (.toLowerCase cont-obj-name) "_" (.toLowerCase column-name)) nil))
-  (fn[evt] (process-register-list-callback-event list-name evt)))
+  (fn[evt]
+    (println "+++parent meta" (get-control-metadata mbocontainer-name))
+    (process-register-list-callback-event list-name evt)))
 
 (defn exist-offline-list? [mbocontainer-name column-name]
   (offline/exist-table? (str "list_" (.toLowerCase (aget rel-map mbocontainer-name)) "_" (.toLowerCase column-name) )))
