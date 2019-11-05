@@ -226,19 +226,15 @@
      (dml1 {:type :select :name object-name :where :changed})
      (p/then (fn [ok]
                [object-name (map (fn[v] (-> v :changedValue (assoc :uniqueid (:uniqueid v) :parentid (:parentid v)))) ok)]))))
-  (-get-return-list-value [this list-table-name rownum]
+  (-get-return-list-value [this list-table-name rownum return-column]
     (->
      (get-unique-id list-table-name nil rownum)
      (p/then (fn [id]
                (->
                 (dml
-                 [{:type :select-by-key :name "objectMeta" :key list-table-name :key-name "objectName"}
-                  {:type :select-by-key :name list-table-name :key id :key-name "uniqueid"}             
-                  ] true true)
+                 [{:type :select-by-key :name list-table-name :key id :key-name "uniqueid"}] true true)
                 (p/then (fn [res]
-                          (println "**" (-> res (aget 0)))
-                          (let [return-column (-> res (aget 0) (aget "returnColumn") (.toUpperCase))
-                                ret-obj (-> res (aget 1))]
+                          (let [ret-obj (-> res (aget 0))]
                             (aget ret-obj return-column)))))))))
   (-update-after-alter [this object-name data]
     (u/debug "update-after-alter not implemented for indexeddb!"))
@@ -400,21 +396,15 @@
                                          (assoc :uniqueid (aget v "uniqueid") :parentid (aget v "parentind"))))
                              ok)]))))
   (-get-return-list-value
-    [this list-table-name rownum]
+    [this list-table-name rownum retunr-column]
     (->
      (get-unique-id list-table-name nil rownum)
      (p/then
       (fn [id]
         (->
-         (-select this {:name "objectMeta" :key list-table-name :key-name "objectName"})
-         (p/then
-          (fn [res]
-            (println "**" (first res))
-            (let [return-column (-> res first (aget "returnColumn") (.toUpperCase))]
-              (->
-               (dml1 {:name list-table-name :type :select-by-key :key id :key-name "uniqueid"})
-               (p/then (fn [_res]
-                         (aget (first _res) return-column))))))))))))
+         (dml1 {:name list-table-name :type :select-by-key :key id :key-name "uniqueid"})
+         (p/then (fn [_res]
+                   (aget (first _res) return-column))))))))
   (-update-after-alter [this object-name data]
     (sqlite/update-after-alter object-name data))
   (-get-internal-qbe [this qbe]
@@ -597,8 +587,4 @@
           (p/get-resolved-promise false))
         (p/get-resolved-promise cached)))))
 
-(defn test-it
-  []
-  (setEngine "websql")
-  (ddl [{:type :create :name "radnici" :key "id"}]))
 

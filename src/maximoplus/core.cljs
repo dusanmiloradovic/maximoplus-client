@@ -768,7 +768,8 @@
 
 (defn offline-set-value-from-list [mbocontainer-name list-name column-name cb errb]
   (->
-   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name))
+   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name)
+                               (get (get-state mbocontainer-name :offlineReturnColumns) (.toUpperCase column-name)))
    (p/then
     (fn [val]
       (offline-set-value mbocontainer-name (aget rel-map mbocontainer-name) column-name val nil errb)))
@@ -783,7 +784,8 @@
 
 (defn offline-set-qbe-from-list [mbocontainer-name list-name column-name cb errb]
   (->
-   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name))
+   (offline/getReturnListValue (aget rel-map list-name) (get-currow list-name)
+                               (get (get-state mbocontainer-name :offlineReturnColumns) (.toUpperCase column-name)))
    (p/then
     (fn [val]
       ;;the difference here is that qbe may consist of multiple values, so when user picks two lines, qbe should read them both (_selected flag is Y)
@@ -1240,6 +1242,17 @@
                        (assoc-in o [control-name :metadata]
                                  (conj metadata {:attributeName  "_SELECTED" :maxType "YORN" })))))
 
+(defn update-metadata-attribute!
+  [control-name attribute meta-name meta-value]
+  (swap! object-data
+         (fn [o]
+           (assoc-in o [control-name :metadata]
+                     (map
+                      (fn [m] (if (= (:attributeName m) (.toUpperCase attribute))
+                                (assoc m meta-name meta-value)
+                                m
+                                ))
+                      (:metadata (@object-data control-name))))))) 
 
 (declare add-col-attr)
 (declare add-col-attrs)
@@ -1256,10 +1269,18 @@
   ;;metadata is on the container level, we need to have it also on the level of the control
   [control column attribute-name attribute-value]
   ;;we can pass the name of the column or the column itself
+
   (let [_cup (if (goog/isString column)
                (.toUpperCase column)
                (let [_mda (aget column "metadata")]
                  (get _mda "attributeName")))]
+    ;;    (println "add-col-attr for " (get-id control) " and column=" _cup ":" attribute-name "=" attribute-value)
+    (when (= :offlineReturnColumn attribute-name)
+      (toggle-state (get-container control)
+                    :offlineReturnColumns (assoc
+                                           (get-state (get-container control) :offlineReturnColumns)
+                                           _cup attribute-value
+                                           )))
     (swap! (aget control "state")
            (fn [s]
              (update-in s [:colAttrs _cup] assoc attribute-name attribute-value)))))
@@ -2299,16 +2320,6 @@
   (-> get-main-containers late-register)
   )
 
-(defn add-list-offline-return-column
-  "during the offline list select we have to pick one of the columns to update the value of the field, in the online mode this is done by the server"
-  ([list-name return-column]
-   (offline/updateObjectMeta (aget rel-map list-name) "returnColumn" return-column))
-  ([container-name lookup-column return-column]
-   (let [list-name (str "list_"
-                        (.toUpperCase (aget rel-map container-name))
-                        "_"
-                        (.toUpperCase lookup-column))]
-     (offline/updateObjectMeta list-name "returnColumn" return-column))))
 
                                         ;replay the offline workflow if the steps are finished for all the finished offline workflows. For the currently active record it doesn't have to be finished, we can continue
 (defn replay-wf-from-offline

@@ -2844,6 +2844,7 @@
         column (:attributeName metadata)
         container (c/get-container dialog)
         parentC (get-parent field);qbe section or qbe row
+        offline-return-column (get (get-state container :offlineReturnColumns) (.toUpperCase column))
         ]
     (get-selectable-grid 
      dialog
@@ -2862,7 +2863,7 @@
             new-sel
             (fn [_]
               (->
-               (off/get-qbe-from-select-list cont-table)
+               (off/get-qbe-from-select-list cont-table offline-return-column)
                (p/then
                 (fn [qbe]
                   (c/offline-set-qbe
@@ -3687,9 +3688,9 @@
                  (off/getObjectMeta table-name)))
               (p/then
                (fn [object-meta]
-                 (let [return-column (-> object-meta (aget table-name) (aget "returnColumn"))
+                 (let [;;return-column (-> object-meta (aget table-name) (aget "returnColumn"))
                        list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
-                   (listToOffline container col-name list-columns return-column true)))))))))))
+                   (listToOffline container col-name list-columns nil true)))))))))))
 
 "(defn ^:export reloadPreloadedLists
   []
@@ -3711,10 +3712,8 @@
 
 (defn ^:export addOfflineListReturnColumn
   [container column value-column]
-  (c/add-list-offline-return-column
-   (c/get-id container)
-   column
-   value-column))
+  ;;doing nothing backward compatibility
+)
 
 (defn ^:export listToOffline
   "value-column is the column which is read from the offline list and set as a value, we have to have it, this is controlled on the server-side while online"
@@ -3747,9 +3746,6 @@
                         (fn [e]
                           (let [cnt (get e 0)]
                             (fetch-data lc 0 cnt nil nil))))
-                       (then
-                        (fn [_]
-                          (c/add-list-offline-return-column (c/get-id lc) value-column)))
                        (then
                         (fn [_]
                           (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list

@@ -509,8 +509,8 @@
    (db/select {:name "objectMeta" :key-name "objectName" :key table-name})))
 
 (defn getReturnListValue
-  [list-table-name rownum]
-  (db/get-return-list-value list-table-name rownum))
+  [list-table-name rownum return-column]
+  (db/get-return-list-value list-table-name rownum return-column))
 
 (defn insertCoreWFMeta
   "the point is that we can't register the inputwf, completewf without affecting the workflow. this function fakes their offline registration, so the offline routing of wf becomes possible"
@@ -1017,30 +1017,19 @@
                (.startsWith (aget r "objectName") "list_")))
             res))))))
 
-(defn get-return-column
-  [list-name]
-  (->
-   (db/get-object-meta list-name)
-   (p/then
-    (fn [res]
-      (-> res  (aget "returnColumn") (.toUpperCase))))))
 
 (defn get-qbe-from-select-list
-  [list-name]
+  [list-name return-column]
   (->
-   (get-return-column list-name)
+   (dml1 {:type :select :name list-name :qbe {"_SELECTED" ["=" "Y"]}})
    (p/then
-    (fn [return-column]
-      (->
-       (dml1 {:type :select :name list-name :qbe {"_SELECTED" ["=" "Y"]}})
-       (p/then
-        (fn [res]
-          (clojure.string/join
-           ","
-           (map (fn [r]
-                  (str "="
-                       (aget r return-column)))
-                res)))))))))
+    (fn [res]
+      (clojure.string/join
+       ","
+       (map (fn [r]
+              (str "="
+                   (aget r return-column)))
+            res))))))
 
 (defn remove-selection
   [list-names];;in theory it can be used also for tables
