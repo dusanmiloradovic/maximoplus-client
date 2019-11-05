@@ -112,7 +112,7 @@
   (-get-object-meta [this object-name])
   (-get-column-names [this object-name])
   (-get-changed-object-values [this object-name])
-  (-get-return-list-value [this list-table-name rownum])
+  (-get-return-list-value [this list-table-name rownum return-column])
   (-update-after-alter [this object-name data])
   (-get-internal-qbe [this qbe]);;from Maximo to internal qbe presentation
   )
@@ -396,7 +396,7 @@
                                          (assoc :uniqueid (aget v "uniqueid") :parentid (aget v "parentind"))))
                              ok)]))))
   (-get-return-list-value
-    [this list-table-name rownum retunr-column]
+    [this list-table-name rownum return-column]
     (->
      (get-unique-id list-table-name nil rownum)
      (p/then
@@ -553,8 +553,8 @@
   (-get-changed-object-values @engine object-name))
 
 (defn get-return-list-value
-  [list-table-name rownum]
-  (-get-return-list-value @engine list-table-name rownum))
+  [list-table-name rownum return-column]
+  (-get-return-list-value @engine list-table-name rownum return-column))
 
 (defn update-after-alter
   [table-name data]

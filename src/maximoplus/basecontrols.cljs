@@ -2844,7 +2844,7 @@
         column (:attributeName metadata)
         container (c/get-container dialog)
         parentC (get-parent field);qbe section or qbe row
-        offline-return-column (get (get-state container :offlineReturnColumns) (.toUpperCase column))
+        offline-return-column (get (c/get-state container :offlineReturnColumns) (.toUpperCase column))
         ]
     (get-selectable-grid 
      dialog
