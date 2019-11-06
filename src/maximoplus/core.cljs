@@ -457,7 +457,7 @@
                 (swap! logging-in (fn [_] false))
                 (u/debug ( str "all including the redirection uri" %))
                 (u/debug (str "just the redirection uri" red-uri))
-                (set! (.-location js/window) (if (and refer (-> refer empty? not)) refer (redirect-after-login))))
+                (set! (.-location js/window) (if (and refer (-> refer empty? not)) refer (redirect-after-login))))
              (fn[e] (swap! logging-in (fn [_] false))(u/debug e) (js/alert "Invalid username or password"))))
 
 
@@ -729,7 +729,6 @@
   (when-let [cont-obj-name (aget rel-map mbocontainer-name) ]
     (add-relationship list-name (str "list_" (.toLowerCase cont-obj-name) "_" (.toLowerCase column-name)) nil))
   (fn[evt]
-    (println "+++parent meta" (get-control-metadata mbocontainer-name))
     (process-register-list-callback-event list-name evt)))
 
 (defn exist-offline-list? [mbocontainer-name column-name]
