@@ -91,6 +91,7 @@
   (get-mbo-name [container])
   (comp-clone [container parent]) ;;used for offline
   (comp-clone-shallow [container parent])
+  (comp-clone-norel [container parent]);; don't clone the rel containers. Shallow + columns
   )
 
 (defprotocol UI
@@ -702,6 +703,18 @@
      (c/toggle-state rez :rel-containers rel-containers)
      rez
      ))
+  (comp-clone-norel
+   [this parent]
+   (let [rez (comp-clone-shallow this parent)
+         reg-columns (@c/registered-columns (c/get-id this))]
+     (->
+      (c/register-columns rez reg-columns nil nil)
+      (p/then
+       (fn [_] ;;Maybe promise necessary, check
+         (when (c/is-offline-enabled this)
+           (c/set-offline-enabled rez true))
+         rez
+         )))))
   (get-mbo-name
    [this]
    (:objectName
@@ -3866,3 +3879,62 @@
                          (fn [evt]
                            (c/insert-prefetch-offline (c/get-id cont) (get-unique-id cont)  evt)))))))
 
+(declare offload-new)
+
+(defn offload-helper-new
+  [original-container cloned-container index rows]
+  (let [rel-containers (get-rel-containers original-container)]
+    (->
+     (move-to-row cloned-container index nil nil)
+     (p/then
+      (fn [_]
+        (p/prom-all
+         (map (fn [r]
+                (let [s (SingleMboContainer. cloned-container)]
+                  (->
+                   (move-to-row s 0 nil nil)
+                   (p/then
+                    (fn [_]
+                      (offload-new r s)
+                      )))))
+              rel-containers))))
+     (p/then
+      (fn [_]
+        (if (< index rows)
+          (offload-helper-new original-container cloned-container (inc index) rows)
+          "ok"
+          ))))))
+
+(defn ^:export offload-new
+  [container parent]
+  (->
+   (comp-clone-norel container parent)
+   (p/then
+    (fn [cloned]
+      (->
+       (if-not parent ;;top-level, app container
+         (->
+          (get-qbe container nil nil)
+          (p/then
+           (fn [aqbe]
+             (let [qbe (-> (get aqbe 0)  u/vec-to-map)]
+               (p/prom-all
+                (map (fn [[k v ]]
+                       (if (and v (not= "" v))
+                         (set-qbe cloned k v nil nil)
+                         (p/get-resolved-promise 1)))
+                     qbe))))))
+         (p/get-resolved-promise "ok"))
+       (p/then
+        (fn [_]
+          (get-row-count cloned nil nil)))
+       (p/then
+        (fn [rc]
+          (let [cnt (get rc 0)]
+            (if (and cnt (> cnt 0))
+              (->
+               (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
+               (p/then
+                (fn [_]
+                  cnt)))
+              0)))))))))
