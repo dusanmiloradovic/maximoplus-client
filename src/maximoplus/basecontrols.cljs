@@ -545,6 +545,7 @@
    [this msg]
    (let [type (:type msg)
          data (:data msg)]
+
      (when-let [rf (get (c/get-receive-functions this) type)]
        (rf data))
      (when-let [children (get-children this)]
@@ -860,10 +861,12 @@
                                        (= -1 (js/parseInt currow))
                                        (= currow prev-row))
                               (doseq [_cnt  (get-rel-containers this) ]
+                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
-                (re-register-and-reset _cnt nil nil))
+                ;;(re-register-and-reset _cnt nil nil)
+                )
               (on-reset this))
     }))
 
@@ -1006,6 +1009,9 @@
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
       (fn [ok]
+        (when-let [re-reg-deferred (c/get-state this :re-reg-deferred)]
+          (when-not (p/has-fired? re-reg-deferred)
+            (p/callback re-reg-deferred ok)))
         (go (put! dfrd ok)))
       (fn [err]
         (go (put! dfrd err))))))
@@ -1035,7 +1041,7 @@
      (let [deferred (promise-chan)]
        (c/set-states this
                      {:currrow -1
-                      :uniqueid (p/get-deferred)
+                      :uniqueid (p/get-deferrsed)
                       :offlineenabled false
                       :singlembo true
                       :iscontainer true
@@ -1056,6 +1062,9 @@
      (c/get-state this :currrow)
      (c/get-currow (get-parent this))))
   Container
+  (^override comp-clone-shallow
+   [this parent]
+   (SingleMboContainer. parent contuniqueid))
   (^override re-register-and-reset
    [this cb errb]
    (let [idcont (c/get-id mbocont)
@@ -1078,6 +1087,9 @@
       idcont
       _unid
       (fn [ok]
+        (when-let [re-reg-deferred (c/get-state this :re-reg-deferred)]
+          (when-not (p/has-fired? re-reg-deferred)
+            (p/callback re-reg-deferred ok)))
         (go (put! dfrd ok)))
       (fn [err]
         (go (put! dfrd err))))))
@@ -3549,27 +3561,25 @@
 
 (defn offl-helper
   [index rows container]
-;;  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
+  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
   (let [rel-containers (get-rel-containers container)]
     (->
      (do
-;;       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
+       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
+       (doseq [r rel-containers]
+         (c/toggle-state r :re-reg-deferred (p/get-deferred)))
        (move-to-row container index nil nil)
-       )
+       (p/prom-all-new (map
+                        (fn [r]
+                          (c/get-state r :re-reg-deferred))
+                        rel-containers)))
+     (p/then
+      (p/prom-all-new (map offl rel-containers)))
      (p/then
       (fn [_]
-  ;;      (println " Moved " (c/get-id container) " to row " index " from " rows)
-        (p/prom-all
-         (map (fn [r]
-                (->
-                 (re-register r)
-                 (p/then (fn [_] (offl r)))))
-              rel-containers))))
-     (p/then
-      (fn [_]
-    ;;    (println "???? " index " " rows)
+        (println "???? " index " " rows)
         (when (< index rows)
-;          (println "going further in loop")
+          (println "going further in loop")
           (offl-helper (inc index) rows container)))))))
 
 (defn offl
@@ -3579,7 +3589,7 @@
    (get-row-count container nil nil)
    (p/then (fn [e]
              (let [cnt (get e 0)]
-;;               (println "Fetching " (c/get-id container ) " with " cnt)
+               (println "Fetching " (c/get-id container ) " with " cnt)
                (if (and cnt (> cnt 0))
                  (.then
                   (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
@@ -3632,9 +3642,12 @@
                                  ) qbe))
                          (p/then (fn [_]
                                    (offl comp-cloned-cont)))
-                         (p/then (fn [rez]
-                                 (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))
-                                 (dispose comp-cloned-cont)))))
+;;                         (p/then (fn [rez]
+;;                                 (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))
+;;                                   (dispose comp-cloned-cont)
+                         ;;                                   ))
+                         ;;temporary comment until all othe issues are solved
+                         ))
                       nil)))
          (vals @c/app-container-registry)))
        (then
