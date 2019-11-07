@@ -1041,7 +1041,7 @@
      (let [deferred (promise-chan)]
        (c/set-states this
                      {:currrow -1
-                      :uniqueid (p/get-deferrsed)
+                      :uniqueid (p/get-deferred)
                       :offlineenabled false
                       :singlembo true
                       :iscontainer true
@@ -3574,7 +3574,8 @@
                           (c/get-state r :re-reg-deferred))
                         rel-containers)))
      (p/then
-      (p/prom-all-new (map offl rel-containers)))
+      (fn [_]
+        (p/prom-all-new (map offl rel-containers))))
      (p/then
       (fn [_]
         (println "???? " index " " rows)
