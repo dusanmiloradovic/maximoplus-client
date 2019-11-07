@@ -3563,16 +3563,17 @@
   [index rows container]
   (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
   (let [rel-containers (get-rel-containers container)]
+    (doseq [r rel-containers]
+      (c/toggle-state r :re-reg-deferred (p/get-deferred)))
+    (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
     (->
-     (do
-       (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
-       (doseq [r rel-containers]
-         (c/toggle-state r :re-reg-deferred (p/get-deferred)))
-       (move-to-row container index nil nil)
-       (p/prom-all-new (map
-                        (fn [r]
-                          (c/get-state r :re-reg-deferred))
-                        rel-containers)))
+     (move-to-row container index nil nil)
+     (p/then
+      (fn [_]
+        (p/prom-all-new (map
+                         (fn [r]
+                           (c/get-state r :re-reg-deferred))
+                         rel-containers))))
      (p/then
       (fn [_]
         (p/prom-all-new (map offl rel-containers))))
