@@ -92,6 +92,7 @@
   (comp-clone [container parent]) ;;used for offline
   (comp-clone-shallow [container parent])
   (comp-clone-norel [container parent]);; don't clone the rel containers. Shallow + columns
+  (cont-desc [container])
   )
 
 (defprotocol UI
@@ -688,6 +689,9 @@
    ;;(println (u/transit-read res))
    )
   Container
+  (cont-desc
+   [this]
+   (str "Mbo Container:" (c/get-id this) " mbo name=" mboname " parent=" (c/get-id (get-parent this))))
   (comp-clone-shallow
    [this parent]
    (MboContainer. mboname));;appcontainer relcontainer have their own implementation
@@ -874,7 +878,7 @@
                                        (= -1 (js/parseInt currow))
                                        (= currow prev-row))
                               (doseq [_cnt  (get-rel-containers this) ]
-                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
+;;                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
@@ -912,6 +916,10 @@
      (kk-nocb! this "reset" c/reset )
      ))
   Container
+  (^override cont-desc
+   [this]
+   (str "App Container:" (c/get-id this) " mbo name=" mboname ", app name=" appname)
+   )
   (^override comp-clone-shallow
    [this parent]
    (AppContainer. mboname appname))
@@ -988,8 +996,15 @@
                        c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (is-offline-enabled
    [this]
-   (c/is-offline-enabled (get-parent this)));;it doesn't make sense to have offline enabled for rel container, but not for main. Basically the change will allow to define the offline enabled only once in the project(for the app container), all the rules should be inherited from that
+   (let [parent-id (c/get-state this :parentid)
+         parent-dettached? (c/get-state parent-id :dettached)]
+     (if parent-dettached?
+       true;;used just for offline
+       (c/is-offline-enabled (get-parent this)))));;it doesn't make sense to have offline enabled for rel container, but not for main. Basically the change will allow to define the offline enabled only once in the project(for the app container), all the rules should be inherited from that
   Container
+  (^override cont-desc
+   [this]
+   (str "Rel Container:" (c/get-id this) " mbo cont=" (c/get-id mbocont) " and rel=" rel))
   (^override comp-clone-shallow
    [this parent]
    (RelContainer. parent rel))
@@ -999,7 +1014,7 @@
    (kk-nocb! this "re-register" c/register-mboset-byrel rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
    ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
-   (println "calling re-register and reset " rel " and id " (c/get-id this))
+;;   (println "calling re-register and reset " rel " and id " (c/get-id this))
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
@@ -1075,6 +1090,9 @@
      (c/get-state this :currrow)
      (c/get-currow (get-parent this))))
   Container
+  (^override cont-desc
+   [this]
+   (str "Single Mbo Container:" (c/get-id this) " original cont=" (c/get-id mbocont)))
   (^override comp-clone-shallow
    [this parent]
    (SingleMboContainer. parent contuniqueid))
@@ -3901,6 +3919,10 @@
                    (fn [ok]
                      (go (put! deferred ok))) nil))
      (aset this "appname" (aget mbocont "appname"))))
+  Container
+  (^override cont-desc
+   [this]
+   (str "Dettached Container:" (c/get-id this) " mbo cont=" (c/get-id mbocont)))
   Receivable
   (^override get-receive-functions
    [this])
@@ -3911,30 +3933,29 @@
 )
 
 (defn offl-helper-new
-  [original-container cloned-container index rows]
+  [original-container orig-rel-containers cloned-container  index rows]
   (if (= 0 rows)
     (p/get-resolved-promise "finished")
-    (let [rel-containers (get-rel-containers original-container)]
-      (->
-       (move-to-row cloned-container index nil nil)
-       (p/then
-        (fn [_]
-          (p/prom-all
-           (map (fn [r]
-                  (let [s (SingleDettachedContainer. cloned-container)]
-                    (->
-                     (move-to-row s 0 nil nil)
-                     (p/then
-                      (fn [_]
-                        (offl-new r s)
-                        )))))
-                rel-containers))))
-       (p/then
-        (fn [_]
-          (if (< index rows)
-            (offl-helper-new original-container cloned-container (inc index) rows)
-            "ok"
-            )))))))
+    (->
+     (move-to-row cloned-container index nil nil)
+     (p/then
+      (fn [_]
+        (p/prom-all
+         (map (fn [r]
+                (let [s (SingleDettachedContainer. cloned-container)]
+                  (->
+                   (move-to-row s 0 nil nil)
+                   (p/then
+                    (fn [_]
+                      (offl-new r s)
+                      )))))
+              orig-rel-containers))))
+     (p/then
+      (fn [_]
+        (if (< index rows)
+          (offl-helper-new original-container orig-rel-containers cloned-container (inc index) rows)
+          "ok"
+          ))))))
 
 
 
@@ -3967,15 +3988,17 @@
         (fn [rc]
           (let [cnt (get rc 0)]
             (if (and cnt (> cnt 0))
-              (->
-               (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
-               (p/then
-                (fn [_]
-                  cnt)))
+              (do
+;;                (println "###Fetching " (cont-desc cloned) " for " cnt "rows, offline-enabled=" (c/is-offline-enabled cloned))
+                (->
+                 (kk! cloned "fetch" c/fetch-multi-rows 0 cnt nil nil)
+                 (p/then
+                  (fn [_]
+                    cnt))))
               0))))
        (p/then
         (fn [cnt]
-          (offl-helper-new container cloned 0 cnt)
+          (offl-helper-new container (get-rel-containers container) cloned 0 cnt)
           )))))))
 
 (defn ^:export offload-new
@@ -3988,7 +4011,12 @@
        (p/prom-all
         (map
          (fn [cont]
-           (offl-new cont nil))
+           (->
+            (let [table-name aget c/rel-map (c/get-id container)]
+              (off/clearTable table-name))
+            (p/then
+             (fn[_]
+               (offl-new cont nil)))))
          (vals @c/app-container-registry)))
        (p/then
         (fn [_]
