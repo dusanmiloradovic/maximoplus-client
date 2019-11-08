@@ -4012,7 +4012,7 @@
         (map
          (fn [cont]
            (->
-            (let [table-name aget c/rel-map (c/get-id container)]
+            (let [table-name (aget c/rel-map (c/get-id cont))]
               (off/clearTable table-name))
             (p/then
              (fn[_]
