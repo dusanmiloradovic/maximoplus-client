@@ -812,8 +812,11 @@
                 (-> @offline-app-status
                     (p/then
                      (fn [offline?]
-                       (when (and (.isOfflineEnabled container) 
-                                  (not offline?))
+                       (println "?? " (get-id container) (not (get-state container :dettached)))
+                       (when (and
+                              (not (get-state container :dettached))
+                              (is-offline-enabled container) 
+                              (not offline?))
                          (offlinePrepareOne (get-id container)))))))
           errbh (fn [err] 
                   (when errback-handler (errback-handler err)))]
@@ -1506,7 +1509,9 @@
     (-> @offline-app-status
         (p/then
          (fn [offline?]
-           (when (and (is-offline-enabled control-name) (not @offline-move-in-progress) (not offline?));must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
+           (when (and (not (get-state control-name :dettached))
+                      (is-offline-enabled control-name)
+                      (not @offline-move-in-progress) (not offline?)) ;must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
              (->
               (get-parent-uniqueid control-name)
               (p/then (fn ([puid] (deleteOfflineData control-name puid)))))))))

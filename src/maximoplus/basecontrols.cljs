@@ -3879,33 +3879,66 @@
                          (fn [evt]
                            (c/insert-prefetch-offline (c/get-id cont) (get-unique-id cont)  evt)))))))
 
-(declare offload-new)
+(declare offl-new)
 
-(defn offload-helper-new
+(mm/def-comp SingleDettachedContainer [mbocont contuniqueid] SingleMboContainer
+  (^override fn* []
+   (this-as this
+     (.call BaseComponent this);super-super konstruktor
+     (c/add-container-to-registry this)
+     (let [deferred (promise-chan)]
+       (c/set-states this
+                     {:currrow -1
+                      :uniqueid (p/get-deferred)
+                      :offlineenabled false
+                      :singlembo true
+                      :iscontainer true
+                      :dettached true
+                      :rel-containers []
+                      :deferred deferred
+                      :parentid (c/get-id mbocont)})
+       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
+                   (fn [ok]
+                     (go (put! deferred ok))) nil))
+     (aset this "appname" (aget mbocont "appname"))))
+  Receivable
+  (^override get-receive-functions
+   [this])
+  Offline
+  (^override is-offline-enabled
+   [this]
+   false)
+)
+
+(defn offl-helper-new
   [original-container cloned-container index rows]
-  (let [rel-containers (get-rel-containers original-container)]
-    (->
-     (move-to-row cloned-container index nil nil)
-     (p/then
-      (fn [_]
-        (p/prom-all
-         (map (fn [r]
-                (let [s (SingleMboContainer. cloned-container)]
-                  (->
-                   (move-to-row s 0 nil nil)
-                   (p/then
-                    (fn [_]
-                      (offload-new r s)
-                      )))))
-              rel-containers))))
-     (p/then
-      (fn [_]
-        (if (< index rows)
-          (offload-helper-new original-container cloned-container (inc index) rows)
-          "ok"
-          ))))))
+  (if (= 0 rows)
+    (p/get-resolved-promise "finished")
+    (let [rel-containers (get-rel-containers original-container)]
+      (->
+       (move-to-row cloned-container index nil nil)
+       (p/then
+        (fn [_]
+          (p/prom-all
+           (map (fn [r]
+                  (let [s (SingleDettachedContainer. cloned-container)]
+                    (->
+                     (move-to-row s 0 nil nil)
+                     (p/then
+                      (fn [_]
+                        (offl-new r s)
+                        )))))
+                rel-containers))))
+       (p/then
+        (fn [_]
+          (if (< index rows)
+            (offl-helper-new original-container cloned-container (inc index) rows)
+            "ok"
+            )))))))
 
-(defn ^:export offload-new
+
+
+(defn ^:export offl-new
   [container parent]
   (->
    (comp-clone-norel container parent)
@@ -3914,7 +3947,9 @@
       (->
        (if-not parent ;;top-level, app container
          (->
-          (get-qbe container nil nil)
+          (get-qbe container (fn [x]
+                               ;;dummy
+                               ) nil)
           (p/then
            (fn [aqbe]
              (let [qbe (-> (get aqbe 0)  u/vec-to-map)]
@@ -3937,4 +3972,25 @@
                (p/then
                 (fn [_]
                   cnt)))
-              0)))))))))
+              0))))
+       (p/then
+        (fn [cnt]
+          (offl-helper-new container cloned 0 cnt)
+          )))))))
+
+(defn ^:export offload-new
+  []
+  (if  @c/offline-move-in-progress
+    (c/globalErrorHandler "Offline move already in progress" nil nil nil)
+    (do
+      (c/set-offline-move-in-progress true)
+      (->
+       (p/prom-all
+        (map
+         (fn [cont]
+           (offl-new cont nil))
+         (vals @c/app-container-registry)))
+       (p/then
+        (fn [_]
+          (c/set-offline-move-in-progress false)
+          (println "Finished offloading")))))))
