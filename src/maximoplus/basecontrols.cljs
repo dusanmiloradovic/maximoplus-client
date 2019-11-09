@@ -3590,103 +3590,12 @@
 
 (declare offl)
 
-(defn offl-helper
-  [index rows container]
-  (println "offl-helper called for " (c/get-id container) " and row " index " from rows " rows)
-  (let [rel-containers (get-rel-containers container)]
-    (doseq [r rel-containers]
-      (c/toggle-state r :re-reg-deferred (p/get-deferred)))
-    (println "Moving " (c/get-id container ) " to row " index " and rows " rows)
-    (->
-     (move-to-row container index nil nil)
-     (p/then
-      (fn [_]
-        (p/prom-all-new (map
-                         (fn [r]
-                           (c/get-state r :re-reg-deferred))
-                         rel-containers))))
-     (p/then
-      (fn [_]
-        (p/prom-all-new (map offl rel-containers))))
-     (p/then
-      (fn [_]
-        (println "???? " index " " rows)
-        (when (< index rows)
-          (println "going further in loop")
-          (offl-helper (inc index) rows container)))))))
 
-(defn offl
-  [container]
-  ;; the idea is to fetch the container rows, and then move records one by one in the loop. When we move the record, we will wait for all the rel containers to get the inder set, then call this function recursively for each rel container
-  (->
-   (get-row-count container nil nil)
-   (p/then (fn [e]
-             (let [cnt (get e 0)]
-               (println "Fetching " (c/get-id container ) " with " cnt)
-               (if (and cnt (> cnt 0))
-                 (.then
-                  (kk! container "fetch" c/fetch-multi-rows 0 cnt nil nil)
-                  (fn [_]
-                    (println "fetch finished u offl for " (c/get-id container) )
-                    cnt))
-                 0))))
-   (p/then
-    (fn [cnt]
-      (when (> cnt 0)
-        (offl-helper 0 cnt container))))))
 
                                         ;TODO kada se merdzuje sa advanced, stavi i ovo da bude u global functions
 (defn ^:export notifyOfflineMoveFinished
   [message]
   (js/alert message))
-
-(defn  ^:export toOffline [container]
-  (if @c/offline-move-in-progress
-    (c/globalErrorHandler "Offline move already in progress" nil nil nil);;TODO i18n
-    (do
-      (c/set-offline-move-in-progress true)
-      (..
-       (offl container)
-       (then
-        (fn []
-          (c/set-offline-move-in-progress false)
-          (off/mark-as-preloaded (aget c/rel-map (c/get-id container)))))))))
-
-(defn ^:export offload
-  []
-  ;;we don't need to specify application containers here that is the only diff
-  (if @c/offline-move-in-progress
-    (c/globalErrorHandler "Offline move already in progress" nil nil nil);;TODO i18n
-    (do
-      (c/set-offline-move-in-progress true)
-      (..
-       (p/prom-all
-        (map
-         (fn [cont]
-           (let [comp-cloned-cont (comp-clone cont nil)]
-             (get-qbe cont
-                      (fn [qbe]
-                        (->
-                         (p/prom-all
-                          (map (fn [[k v ]]
-                                 (if (and v (not= "" v))
-                                   (set-qbe comp-cloned-cont k v nil nil)
-                                   (p/get-resolved-promise 1))
-                                 ) qbe))
-                         (p/then (fn [_]
-                                   (offl comp-cloned-cont)))
-;;                         (p/then (fn [rez]
-;;                                 (off/mark-as-preloaded (aget c/rel-map (c/get-id cont)))
-;;                                   (dispose comp-cloned-cont)
-                         ;;                                   ))
-                         ;;temporary comment until all othe issues are solved
-                         ))
-                      nil)))
-         (vals @c/app-container-registry)))
-       (then
-        (fn []
-          (c/set-offline-move-in-progress false)
-          (println "Finished offloading")))))))
 
 (defn ^:export clearOfflinePreloaded
   [container];;if the preloaded is marked, deletion doesn't remove the records from offline.
@@ -3897,7 +3806,7 @@
                          (fn [evt]
                            (c/insert-prefetch-offline (c/get-id cont) (get-unique-id cont)  evt)))))))
 
-(declare offl-new)
+(declare offl)
 
 (mm/def-comp SingleDettachedContainer [mbocont contuniqueid] SingleMboContainer
   (^override fn* []
@@ -3932,7 +3841,7 @@
    false)
 )
 
-(defn offl-helper-new
+(defn offl-helper
   [original-container orig-rel-containers cloned-container  index rows]
   (if (= 0 rows)
     (p/get-resolved-promise "finished")
@@ -3947,19 +3856,19 @@
                    (move-to-row s 0 nil nil)
                    (p/then
                     (fn [_]
-                      (offl-new r s)
+                      (offl r s)
                       )))))
               orig-rel-containers))))
      (p/then
       (fn [_]
         (if (< index rows)
-          (offl-helper-new original-container orig-rel-containers cloned-container (inc index) rows)
+          (offl-helper original-container orig-rel-containers cloned-container (inc index) rows)
           "ok"
           ))))))
 
 
 
-(defn ^:export offl-new
+(defn ^:export offl
   [container parent]
   (->
    (comp-clone-norel container parent)
@@ -3998,10 +3907,10 @@
               0))))
        (p/then
         (fn [cnt]
-          (offl-helper-new container (get-rel-containers container) cloned 0 cnt)
+          (offl-helper container (get-rel-containers container) cloned 0 cnt)
           )))))))
 
-(defn ^:export offload-new
+(defn ^:export offload
   []
   (if  @c/offline-move-in-progress
     (c/globalErrorHandler "Offline move already in progress" nil nil nil)
@@ -4013,10 +3922,11 @@
          (fn [cont]
            (->
             (let [table-name (aget c/rel-map (c/get-id cont))]
-              (off/clearTable table-name))
+              (off/clearTable table-name)
+              (off/clearTable (str table-name "_flags")))
             (p/then
              (fn[_]
-               (offl-new cont nil)))))
+               (offl cont nil)))))
          (vals @c/app-container-registry)))
        (p/then
         (fn [_]

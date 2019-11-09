@@ -1045,10 +1045,13 @@
                    (if-not rd-data _dta (assoc! _dta column  rd-data))
                    (if-not rd-flags _flg (assoc! _flg column [(flag-read-only? rd-flags) (flag-required? rd-flags) ])))))))))
 
-(defn get-parent-rownum
+(declare get-first-non-single)
+
+(defn get-offline-insert-rownum
   [containerid]
-  (let [parentid (get-state containerid :parentid)]
-    (get-state parentid :currrow)))
+  (get-state
+   (get-first-non-single containerid)
+   :currrow))
 
 (defn fetched-row-callback [control-name rd-evt & offline?]
   (when (first rd-evt)
@@ -1059,14 +1062,16 @@
           _rownum (if-not
                      (get-state control-name :singlembo)
                     rownum
-                   (get-parent-rownum control-name))]
+                   (get-offline-insert-rownum control-name))]
       (put-object-data! control-name rownum dta)
       (put-object-flags! control-name rownum flg)
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid")))
 ;;      (println "fetched row callback " (.contDesc control-name) " offline enabled? " (is-offline-enabled control-name) " parent id " (get-state control-name :parentid))
-      (when (and (not offline?)(is-offline-enabled control-name))
+      (when (and
+             (not offline?)
+             (is-offline-enabled control-name))
         "dont move to offline storage if already offline"
         (let [rel-name (aget rel-map control-name)
               o-dta (assoc dta "rownum" _rownum)
