@@ -829,6 +829,7 @@
        (p/then
         (fn [_]
           (go (put! (c/get-state this :init-deferred) true))
+          (println "setting :initialized? to true" (c/get-id this))
           (c/toggle-state this :initialized? true)
           (when cb (cb nil))
           true
@@ -898,16 +899,18 @@
     "set-control-index" (fn [ev]
                           (let [currow (get ev :currrow)
                                 prev-row (get ev :prevrow)]
-                            (println "@@@got set-control-index event for " (c/get-id this) "rel-contaniers" (map c/get-id (get-rel-containers this)) " some not init "  (some false? (map (fn [cnt] (c/get-state cnt :initialized?) ) (get-rel-containers this))))
-                            (when (or
-                                   (some false? (map
-                                                 (fn [cnt] (c/get-state cnt :initialized?) )
-                                                 (get-rel-containers this)))
-                                   (and
-                                    (not= -1 (js/parseInt currow))
-                                    (not= currow prev-row)))
+;;                            (println "@@@got set-control-index event for " (c/get-id this) "rel-contaniers" (map c/get-id (get-rel-containers this)) " some not init "  (some false? (map (fn [cnt] (c/get-state cnt :initialized?) ) (get-rel-containers this))))
+                            (when 
+                                (and
+                                 (not= -1 (js/parseInt currow))
+                                 (or
+                                  (some false? (map
+                                                (fn [cnt] (c/get-state cnt :initialized?) )
+                                                (get-rel-containers this)))
+                                  (not= currow prev-row)))
                               (doseq [_cnt  (get-rel-containers this) ]
-                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
+                                (println "re-register-and-reset " (c/get-id this) (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
+                                (c/toggle-state _cnt :initialized? true)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
