@@ -8,7 +8,7 @@
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
-  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on custom-this kc! kk-branch! c!]]
+  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on p-deferred-on-ife custom-this kc! kk-branch! c!]]
                    [cljs.core.async.macros :refer [go go-loop]])
   )
 
@@ -577,6 +577,8 @@
                           :offlineenabled false
                           :iscontainer true
                           :receiver true
+                          :init-deferred (promise-chan)
+                          :initialized? false
                           :rel-containers []
                           ;;                        :deferred  (kk-nocb! this "init" c/register-mainset mboname)}
                           :deferred deferred ;;I will not use the promises internally anymore for the control of processing. Function will just return the promises to the user. kk! macros will send to the "command-channel". This will be the first call to the command channel, so I can safely listen for the completion
@@ -794,25 +796,47 @@
      )
    (let [fq (c/get-state this :fetch-queue)
          new-fetch {:f-start start :f-numrows numrows}]
-     (when-not (some (fn [{:keys [f-start f-numrows]}]
+     (if-not (some (fn [{:keys [f-start f-numrows]}]
                        (and (= f-start start) (= f-numrows numrows)))
-                     @fq)
-       (swap!  fq conj new-fetch)
-       (kk! (c/get-container this) "fetch" c/fetch-with-local start numrows
-            (fn [ok]
-              (swap! fq (fn[s] (remove #(= % new-fetch) s)))
-              (when cb (cb ok)))
-            (fn [err]
-              (swap! fq (fn[s] (remove #(= % new-fetch) s)))
-              (when errb (errb err)))))))
+                   @fq)
+       (do
+         (swap!  fq conj new-fetch)
+         (kk! (c/get-container this) "fetch" c/fetch-with-local start numrows
+              (fn [ok]
+                (swap! fq (fn[s] (remove #(= % new-fetch) s)))
+                (when cb (cb ok)))
+              (fn [err]
+                (swap! fq (fn[s] (remove #(= % new-fetch) s)))
+                (when errb (errb err)))))
+       (p/get-resolved-promise true))))
   (init-data-with-off
    [this start numrows cb errb]
-   (let [{ex-start :start ex-numrows :numrows} (c/get-state this :init-data)]
+   (let [{ex-start :start ex-numrows :numrows} (c/get-state this :init-data)
+         parent-init-deferred (when-let [parentid (c/get-state this :parentid)]
+                                (c/get-state parentid :init-deferred)
+                                )]
      (when (or (not ex-start)
                (not= ex-start start)
                (> numrows ex-numrows))
-       (c/toggle-state this :init-data {:start start :numrows numrows})))
-   (fetch-data this start numrows cb errb))
+       (c/toggle-state this :init-data {:start start :numrows numrows}))
+     (p-deferred-on-ife
+      parent-init-deferred
+      (->
+       (fetch-data this start numrows nil nil)
+       (p/then
+        (fn [_]
+          (move-to-row this start nil nil)))
+       (p/then
+        (fn [_]
+          (go (put! (c/get-state this :init-deferred) true))
+          (c/toggle-state this :initialized? true)
+          (when cb (cb nil))
+          true
+          ))
+       (p/then-catch
+        (fn [err]
+          (when errb
+            (errb err))))))))
   ;;the callback will not be called if there is skip, but we have to remove the wait cursor
   (reset [this cb errb]
          (kk! this "reset" c/reset-with-offline  cb errb))
@@ -874,11 +898,16 @@
     "set-control-index" (fn [ev]
                           (let [currow (get ev :currrow)
                                 prev-row (get ev :prevrow)]
-                            (when-not (or
-                                       (= -1 (js/parseInt currow))
-                                       (= currow prev-row))
+                            (println "@@@got set-control-index event for " (c/get-id this) "rel-contaniers" (map c/get-id (get-rel-containers this)) " some not init "  (some false? (map (fn [cnt] (c/get-state cnt :initialized?) ) (get-rel-containers this))))
+                            (when (or
+                                   (some false? (map
+                                                 (fn [cnt] (c/get-state cnt :initialized?) )
+                                                 (get-rel-containers this)))
+                                   (and
+                                    (not= -1 (js/parseInt currow))
+                                    (not= currow prev-row)))
                               (doseq [_cnt  (get-rel-containers this) ]
-;;                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
+                                (println "re-register-and-reset " (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
               (doseq [_cnt (get-rel-containers this)]
@@ -956,7 +985,22 @@
                                (aset this "offlinePosting" false)
                                (swap! c/offline-posted assoc (c/get-id this) true)
                                (off/delete-old-records (aget c/rel-map (c/get-id this)))))))))))))))
-   (fetch-data this start numrows cb errb))
+   (->
+    (fetch-data this start numrows nil nil)
+    (p/then
+     (fn [_]
+       (move-to-row this start nil nil)))
+    (p/then
+     (fn [_]
+       (go (put! (c/get-state this :init-deferred) true))
+       (c/toggle-state this :initialized? true)
+       (when cb (cb nil))
+       true
+       ))
+    (p/then-catch
+     (fn [err]
+       (when errb
+         (errb err))))))
   App
   (access-to-option [this option callback errback]
                     (kk! this "access" c/access-to-option  option callback errback))
@@ -981,6 +1025,8 @@
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
        (mm/kk-branch! mbocont this "init" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
@@ -1071,6 +1117,8 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :singlembo true
                       :iscontainer true
                       :rel-containers []
@@ -1195,6 +1243,8 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :iscontainer true
                       :rel-containers []
                       :deferred deferred
@@ -1214,6 +1264,8 @@
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
@@ -1233,6 +1285,8 @@
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
@@ -1252,6 +1306,8 @@
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :offlineenabled false
                       :iscontainer true
                       :rel-containers []
@@ -1272,6 +1328,8 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :iscontainer true
                       :rel-containers []
                       :deferred deferred
@@ -1403,8 +1461,10 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :init-deferred (promise-chan)
                       :iscontainer true
                       :rel-containers []
+                      :parentid (c/get-id mbocont)
                       :deferred deferred
                       }
                      )
@@ -1433,6 +1493,7 @@
                      {:currrow -1
                       :uniqueid (p/get-deferred)
                       :offlineenabled false
+                      :init-deferred (promise-chan)
                       :iscontainer true
                       :rel-containers []
                       :deferred  deferred}
@@ -3821,6 +3882,8 @@
                       :singlembo true
                       :iscontainer true
                       :dettached true
+                      :init-deferred (promise-chan)
+                      :initialized? false
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})

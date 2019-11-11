@@ -206,6 +206,11 @@
   `(maximoplus.core.simple-receive ~o (fn [_#] ~@bd))
   )
 
+(defmacro p-deferred-on-ife [o & bd]
+  `(if ~o
+     (maximoplus.core.simple-receive ~o (fn [_#] ~@bd))
+     (do ~@bd)))
+
 
 (defmacro p-deferred-on-attr [o attr & bd]
   `(p-deferred-on (aget ~o ~attr) ~@bd))
