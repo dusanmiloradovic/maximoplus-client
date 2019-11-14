@@ -26,6 +26,31 @@
 
 (def ^:export SQLITENATIVE "sqlitenative")
 
+(def log-countet (atom -1))
+
+(def log-enabled (atom false))
+
+(defn ^:export enableLogging
+  []
+  (reset! log-enabled true))
+
+(defn ^:export disableLogging
+  []
+  (reset! log-enabled false)
+  (reset log-counter -1))
+
+(def ^:export globalFunctions
+  #js{"log" (fn [type index data]
+              (println type ":" index ":" data))})
+
+(defn log
+  [type data]
+  (when @log-enabled
+    (.call (aget globalFunctions "log")
+           nil
+           type
+           (swap log-counter inc)
+           (u/transit-json data))))
 
 ;;(def ddl-lock (atom (p/get-resolved-promise "start")))
 
@@ -445,10 +470,13 @@
 
 (defn ^:export ddl
   ([objects]
+   (log "ddl" objects)
    (ddl-internal @engine objects))
   ([objects raw?]
+   (log "ddl" objects)
    (ddl-internal @engine objects raw?))
   ([objects raw? readonly?]
+   (log "ddl" objects)
    (ddl-internal @engine objects raw? readonly?))
   )
 
@@ -480,12 +508,14 @@
 
 (defn ^:export dml
   ([objects]
+   (log "dml" objects)
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
     ;;          (println "dml " _objects)
               (dml-internal @engine _objects)))))
   ([objects raw?]
+   (log "dml" objects)
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
@@ -493,6 +523,7 @@
               (dml-internal @engine _objects raw?))))
    )
   ([objects raw? readonly?]
+   (log "dml" objects)
    (->
     (filter-preloaded objects)
     (p/then (fn [_objects]
