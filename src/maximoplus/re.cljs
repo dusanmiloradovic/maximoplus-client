@@ -159,8 +159,8 @@
         _column-state (get fields-state column)
         column-state (if _column-state _column-state {})
         ex-fields-count (-> fields-state keys count)
-        field-position (if _column-state ex-fields-count (inc ex-fields-count))
-        new-column-state (assoc  (f column-state) :field-position field-position)]
+        _new-column-state (f column-state)
+        new-column-state (if _column-state _new-column-state (assoc _new-column-state :field-position ex-fields-count))]
     (when (not= new-column-state column-state)
       (let [new-fields-state (assoc fields-state column new-column-state)]
         (c/toggle-state section :maxfields new-fields-state)

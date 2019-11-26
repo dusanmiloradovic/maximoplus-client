@@ -26,7 +26,7 @@
 
 (def ^:export SQLITENATIVE "sqlitenative")
 
-(def log-countet (atom -1))
+(def log-counter (atom -1))
 
 (def log-enabled (atom false))
 
@@ -37,7 +37,7 @@
 (defn ^:export disableLogging
   []
   (reset! log-enabled false)
-  (reset log-counter -1))
+  (reset! log-counter -1))
 
 (def ^:export globalFunctions
   #js{"log" (fn [type index data]
@@ -49,7 +49,7 @@
     (.call (aget globalFunctions "log")
            nil
            type
-           (swap log-counter inc)
+           (swap! log-counter inc)
            (u/transit-json data))))
 
 ;;(def ddl-lock (atom (p/get-resolved-promise "start")))
