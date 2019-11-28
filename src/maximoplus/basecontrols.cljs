@@ -27,6 +27,7 @@
   (dispose [this])
   (add-virtual-column [this ind column metadata])
   (set-max-value [this column value])
+  (set-max-row-value [this rownum column value]);;so far just for ComponentAdapter
   (add-meta [this column metaKey metaValue])
   (dispose-child [this child]);some libraries don't allow referencing from child to parent(React), so if we need to manipulate parent state after the row is deleted we require one level of indirection like this
   (add-wrapped-component [this wrapped]);;for the react, vue and skatejs  frameworks we need a two-way handler
@@ -1374,9 +1375,12 @@
            (c/deregister-columns  (c/get-id container)  columns))
   (add-virtual-column [this ind column metadata]
                       (p-deferred this (add-control-column this ind column metadata)))
-  (set-max-value [this column value]
-                 (mm/c! this "set-value" set-value  container column value)
-                 )
+  (set-max-value [this column value];;makes sense onfly if there is one row
+                 (kk-nocb! this "set-value" c/set-value-with-offline  container column value))
+  (set-max-row-value [this rownum column value]
+                     (kk-nocb! this "move-to" c/move-to-with-offline rownum)
+                     (kk-nocb! this "set-value" c/set-value-with-offline  container column value))
+  
   MessageProcess
   (on-set-control-index [this row])
   (on-fetched-row [this row])
@@ -1406,10 +1410,7 @@
             ]
         (when
             (= rownum (c/get-currow (c/get-container this)))
-          (on-set-max-value this column value)))
-      )
-    })
-  )
+          (on-set-max-value this column value))))}))
 
 (def-comp VisualComponent [] BaseComponent
   (fn* []
