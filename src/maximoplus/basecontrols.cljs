@@ -15,8 +15,7 @@
 (def id-generator (IdGenerator.))
 
 (defn get-next-unique-id [& prefix]
-  (str (.getNextUniqueId id-generator) (when prefix (first prefix)))
-  )
+  (str (.getNextUniqueId id-generator) (when prefix (first prefix))))
 
 (defprotocol Foundation
   (get-prefix [this]);for constructing the id
@@ -39,7 +38,7 @@
   (on-set-control-index [control row])
   (on-trimmed [control row])
   (on-add-at-index [control row])
-  (on-set-fieldflag [control row field flag])
+  (on-set-field-flag [control row field flag])
   (on-update-control-data [control rownum column value])
   (on-delete [control rownum value])
   (on-fetch-finished [control]))
@@ -1354,6 +1353,7 @@
                                  :deferred deferred
                                  :columns vcols
                                  :receiver true
+                                 :next-fetch-row (if norows norows 1)
                                  })
              (c/register-columns container vcols
                                  (fn [ok] (cb-handler ok) (go (put! deferred ok)))
@@ -1361,8 +1361,7 @@
   ControlData
   (init-data
    [this]
-   (initControlDataRows this (if norows norows 1))
-   )
+   (initControlDataRows this (if norows norows 1)))
   UI
   (set-enabled [this enable])
   (clear-control [this])
@@ -1387,7 +1386,7 @@
   (on-reset [this]
             (clear-control this)
             (set-enabled this false))
-  (on-set-fieldflag [this row field _flags])
+  (on-set-field-flag [this row field _flags])
   (on-fetch-finished [this])
   Receivable
   (get-receive-functions
@@ -1401,7 +1400,7 @@
                        (let [row (get e :rownum)]
                          (when (= row (c/get-currow (c/get-container this)))
                            (on-set-readonly this (c/str->bool (get e :readonly))))))
-    "update-fieldflag" (fn [e] (on-set-fieldflag this (get e :rownum) (get e :field) (get e :flag)))
+    "update-fieldflag" (fn [e] (on-set-field-flag this (get e :rownum) (get e :field) (get e :flag)))
     "update-control-data"
     (fn[e]
       (let [rownum (get e :rownum)
@@ -1410,7 +1409,13 @@
             ]
         (when
             (= rownum (c/get-currow (c/get-container this)))
-          (on-set-max-value this column value))))}))
+          (on-set-max-value this column value))))})
+  Table
+  (fetch-more
+   [this numrows]
+   (let [nfr (c/get-state this :next-fetch-row)]
+     (mm/c! this "fetch" fetch-data container nfr numrows)
+     (c/toggle-state this :next-fetch-row (+ nfr norows)))))
 
 (def-comp VisualComponent [] BaseComponent
   (fn* []
@@ -2090,7 +2095,7 @@
             (set-enabled this false)
             (init-data this)
             )
-  (on-set-fieldflag
+  (on-set-field-flag
    [this row field _f ]
    (let [readonly? (aget _f 0)
          required? (aget _f 1)]
@@ -2110,7 +2115,7 @@
                        (let [row (get e :rownum)]
                          (when (= row (c/get-currow container))
                            (on-set-readonly this (c/str->bool (get e :readonly))))))
-    "update-fieldflag" (fn [e] (on-set-fieldflag this (get e :rownum) (get e :field) (get e :flag)))
+    "update-fieldflag" (fn [e] (on-set-field-flag this (get e :rownum) (get e :field) (get e :flag)))
     "update-control-data"
     (fn[e]
       (let [rownum (get e :rownum)
@@ -2735,7 +2740,7 @@
    (when (:row x)
      (add-row this x))
    (update-paginator-internal this))
-  (on-set-fieldflag
+  (on-set-field-flag
    [this row field _flags]
    (let [readonly? (aget _flags 0)
          required? (aget _flags 1)
@@ -2825,7 +2830,7 @@
     "update-mboflag" (fn [e]
                        (when-let [dr (get-data-row this (get e :rownum))]
                          (on-set-readonly dr (c/str->bool (get e :readonly)))))
-    "update-fieldflag" (fn [e] (on-set-fieldflag this (get e :rownum) (get e :field) (get e :flag) ))
+    "update-fieldflag" (fn [e] (on-set-field-flag this (get e :rownum) (get e :field) (get e :flag) ))
     "reset" (fn[_]
               (on-reset this))
     "set-control-index" (fn [e]
