@@ -510,24 +510,34 @@
                @c/page-init-channel
                da1)]
      (p-deferred-on da2
-                    (go (put! cch [command command-f command-cb command-errb])))))
+                    (go
+                      (println "send command " command " for " (c/get-id this))
+                      (let [put-success (put! cch [command command-f command-cb command-errb])]
+                        (println "put success? " put-success))))))
   (start-receiving
    [this]
+   (println "start receiving for " (c/get-id this))
    (swap! (aget this "receiving") (fn [_] true))
    (let [command-channel (aget this "command-channel")]
      (go-loop []
        (let [;[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
              [command command-f command-cb command-errb] (<! command-channel)
              cb-chan (chan)]
-         (command-f
-          (fn [ok]
-            (try
-              (command-cb ok)
-              (finally (put! cb-chan ok))))
-          (fn [err]
-            (try
-              (command-errb err)
-              (finally (put! cb-chan err)))))
+         (println "received command " command " for " (c/get-id this))
+         (try
+           (command-f
+            (fn [ok]
+              (try
+                (command-cb ok)
+                (finally (put! cb-chan ok))))
+            (fn [err]
+              (try
+                (command-errb err)
+                (finally (put! cb-chan err)))))
+           (catch js/Error e
+             (println "!!!!!!!!!!!!!!!!")
+             (println e)
+             ))
          (<! cb-chan)
          (recur)))))
   (stop-receiving
@@ -1353,7 +1363,7 @@
                                  :deferred deferred
                                  :columns vcols
                                  :receiver true
-                                 :next-fetch-row (if norows norows 1)
+                                 :next-fetch-row (if norows (js/parseInt norows) 1)
                                  })
              (c/register-columns container vcols
                                  (fn [ok] (cb-handler ok) (go (put! deferred ok)))
@@ -1385,7 +1395,8 @@
   (on-fetched-row [this row])
   (on-reset [this]
             (clear-control this)
-            (set-enabled this false))
+;;            (set-enabled this false)
+            )
   (on-set-field-flag [this row field _flags])
   (on-fetch-finished [this])
   Receivable
@@ -1414,8 +1425,11 @@
   (fetch-more
    [this numrows]
    (let [nfr (c/get-state this :next-fetch-row)]
-     (mm/c! this "fetch" fetch-data container nfr numrows)
-     (c/toggle-state this :next-fetch-row (+ nfr norows)))))
+     (kk! container "fetch" c/fetch-with-local nfr (js/parseInt numrows)
+          (fn[ok]
+            (println "fetch finixhed")
+            ) nil)
+     (c/toggle-state this :next-fetch-row (+ nfr (js/parseInt numrows))))))
 
 (def-comp VisualComponent [] BaseComponent
   (fn* []
