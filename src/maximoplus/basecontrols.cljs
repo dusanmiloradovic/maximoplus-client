@@ -421,23 +421,6 @@
     (fn [_])) ;;no need for global callback, makes no sense, we have global finish handler
   )
 
-(defn ^:export initControlDataRows 
-  [control noRows & forceFetch]
-  (let [container (c/get-container control)
-        nrs (js/parseInt noRows)
-        force (first forceFetch)]
-    (let [currow (c/get-currow container)]
-      (if (or (not currow) (= -1 currow))
-        (do
-          (.then
-           (mm/c! control  "fetch" fetch-data container  0 nrs) ;fetch already has kk!
-           (fn [ok]
-;;             (println "fetch finished for cobtrol " (c/get-id control))
-             )
-           )
-          (mm/kk-control-nocb! control container "move" c/move-to-with-offline  0)))
-      
-      (mm/c! control  "fetch" fetch-data container  currow nrs))))
 
 (defn get-deferred [component]
   (c/get-state component :deferred))
@@ -450,7 +433,7 @@
            (aset this "children" (atom []))
            (aset this "receiving" (atom false))
            (aset this "state" (atom {}))
-           (aset this "command-channel" (chan))
+           (aset this "command-channel" (chan (buffer 1)))
            (swap! c/registered-components assoc id this)
            (when-not @c/page-init-called
              (c/page-init))
@@ -511,33 +494,23 @@
                da1)]
      (p-deferred-on da2
                     (go
-                      (println "send command " command " for " (c/get-id this))
-                      (let [put-success (put! cch [command command-f command-cb command-errb])]
-                        (println "put success? " put-success))))))
+                      (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
    [this]
-   (println "start receiving for " (c/get-id this))
    (swap! (aget this "receiving") (fn [_] true))
    (let [command-channel (aget this "command-channel")]
      (go-loop []
-       (let [;[command-f command-cb command-errb] (<! (a/map (fn [_ val] val) [@c/page-init-channel command-channel]));;it will wait until page is not initialized
-             [command command-f command-cb command-errb] (<! command-channel)
+       (let [[command command-f command-cb command-errb] (<! command-channel)
              cb-chan (chan)]
-         (println "received command " command " for " (c/get-id this))
-         (try
-           (command-f
-            (fn [ok]
-              (try
-                (command-cb ok)
-                (finally (put! cb-chan ok))))
-            (fn [err]
-              (try
-                (command-errb err)
-                (finally (put! cb-chan err)))))
-           (catch js/Error e
-             (println "!!!!!!!!!!!!!!!!")
-             (println e)
-             ))
+         (command-f
+          (fn [ok]
+            (try
+              (command-cb ok)
+              (finally (put! cb-chan ok))))
+          (fn [err]
+            (try
+              (command-errb err)
+              (finally (put! cb-chan err)))))
          (<! cb-chan)
          (recur)))))
   (stop-receiving
@@ -818,7 +791,9 @@
               (fn [err]
                 (swap! fq (fn[s] (remove #(= % new-fetch) s)))
                 (when errb (errb err)))))
-       (p/get-resolved-promise true))))
+       (do
+         (when cb (cb "skip"))
+         (p/get-resolved-promise true)))))
   (init-data-with-off
    [this start numrows cb errb]
    (let [{ex-start :start ex-numrows :numrows} (c/get-state this :init-data)
@@ -839,7 +814,6 @@
        (p/then
         (fn [_]
           (go (put! (c/get-state this :init-deferred) true))
-          (println "setting :initialized? to true" (c/get-id this))
           (c/toggle-state this :initialized? true)
           (when cb (cb nil))
           true
@@ -884,7 +858,7 @@
                 (fn [e]
                   (when-let [qbe (-> (get e 0)  u/vec-to-map)]
                     (c/toggle-state this :qbe (get e 0))
-                    (println "got the qbe:" qbe)
+;;                    (println "got the qbe:" qbe)
                     (aset this "qbe" qbe)
                     (cb qbe)))
                 errb
@@ -909,7 +883,6 @@
     "set-control-index" (fn [ev]
                           (let [currow (get ev :currrow)
                                 prev-row (get ev :prevrow)]
-;;                            (println "@@@got set-control-index event for " (c/get-id this) "rel-contaniers" (map c/get-id (get-rel-containers this)) " some not init "  (some false? (map (fn [cnt] (c/get-state cnt :initialized?) ) (get-rel-containers this))))
                             (when 
                                 (and
                                  (not= -1 (js/parseInt currow))
@@ -919,7 +892,7 @@
                                                 (get-rel-containers this)))
                                   (not= currow prev-row)))
                               (doseq [_cnt  (get-rel-containers this) ]
-                                (println "re-register-and-reset " (c/get-id this) (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
+;;                                (println "re-register-and-reset " (c/get-id this) (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
                                 (c/toggle-state _cnt :initialized? true)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
@@ -1050,7 +1023,7 @@
   Offline
   (^override cont-late-register
    [this]
-   (println "rel container late register " rel " and " (c/get-id mbocont))
+;   (println "rel container late register " rel " and " (c/get-id mbocont))
    (mm/kk-branch-nocb! mbocont this "register" 
                        c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (is-offline-enabled
@@ -1371,7 +1344,13 @@
   ControlData
   (init-data
    [this]
-   (initControlDataRows this (if norows norows 1)))
+   (let [cb-handler (get-callback-handler this)
+         err-handler (get-errback-handler this)]
+     (init-data-with-off container 0 (if norows norows 1)
+                         (fn [ok]
+                           (when cb-handler (cb-handler ok)))
+                         (fn [err]
+                           (when err-handler (err-handler err))))))
   UI
   (set-enabled [this enable])
   (clear-control [this])
@@ -1427,7 +1406,6 @@
    (let [nfr (c/get-state this :next-fetch-row)]
      (kk! container "fetch" c/fetch-with-local nfr (js/parseInt numrows)
           (fn[ok]
-            (println "fetch finixhed")
             ) nil)
      (c/toggle-state this :next-fetch-row (+ nfr (js/parseInt numrows))))))
 
