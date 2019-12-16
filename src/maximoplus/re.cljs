@@ -265,6 +265,7 @@
        :closeAction (fn [_] (b/close-action th))
        :dialogCols dc
        :field f;;in field metadata we will have the list templates beforehand
+       :metadata (b/get-metadata f)
        :closeLabel "Cancel"
        })
      nil)))
@@ -290,6 +291,7 @@
        :listContainer listcontainer
        :closeAction (fn [_] (b/close-action th))
        :dialogCols dc
+       :metadata (b/get-metadata f)
        :field f;;in field metadata we will have the list templates beforehand
        :closeLabel "OK"
        })
