@@ -600,6 +600,11 @@
 
 (defn handle-error-message [msg] (js/alert msg))
 
+(defn is-app-offline?
+  []
+  (.call (aget globalFunctions "isAppOffline") nil)
+  );;This returns just the "network offline" from the app. We can decide that
+
 (def ^:export globalFunctions
   #js {"handleNoWFData" (fn [] (handleErrorMessage "No offline workflow data loaded for the record"))
        "handleWFAlreadyFinished" (fn [] (handleErrorMessage "Offline workflow already finished, it will continue when online"))
@@ -608,6 +613,7 @@
        "handleOfflineErrorMessage" handle-error-message
        "defaultDBEngine" db/get-default-engine-name
        "listenOffline" (fn[] (println "WARNING: Offline listener not defined"))
+       "isAppOffline" (fn [] (p/get-resolved-promise false))
        }
   
   )

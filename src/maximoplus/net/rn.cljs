@@ -53,4 +53,7 @@
   (-set-tabsess!
     [this tabsess]
     (reset! b/tabsess tabsess))
+  (-send-get-with-offline
+    [this url callback error-callback timeout]
+    (b/send-get-with-timeout url callback error-callback timeout))
   )

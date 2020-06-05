@@ -943,7 +943,7 @@
    (c/use-stored-query (c/get-id this) queryName))
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
-   (-> @c/offline-app-status
+   (-> (c/is-app-offline?)
        (p/then
         (fn [offline?]
           (when
@@ -958,7 +958,7 @@
              (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
              (p/then
               (fn [ex?]
-                (when ex?
+                (when ex?;;TODO error when table doesn't exist
                   (let [table-name (aget c/rel-map (c/get-id this))]
                     (->
                      (c/get-offline-changes this)
@@ -1057,7 +1057,7 @@
           (do
             (clear-control c)
             (init-data c))
-          (-> @c/offline-app-status
+          (-> (c/is-app-offline)
               (p/then
                (fn [offline?]
                   (when
@@ -3694,7 +3694,7 @@
 (defn ^:export reloadPreloadedList
   [container col-name]
   (let [table-name (get-offline-list-name container col-name)]
-    (-> @c/offline-app-status
+    (-> (c/is-app-offline)
         (p/then
          (fn [offline?]
            (when-not offline?
@@ -3711,7 +3711,7 @@
 
 "(defn ^:export reloadPreloadedLists
   []
-  (-> @c/offline-app-status
+  (-> (c/is-app-offline)
       (p/then
        (fn [offline?]
          (when-not offline?
@@ -3739,7 +3739,7 @@
         list-table-name (str "list_" (.toLowerCase table-name) "_" (.toLowerCase column))]
     (mm/p-deferred 
      container
-     (-> @c/offline-app-status
+     (-> (c/is-app-offline)
          (p/then
           (fn [offline?]
             (when-not

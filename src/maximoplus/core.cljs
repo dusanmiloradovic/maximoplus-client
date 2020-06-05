@@ -42,12 +42,63 @@
 ;;it is not always possible to know syncrhonously if the app is online or offline (important when starting app in offline mode(
 (def offline-app-status (atom (p/get-deferred)))
 (def is-offline (atom false));;few cases still required
-(defn set-offline-internal-status
+
+(def server-offline-status (atom (p/get-deferred)));;sometimes network may be online, but the server not available
+
+(defn get-server-channel
+  []
+  (let [ch (chan 1)]
+    (net/send-get-with-timeout
+     (net/init)
+     (fn [ok]
+       (go
+         (>! ch true)
+         (close ch)))
+     (fn [[_err-type _]]
+       (go
+         (>! ch
+             (if  (or
+                   (= err-type "TIMEOUT")
+                   (= err-type "OFFLINE"))
+               false
+               true))
+         (close ch))))))
+
+(declare set-server-offline-status)
+
+(defn check-server-back-online
+  []
+  (go-loop
+      []
+    (<! (timeout 10000))
+    (if-let [is-online?  (<! (get-server-channel))]
+      (set-server-offline-status false)
+      (recur))))
+
+(defn set-server-offline-status
   [status]
-  (reset! is-offline status)
-  (if (p/has-fired? @offline-app-status)
-    (reset! offline-app-status (p/get-resolved-promise status))
-    (p/callback @offline-app-status status)))
+  (if status;;if the server is offline
+    (do
+      (reset! is-offline true)
+      (p/callback @server-offine-status true))
+    (do
+      (p/callback @server-offline-status false)
+      (-> (off/is-app-offline?)
+          (p/then
+           (fn [offline?]
+             (reset! is-offline offline?)))))))
+
+(defn is-app-offline?
+  []
+  (->
+   (off/is-app-offline?)
+   (p/then
+    [offline?]
+    (if offline?
+      (reset! is-offline true)
+      @server-offline-status))))
+
+;;setting the offline status will be done from outside the core library
 
 (declare page-init-called)
 (declare page-init-channel)
@@ -106,7 +157,7 @@
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
-  (if (and offline (any-offline-enabled?))
+  (if  offline
     (do
       (u/debug "Going offline")
       (net/stop-server-push-receiving)
@@ -809,7 +860,7 @@
                       tc (vec (clojure.set/union old-cols new-cols))]
                   (swap! registered-columns assoc container-name tc))
                 (when cb-handler (cb-handler ok))
-                (-> @offline-app-status
+                (-> (is-app-offline?)
                     (p/then
                      (fn [offline?]
                        (when (and
@@ -1510,7 +1561,7 @@
   (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
-    (-> @offline-app-status
+    (-> (is-app-offline?)
         (p/then
          (fn [offline?]
            (when (and (not (get-state control-name :dettached))
@@ -1629,7 +1680,7 @@
 (defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
-  (-> @offline-app-status
+  (-> (is-app-offline?)
       (p/then
        (fn [offline?]
          (when-not offline?
@@ -1640,7 +1691,7 @@
 
 (defn stop-receiving-events
   []
-  (-> @offline-app-status
+  (-> (is-app-offline?)
       (p/then
        (fn [offline?]
          (when-not offline?
@@ -1656,6 +1707,8 @@
 
 (declare get-main-containers)
 
+(def PAGE-INIT-TIMEOUT 2000)
+
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
@@ -1667,7 +1720,7 @@
      (p/then (fn [offline?]
                (set-offline-internal-status offline?)))))
   (stop-receiving-events)
-  (-> @offline-app-status
+  (-> (off/is-app-offline?)
       (p/then
        (fn [offline?]
          (if offline?
@@ -1676,31 +1729,42 @@
              (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
              (reset! page-opened true)
-             (->
-              (p/get-promise (fn [resolve reject]
-                               (net/send-get (net/init)
-                                             (fn [_ts] 
-                                               (reset! logging-in  false)
-                                               (net/set-tabsess! (first _ts) )
-                                               (go (put! @page-init-channel (first _ts)))
-                                               (start-receiving-events)
-                                               (resolve (first _ts)))
-                                             (fn [err]
-                                               (reset! page-init-called false)
-                                               (reset! page-init-channel (promise-chan))
-                                               (swap! logging-in (fn [_] true))
-                                               (.call (aget globalFunctions "global_login_function") nil err);indirection required becuase of advanced compilation
-                                               ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
-                                               ))))
+             (->`
+              (p/get-promise
+               (fn [resolve reject]
+                 (net/send-get-with-timeout
+                  (net/init)
+                  (fn [_ts] 
+                    (reset! logging-in  false)
+                    (net/set-tabsess! (first _ts) )
+                    (go (put! @page-init-channel (first _ts)))
+                    (start-receiving-events)
+                    (resolve (first _ts)))
+                  (fn [err]
+                    (let [err-type (get err 1)]
+                      (if (or
+                           (= err-type "TIMEOUT")
+                           (= err-type "OFFLINE"))
+                        (do
+                          (set-server-offline-status true))
+                        (do
+                          (set-server-offline-status false)
+                          (reset! page-init-called false)
+                          (reset! page-init-channel (promise-chan))
+                          (swap! logging-in (fn [_] true))
+                          (.call (aget globalFunctions "global_login_function") nil err))));indirection required becuase of advanced compilation
+                    ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
+                    )
+                  PAGE-INIT-TIMEOUT)))
               (p/then
                (fn [_]
                  (let [app-cont (get-app-containers)]
-                   (when page-already-opened
+                   (when (and (not @is-offline) page-already-opened)
                      (late-register app-cont)))))
               (p/then
                (fn []
                  (doseq [c (get-app-containers)]
-                   (when (is-offline-enabled c)
+                   (when (and (not @is-offline) (is-offline-enabled c))
                      (post-offl-changes c
                                         (fn [ok] (println "offline posting finished"))
                                         (fn [err] (println err)))))))
@@ -2083,7 +2147,7 @@
                   (yesnocancelErrorHandler ex-message ex-group ex-key fnproxy))
                 (errf err)))
             (errf err)))]
-    (-> @offline-app-status
+    (-> (is-app-offline?)
         (p/then
          (fn [offline?]
            (if offline?
@@ -2344,7 +2408,7 @@
                                                (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (cb ok)))
                                                (cb ok)))
                                     (fn [err]
-                                      (-> @offline-app-status
+                                      (-> (is-app-offline?)
                                           (p/then
                                            (fn [offline?]
                                              (if (and (not offline?) finished?)

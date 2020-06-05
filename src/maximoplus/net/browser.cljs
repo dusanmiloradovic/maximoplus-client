@@ -116,6 +116,11 @@
   (send-meth (fn [xhr1 url] (transmit xhr1 url "POST" data nil 0)) url callback error-callback
              (first progress-callback)))
 
+(defn send-get-with-timeout
+  [url callback error-callback timeout]
+  (try 
+    (send-meth (fn [xhr1 url] (transmit xhr1 url "GET" nil nil timeout)) url callback error-callback)
+    (catch js/Error e (u/debug "Error in AJAX call:" e))))
 
 (def event-source (atom nil))
 
@@ -178,4 +183,7 @@
     @tabsess)
   (-set-tabsess!
     [this _tabsess]
-    (reset! tabsess _tabsess)))
+    (reset! tabsess _tabsess))
+  (-send-get-with-timeout
+    [this url callback error-callback timeout]
+    (send-get-with-timeout url callback error-callback timeout)))

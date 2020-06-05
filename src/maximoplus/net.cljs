@@ -73,6 +73,11 @@
     (-send-post @net-type url data callback error-callback (first progress-callback))
     (-send-post @net-type url data callback error-callback)))
 
+(defn send-get-with-offline
+  [url data callback error-callback timeout]
+  (-send-get-with-offline @net-type url data callback error-callback timeout)
+  )
+
 (defn start-server-push-receiving
   [callback error-callback]
   (-start-server-push-receiving @net-type (sse) callback error-callback))
