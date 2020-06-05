@@ -4,7 +4,7 @@
    [maximoplus.net.browser :as b :refer [Browser]]
    [maximoplus.net.rn :refer [ReactNative]]
    [cljs.core.async :refer [put! <! >! chan buffer poll!]]
-   [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess!]]
+   [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess! -send-get-with-timeout]]
    )
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   )
@@ -73,9 +73,9 @@
     (-send-post @net-type url data callback error-callback (first progress-callback))
     (-send-post @net-type url data callback error-callback)))
 
-(defn send-get-with-offline
-  [url data callback error-callback timeout]
-  (-send-get-with-offline @net-type url data callback error-callback timeout)
+(defn send-get-with-timeout
+  [url  callback error-callback timeout]
+  (-send-get-with-timeout @net-type url callback error-callback timeout)
   )
 
 (defn start-server-push-receiving

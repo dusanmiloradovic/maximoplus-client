@@ -8,7 +8,7 @@
    [maximoplus.db :as db]
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
-   [cljs.core.async :as a :refer [put! promise-chan <! timeout]]
+   [cljs.core.async :as a :refer [put! chan promise-chan <! timeout close!]]
    )
   (:require-macros 
    [maximoplus.macros :as mm :refer [p-deferred-on p-deferred defcmd defcmd-with-prepare defcmd-post offline-alt-noobj offline-alt kk! kk-nocb!]]
@@ -45,6 +45,8 @@
 
 (def server-offline-status (atom (p/get-deferred)));;sometimes network may be online, but the server not available
 
+(def PAGE-INIT-TIMEOUT 2000)
+
 (defn get-server-channel
   []
   (let [ch (chan 1)]
@@ -53,8 +55,8 @@
      (fn [ok]
        (go
          (>! ch true)
-         (close ch)))
-     (fn [[_err-type _]]
+         (close! ch)))
+     (fn [[_ err-type _]]
        (go
          (>! ch
              (if  (or
@@ -62,7 +64,8 @@
                    (= err-type "OFFLINE"))
                false
                true))
-         (close ch))))))
+         (close! ch)))
+     PAGE-INIT-TIMEOUT)))
 
 (declare set-server-offline-status)
 
@@ -80,10 +83,10 @@
   (if status;;if the server is offline
     (do
       (reset! is-offline true)
-      (p/callback @server-offine-status true))
+      (p/callback @server-offline-status true))
     (do
       (p/callback @server-offline-status false)
-      (-> (off/is-app-offline?)
+      (-> (offline/is-app-offline?)
           (p/then
            (fn [offline?]
              (reset! is-offline offline?)))))))
@@ -91,12 +94,12 @@
 (defn is-app-offline?
   []
   (->
-   (off/is-app-offline?)
+   (offline/is-app-offline?)
    (p/then
-    [offline?]
-    (if offline?
-      (reset! is-offline true)
-      @server-offline-status))))
+    (fn [offline?]
+      (if offline?
+        (reset! is-offline true)
+        @server-offline-status)))))
 
 ;;setting the offline status will be done from outside the core library
 
@@ -162,20 +165,17 @@
       (u/debug "Going offline")
       (net/stop-server-push-receiving)
       (swap! is-offline (fn [_] true))
-      (set-offline-internal-status true)
       (reset! offline-posted {}))
     (if (= "123" (net/get-tabsess))
       (do;;if it was started when offine
         (u/debug "Going online")
         (net/stop-server-push-receiving)
         (swap! is-offline (fn [_] false))
-        (set-offline-internal-status false)
         (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401]))
       (do
         (u/debug "Going online")
         (net/start-server-push-receiving bulk-ev-dispf process-push-receiving-error)
         (swap! is-offline (fn [_] false))
-        (set-offline-internal-status false)
         ;;if the offline period was brief, this will post the changes, otherwise if the session had
         ;;expired, it will go to the login function, and page-init will post the changes
         (doseq [c (get-app-containers)]
@@ -1707,20 +1707,16 @@
 
 (declare get-main-containers)
 
-(def PAGE-INIT-TIMEOUT 2000)
+
 
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
   (when-not @page-init-called
     (internal-page-destructor)
-    (reset! page-init-called true)
-    (->
-     (.call (aget globalFunctions "startedOffline"))
-     (p/then (fn [offline?]
-               (set-offline-internal-status offline?)))))
+    (reset! page-init-called true))
   (stop-receiving-events)
-  (-> (off/is-app-offline?)
+  (-> (offline/is-app-offline?)
       (p/then
        (fn [offline?]
          (if offline?
