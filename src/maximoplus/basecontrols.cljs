@@ -1057,7 +1057,7 @@
           (do
             (clear-control c)
             (init-data c))
-          (-> (c/is-app-offline)
+          (-> (c/is-app-offline?)
               (p/then
                (fn [offline?]
                   (when
@@ -3694,7 +3694,7 @@
 (defn ^:export reloadPreloadedList
   [container col-name]
   (let [table-name (get-offline-list-name container col-name)]
-    (-> (c/is-app-offline)
+    (-> (c/is-app-offline?)
         (p/then
          (fn [offline?]
            (when-not offline?
@@ -3711,7 +3711,7 @@
 
 "(defn ^:export reloadPreloadedLists
   []
-  (-> (c/is-app-offline)
+  (-> (c/is-app-offline?)
       (p/then
        (fn [offline?]
          (when-not offline?
@@ -3739,7 +3739,7 @@
         list-table-name (str "list_" (.toLowerCase table-name) "_" (.toLowerCase column))]
     (mm/p-deferred 
      container
-     (-> (c/is-app-offline)
+     (-> (c/is-app-offline?)
          (p/then
           (fn [offline?]
             (when-not
