@@ -57,33 +57,40 @@
          (>! ch true)
          (close! ch)))
      (fn [[_ err-type _]]
+       (println "callback in go loop " err-type)
        (go
          (>! ch
              (if  (or
                    (= err-type "TIMEOUT")
-                   (= err-type "OFFLINE"))
+                   (= err-type "OFFLINE")
+                   (= err-type "HTTP_ERROR"))
                false
                true))
          (close! ch)))
-     PAGE-INIT-TIMEOUT)))
+     PAGE-INIT-TIMEOUT)
+    ch))
 
 (declare set-server-offline-status)
 
 (defn check-server-back-online
   []
+  (println "enter check-server-back-onlne")
   (go-loop
       []
     (<! (timeout 10000))
-    (if-let [is-online?  (<! (get-server-channel))]
-      (set-server-offline-status false)
-      (recur))))
+    (let [is-online? (<! (get-server-channel))]
+         (println "got the online?" is-online?)
+         (if is-online? 
+           (set-server-offline-status false)
+           (recur)))))
 
 (defn set-server-offline-status
   [status]
   (if status;;if the server is offline
     (do
       (reset! is-offline true)
-      (p/callback @server-offline-status true))
+      (p/callback @server-offline-status true)
+      (check-server-back-online))
     (do
       (p/callback @server-offline-status false)
       (-> (offline/is-app-offline?)
@@ -1742,7 +1749,8 @@
                       (println err-type)
                       (if (or
                            (= err-type "TIMEOUT")
-                           (= err-type "OFFLINE"))
+                           (= err-type "OFFLINE")
+                           (= err-type "HTTP_ERROR"))
                         (do
                           (println err-type "setting to offline")
                           (set-server-offline-status true))
