@@ -1738,6 +1738,7 @@
                     (resolve (first _ts)))
                   (fn [err]
                     (let [err-type (get err 1)]
+                      (println err)
                       (if (or
                            (= err-type "TIMEOUT")
                            (= err-type "OFFLINE"))
@@ -1748,9 +1749,8 @@
                           (reset! page-init-called false)
                           (reset! page-init-channel (promise-chan))
                           (swap! logging-in (fn [_] true))
-                          (.call (aget globalFunctions "global_login_function") nil err))));indirection required becuase of advanced compilation
-                    ;;DON'T REJECT the promise, it goes to login page, and the function is called again from there
-                    )
+                          (.call (aget globalFunctions "global_login_function") nil err)))
+                      (resolve err)))
                   PAGE-INIT-TIMEOUT)))
               (p/then
                (fn [_]
