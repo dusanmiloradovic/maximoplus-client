@@ -80,9 +80,11 @@
     (<! (timeout 10000))
     (let [is-online? (<! (get-server-channel))]
          (println "got the online?" is-online?)
-         (if is-online? 
-           (set-server-offline-status false)
-           (recur)))))
+         (if is-online?
+           (reset! server-offline-status (p/get-resolved-promise false))
+           (do
+             (reset! server-offline-status (p/get-resolved-promise true))
+             (recur))))))
 
 (defn set-server-offline-status
   [status]
@@ -104,6 +106,7 @@
    (offline/is-app-offline?)
    (p/then
     (fn [offline?]
+      (println "callback is-app-offline?" offline?)
       (if offline?
         (reset! is-offline true)
         @server-offline-status)))))

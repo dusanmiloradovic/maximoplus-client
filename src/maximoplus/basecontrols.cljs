@@ -769,6 +769,7 @@
    [this start numrows cb errb]
    ;;fetching queue is the performance optimization
    ;;many times we can't control how the data in controls is initialized, and the controls just repeadetly call the fetch-data , thus hurting the performance. there will be the queue for fetch, and once is done, the fetch for the same number of rows can be done, otherwise is discarded. This is safe to do because for one container server operations are serialized, and it is not possible to move to other record before the fetch has been finished.
+   (println "container fetch data")
    (assert (and start numrows) "Fetching must have the starting row and the number of rows specified")
    (when (= -1 (c/get-state this :currrow));;fix for offline
      (c/toggle-state this :currrow start))
@@ -943,9 +944,11 @@
    (c/use-stored-query (c/get-id this) queryName))
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
+   (println "calling init-data-with-off AppContainer")
    (-> (c/is-app-offline?)
        (p/then
         (fn [offline?]
+          (println "In app container after (c/is-app-offline?)")
           (when
               (and
                (c/is-offline-enabled this)
@@ -3459,9 +3462,10 @@
   (^override init-data
    [this]
    (-> (c/is-app-offline?);;wait for promise to be resolved
-       (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
-              (fn[e]
-                )))))
+       (p/then (fn [_]
+                 (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
+                        (fn[e]
+                          )))))))
 
 (def-comp GLContainer [orgid] MboContainer
   (^override fn* []
