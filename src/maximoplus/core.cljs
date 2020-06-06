@@ -1725,7 +1725,7 @@
              (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
              (reset! page-opened true)
-             (->`
+             (->
               (p/get-promise
                (fn [resolve reject]
                  (net/send-get-with-timeout
@@ -1739,12 +1739,15 @@
                   (fn [err]
                     (let [err-type (get err 1)]
                       (println err)
+                      (println err-type)
                       (if (or
                            (= err-type "TIMEOUT")
                            (= err-type "OFFLINE"))
                         (do
+                          (println err-type "setting to offline")
                           (set-server-offline-status true))
                         (do
+                          (println err-type "setting to ONLINE")
                           (set-server-offline-status false)
                           (reset! page-init-called false)
                           (reset! page-init-channel (promise-chan))
