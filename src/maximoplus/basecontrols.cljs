@@ -3458,9 +3458,10 @@
    [this x])
   (^override init-data
    [this]
-   (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
-          (fn[e]
-            ))))
+   (-> (c/is-app-offline?);;wait for promise to be resolved
+       (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
+              (fn[e]
+                )))))
 
 (def-comp GLContainer [orgid] MboContainer
   (^override fn* []
