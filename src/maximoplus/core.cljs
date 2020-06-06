@@ -9,7 +9,6 @@
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
    [cljs.core.async :as a :refer [put! chan promise-chan <! timeout close!]]
-   {}
    )
   (:require-macros 
    [maximoplus.macros :as mm :refer [p-deferred-on p-deferred defcmd defcmd-with-prepare defcmd-post offline-alt-noobj offline-alt kk! kk-nocb!]]
