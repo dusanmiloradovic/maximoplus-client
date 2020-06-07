@@ -650,6 +650,7 @@
 
 (defn ^:export register-mainset
   [control-name main-object cb errb]
+  (println "!!!! registering main mboset")
   (register-main-mboset-with-offline control-name main-object cb errb))
 
 (defcmd register-maximo-menu;;not realy used anymore
@@ -1725,6 +1726,7 @@
   (when-not @page-init-called
     (internal-page-destructor)
     (reset! page-init-called true))
+  
   (stop-receiving-events)
   (-> (offline/is-app-offline?)
       (p/then
@@ -1756,6 +1758,7 @@
                            (= err-type "HTTP_ERROR"))
                         (do
                           (println err-type "setting to offline")
+                          (go (put! @page-init-channel "offline"))
                           (set-server-offline-status true))
                         (do
                           (println err-type "setting to ONLINE")

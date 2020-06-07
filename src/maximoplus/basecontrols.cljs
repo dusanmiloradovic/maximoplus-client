@@ -487,12 +487,14 @@
    [this]);by default nothing
   (send-command
    [this command command-f command-cb command-errb]
+   (println "received command " command)
    (let [cch (aget this "command-channel")
          da1 (c/get-state this :deferred)
          da2 (if (or (= command "init") (not da1));;wait for deferred (usually the constructor), unless in constructor 
                @c/page-init-channel
                da1)]
      (p-deferred-on da2
+                    (println " for command " command " got will send to command channel")
                     (go
                       (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
@@ -568,6 +570,7 @@
                           })
            (kk! this "init" c/register-mainset mboname
                 (fn [ok]
+                  (println "registered main set ")
                   (go (put! deferred ok)))
                 nil)
            )))
