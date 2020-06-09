@@ -702,8 +702,13 @@
               (overwrite-metadata control-name cmeta)
               (cb cmeta))))))))
    (p/then-catch
-    (fn [err] (when errb
-                (errb err))
+    (fn [err]
+      (println "error in adding control columns")
+      (println err)
+      (let [formatted-err [[:js (aget err "message") nil nil] 0 0]]
+        (if errb
+          (errb formatted-err)
+          (exc-handler nil formatted-err)))
       err))))
 
 (offline-alt add-control-columns-with-offline add-control-columns offline-add-control-columns [control-name columns])
@@ -879,7 +884,8 @@
                               (is-offline-enabled container) 
                               (not offline?))
                          (offlinePrepareOne (get-id container)))))))
-          errbh (fn [err] 
+          errbh (fn [err]
+                  (println "register-columns error " err)
                   (when errback-handler (errback-handler err)))]
       (kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
       
@@ -1180,7 +1186,13 @@
              (offline/remove-selection (filter #(.startsWith % (str "list_" (.toUpperCase rel-name)))
                                            lists))))
    (p/then-catch
-    (fn [err] (when errb err) (u/debug err)))))
+    (fn [err]
+      (println "error in fetching multi rows")
+      (println err)
+      (let [formatted-err [[:js (aget err "message") nil nil] 0 0]]
+        (if errb
+          (errb formatted-err)
+          (exc-handler nil formatted-err)))))))
 
 
 (defcmd fetch-multi-rows [control-name start-row num-rows]

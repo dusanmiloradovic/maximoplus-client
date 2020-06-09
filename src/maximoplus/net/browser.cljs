@@ -8,6 +8,7 @@
    [goog.events.OnlineHandler]
    [maximoplus.arrays :as ar]
    [maximoplus.net.protocols :refer [INet]]
+   [clojure.string :refer [blank?]]
    )
   (:import [goog.net XhrIo]))
 
@@ -71,10 +72,11 @@
     (if (= "218" status)
       status
       (let [resp-text(.getResponseText xhr1) ]
-        [(try (u/transit-read resp-text)
-              (catch js/Error e
-                (u/debug e)
-                nil))
+        [(when-not (blank? resp-text)
+           (try (u/transit-read resp-text)
+                (catch js/Error e
+                  (u/debug e)
+                  nil)))
          (translate-goog-xhr-code (.getLastErrorCode xhr1))
          status]
         ))))
