@@ -65,7 +65,9 @@
 (def ^:export globalFunctions
   #js{"getSQLDatabase" (fn[database-name]
                          (.openDatabase js/window database-name "1.0" database-name (* 5 1024 1024)))
-      "prepareDatabase" (fn [] (p/get-resolved-promise true))})
+      "prepareDatabase" (fn [db] (p/get-resolved-promise true))})
+
+(declare exist-object?)
 
 (defn get-database
   []
@@ -76,13 +78,51 @@
               (.call (aget globalFunctions "getSQLDatabase") nil @databaseName))
              (p/then
               (fn [db]
-                (-> (.call (aget globalFunctions "prepareDatabase") nil)
-                    (p/then
-                     (fn [] db))))))))
+                (->
+                 (p/get-promise
+                  (fn [resolve reject]
+                    (.transaction
+                     db
+                     (fn [tx]
+                       (.executeSql
+                        tx
+                        "select name from sqlite_master where name='objectMeta'"
+                        #js[]
+                        (fn [tx results]
+                          (let [rows (-> results (aget "rows"))
+                                ex? (> (aget rows "length") 0)]
+                            (resolve ex?))))))))
+                 (p/then
+                  (fn [ex?]
+                    (if-not ex?
+                      (-> (.call (aget globalFunctions "prepareDatabase") nil db)
+                          (p/then
+                           (fn [] db)))
+                      db)))))))))
   @database)
 
 (defmulti sql-oper (fn [operation] (:type operation)))
 
+
+(defn _obj-names
+  [db]
+  (p/get-promise
+   (fn [resolve reject]
+     (.transaction
+      db
+      (fn [tx]
+        (.executeSql
+         tx
+         "select name from sqlite_master where type='table'"
+         #js[]
+         (fn [tx results]
+           (let [rows (aget results "rows")
+                 _len (aget rows "length")
+                 rez #js[]]
+             (dotimes [i _len]
+               (ar/conj! rez (.item rows i)))
+             (resolve rez))))))))
+  )
 
 (defn get-object-names
   []
@@ -90,22 +130,7 @@
    (get-database)
    (p/then
     (fn [db]
-      (p/get-promise
-       (fn [resolve reject]
-         (.transaction
-          db
-          (fn [tx]
-            (.executeSql
-             tx
-             "select name from sqlite_master where type='table'"
-             #js[]
-             (fn [tx results]
-               (let [rows (aget results "rows")
-                     _len (aget rows "length")
-                     rez #js[]]
-                 (dotimes [i _len]
-                   (ar/conj! rez (.item rows i)))
-                 (resolve rez))))))))))))
+      (_obj-names db)))))
 
 (defn exist-object?
   [object-name]
