@@ -58,15 +58,27 @@
 ;;Instead of the create-lock which is difficult to synchronize, I will create the columns-lock. If the table doens't exist, once it is created the promise will be populated with the list of columns. If it does, it will query the sqlite, find the columns and populate the promise.
 ;;One more important case is altering the table. In that case, the new promise has to be created
 
+;;prepareDatabase: if we want to prepare the database that was created (for example with the DB script)
+;;for the native applications, we could load the database from the file, and for that we should use the
+;;getSQLDatbase (it loads the complete database, instead of creating the file and running the script)
+
 (def ^:export globalFunctions
   #js{"getSQLDatabase" (fn[database-name]
-                         (.openDatabase js/window database-name "1.0" database-name (* 5 1024 1024)))})
+                         (.openDatabase js/window database-name "1.0" database-name (* 5 1024 1024)))
+      "prepareDatabase" (fn [] (p/get-resolved-promise true))})
 
 (defn get-database
   []
   (when-not @database
     (reset! database
-            (.call (aget globalFunctions "getSQLDatabase") nil @databaseName)))
+            (->
+             (p/get-resolved-promise
+              (.call (aget globalFunctions "getSQLDatabase") nil @databaseName))
+             (p/then
+              (fn [db]
+                (-> (.call (aget globalFunctions "prepareDatabase") nil)
+                    (p/then
+                     (fn [] db))))))))
   @database)
 
 (defmulti sql-oper (fn [operation] (:type operation)))
@@ -74,22 +86,26 @@
 
 (defn get-object-names
   []
-  (p/get-promise
-   (fn [resolve reject]
-     (.transaction
-      (get-database)
-      (fn [tx]
-        (.executeSql
-         tx
-         "select name from sqlite_master where type='table'"
-         #js[]
-         (fn [tx results]
-           (let [rows (aget results "rows")
-                 _len (aget rows "length")
-                 rez #js[]]
-             (dotimes [i _len]
-               (ar/conj! rez (.item rows i)))
-             (resolve rez)))))))))
+  (->
+   (get-database)
+   (p/then
+    (fn [db]
+      (p/get-promise
+       (fn [resolve reject]
+         (.transaction
+          db
+          (fn [tx]
+            (.executeSql
+             tx
+             "select name from sqlite_master where type='table'"
+             #js[]
+             (fn [tx results]
+               (let [rows (aget results "rows")
+                     _len (aget rows "length")
+                     rez #js[]]
+                 (dotimes [i _len]
+                   (ar/conj! rez (.item rows i)))
+                 (resolve rez))))))))))))
 
 (defn exist-object?
   [object-name]
@@ -102,32 +118,36 @@
 
 (defn get-table-columns
   [table-name]
-  (p/get-promise
-   (fn [resolve reject]
-     (.transaction
-      (get-database)
-      (fn [tx]
-        (.executeSql
-         tx
-         "SELECT name, sql FROM sqlite_master WHERE type='table' AND name = ?"
-         #js[table-name]
-         (fn[tx results]
-           (let [rows (-> results (aget "rows"))]
-             (if (> (aget rows "length") 0)
-               (let [row (.item rows 0)
-                     _sql (aget row "sql")
-                     col-string (replace _sql #"^.+\((.+)\).*" "$1")
-                     splitted (split col-string #",\s?")
-                     columns  (map
-                               (fn[s] (-> s (clojure.string/split " ") first))
-                               splitted)]
-                 (swap! columns-cache assoc table-name columns)
-                 (resolve columns))
-               (resolve nil))))
-         (fn [tx err]
-           (.log js/console err)
-           ;;dont reject, probably no table is there
-           (resolve nil))))))))
+  (->
+   (get-database)
+   (p/then
+    (fn [db]
+      (p/get-promise
+       (fn [resolve reject]
+         (.transaction
+          db
+          (fn [tx]
+            (.executeSql
+             tx
+             "SELECT name, sql FROM sqlite_master WHERE type='table' AND name = ?"
+             #js[table-name]
+             (fn[tx results]
+               (let [rows (-> results (aget "rows"))]
+                 (if (> (aget rows "length") 0)
+                   (let [row (.item rows 0)
+                         _sql (aget row "sql")
+                         col-string (replace _sql #"^.+\((.+)\).*" "$1")
+                         splitted (split col-string #",\s?")
+                         columns  (map
+                                   (fn[s] (-> s (clojure.string/split " ") first))
+                                   splitted)]
+                     (swap! columns-cache assoc table-name columns)
+                     (resolve columns))
+                   (resolve nil))))
+             (fn [tx err]
+               (.log js/console err)
+               ;;dont reject, probably no table is there
+               (resolve nil)))))))))))
 
 (defn get-data-type
   [column-meta]
@@ -213,56 +233,60 @@
      (->
       create-lock
       (p/then
-       (fn [_]
-         (get-table-columns object-name)))
+       (fn []
+         (get-database)))
       (p/then
-       (fn [columns]
-         ;;        (u/debug ":create for object " object-name)
-         (u/debug ":create for " object-name " got columns")
-  ;;       (.log js/console (clj->js columns))
-         (if-not columns ;;new table
-           (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
-;;             (.log js/console create-string)
-             (p/get-promise
-              (fn [resolve reject]
-                (.transaction
-                 (get-database)
-                 (fn [tx]
-                   (.executeSql
-                    tx
-                    create-string
-                    #js[]
-                    (fn [tx res]
-                      (p/then (get-table-columns object-name)
-                              (fn [cols]
-;;                                (u/debug ":create " object-name " finished")
-                                (p/callback d cols)
-                                (resolve cols))))
-                    (fn [tx err]
-                      (p/callback d err)
-                      (reject err))))))))
-           (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
-             (p/get-promise
-              (fn [resolve reject]
-                (.transaction
-                 (get-database)
-                 (fn [tx]
-                   (doseq [s alter-table-string]
-                     (.executeSql tx s #js[])))
-                 (fn [err]
-                   (p/callback d err)
-                   (reject err))
-                 (fn []
-                   (p/then (get-table-columns object-name)
-                           (fn [cols]
-                             ;;                             (u/debug ":alter table " object-name " finished")
-                             (when-not (empty? (@waiting-for-alter object-name))
-                               (let [data (prepare-statements(:data  (@waiting-for-alter object-name)) cols)
-                                     flags (prepare-statements (:flags  (@waiting-for-alter object-name)) cols)]
+       (fn [db]
+         (->
+          (get-table-columns object-name)
+          (p/then
+           (fn [columns]
+             ;;        (u/debug ":create for object " object-name)
+             (u/debug ":create for " object-name " got columns")
+             ;;       (.log js/console (clj->js columns))
+             (if-not columns ;;new table
+               (let [create-string (str "create table " object-name " (" (get-columns-string key key-type index-columns columns-meta ) ")")]
+                 ;;             (.log js/console create-string)
+                 (p/get-promise
+                  (fn [resolve reject]
+                    (.transaction
+                     db
+                     (fn [tx]
+                       (.executeSql
+                        tx
+                        create-string
+                        #js[]
+                        (fn [tx res]
+                          (p/then (get-table-columns object-name)
+                                  (fn [cols]
+                                    ;;                                (u/debug ":create " object-name " finished")
+                                    (p/callback d cols)
+                                    (resolve cols))))
+                        (fn [tx err]
+                          (p/callback d err)
+                          (reject err))))))))
+               (when-let [alter-table-string (get-alter-table-string object-name columns columns-meta)]
+                 (p/get-promise
+                  (fn [resolve reject]
+                    (.transaction
+                     db
+                     (fn [tx]
+                       (doseq [s alter-table-string]
+                         (.executeSql tx s #js[])))
+                     (fn [err]
+                       (p/callback d err)
+                       (reject err))
+                     (fn []
+                       (p/then (get-table-columns object-name)
+                               (fn [cols]
+                                 ;;                             (u/debug ":alter table " object-name " finished")
+                                 (when-not (empty? (@waiting-for-alter object-name))
+                                   (let [data (prepare-statements(:data  (@waiting-for-alter object-name)) cols)
+                                         flags (prepare-statements (:flags  (@waiting-for-alter object-name)) cols)]
 
-                                 (dml (concat data flags))))
-                             (p/callback d cols)
-                             (resolve cols)))))))))))))))
+                                     (dml (concat data flags))))
+                                 (p/callback d cols)
+                                 (resolve cols))))))))))))))))))
 
 (def ^:dynamic BULK_INSERT_LIMIT 500) ;;limit set by SQlite itself
 
@@ -452,47 +476,51 @@
 (defn dml
   [operations & ops]
   (let [raw? (first ops)]
-    (p/then
-     (p/prom-all
-      (mapcat sql-oper operations))
-     (fn [arr]
-       (p/get-promise
-        (fn [resolve reject]
-          (.transaction
-           (get-database)
-           (fn [tx]
-             (p/then
-              (p/prom-all
-               (loop [arr arr rez []]
-                 (if (empty? arr)
-                   rez
-                   (let [a (first arr)
-                         prm (p/get-promise
-                              (fn [_resolve _reject]
-;;                                (u/debug "^^^^^" (first a) ".." (second a))
-                                (.executeSql tx (first a) (second a)
-                                             (fn [tx ok] (_resolve ok)))))]
-                     (recur (rest arr) (conj rez prm))))))
-              (fn [rezarr]
-                (let [rez-js
-                      (ar/mape
-                       (fn [r]
-                         (let [rows (aget r "rows")
-                               rlen (aget rows "length")
-                               rez #js[]]
-                           (dotimes [i rlen]
-                             (ar/conj! rez (.item rows i) ))
-                           rez))
-                       rezarr)
-                      ]
-                  (resolve
-                   (if raw?
-                     rez-js
-                     (clj->js rez-js))
-                   )))))
-           (fn [err]
-             (println "!!!!!!!!!!" operations)
-             (reject err))))))))) 
+    (->
+     (get-database)
+     (p/then
+      (fn [db]
+        (p/then
+         (p/prom-all
+          (mapcat sql-oper operations))
+         (fn [arr]
+           (p/get-promise
+            (fn [resolve reject]
+              (.transaction
+               db
+               (fn [tx]
+                 (p/then
+                  (p/prom-all
+                   (loop [arr arr rez []]
+                     (if (empty? arr)
+                       rez
+                       (let [a (first arr)
+                             prm (p/get-promise
+                                  (fn [_resolve _reject]
+                                    ;;                                (u/debug "^^^^^" (first a) ".." (second a))
+                                    (.executeSql tx (first a) (second a)
+                                                 (fn [tx ok] (_resolve ok)))))]
+                         (recur (rest arr) (conj rez prm))))))
+                  (fn [rezarr]
+                    (let [rez-js
+                          (ar/mape
+                           (fn [r]
+                             (let [rows (aget r "rows")
+                                   rlen (aget rows "length")
+                                   rez #js[]]
+                               (dotimes [i rlen]
+                                 (ar/conj! rez (.item rows i) ))
+                               rez))
+                           rezarr)
+                          ]
+                      (resolve
+                       (if raw?
+                         rez-js
+                         (clj->js rez-js))
+                       )))))
+               (fn [err]
+                 (println "!!!!!!!!!!" operations)
+                 (reject err)))))))))))) 
 
 (defn ddl
   [operations & ops]
