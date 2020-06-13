@@ -56,14 +56,16 @@
        (go
          (>! ch true)
          (close! ch)))
-     (fn [[_ err-type _]]
+     (fn [[_ err-type err-code]]
        (println "callback in go loop " err-type)
        (go
          (>! ch
              (if  (or
                    (= err-type "TIMEOUT")
                    (= err-type "OFFLINE")
-                   (= err-type "HTTP_ERROR"))
+                   (and
+                    (= err-type "HTTP_ERROR")
+                    (not= err-code 401)))
                false
                true))
          (close! ch)))
@@ -88,6 +90,7 @@
 
 (defn set-server-offline-status
   [status]
+  (println "setting the server offine status to " status)
   (if status;;if the server is offline
     (do
       (reset! is-offline true)
@@ -100,6 +103,16 @@
            (fn [offline?]
              (reset! is-offline offline?)))))))
 
+(defn get-server-offline-status
+  []
+  (let [sst @server-offline-status]
+    (->
+     sst
+     (p/then
+      (fn [sst]
+        (println "got the server offline status" sst)
+        sst)))))
+
 (defn is-app-offline?
   []
   (->
@@ -109,7 +122,7 @@
       (println "callback is-app-offline?" offline?)
       (if offline?
         (reset! is-offline true)
-        @server-offline-status)))))
+        (get-server-offline-status))))))
 
 ;;setting the offline status will be done from outside the core library
 
@@ -596,7 +609,8 @@
 (defn ^:export moveToOffline
   [rel-name uniqueId parentId dta]
 ;;  (println "move to offline " rel-name " and " uniqueId " and " parentId " and " dta)
-  (offline/moveToOffline rel-name (assoc dta "uniqueid" uniqueId "parentid" parentId) ))
+  (offline/moveToOffline rel-name (assoc dta "uniqueid" uniqueId "parentid"
+                                         (if (.startsWith rel-name "list_") -1  parentId)) ))
 
 ;;(defn prepare-flags-for-offline
 ;;  [flags]
@@ -1760,15 +1774,19 @@
                     (net/set-tabsess! (first _ts) )
                     (go (put! @page-init-channel (first _ts)))
                     (start-receiving-events)
+                    (set-server-offline-status false)
                     (resolve (first _ts)))
                   (fn [err]
-                    (let [err-type (get err 1)]
+                    (let [err-type (get err 1)
+                          err-code (get err 2)]
                       (println err)
                       (println err-type)
                       (if (or
                            (= err-type "TIMEOUT")
                            (= err-type "OFFLINE")
-                           (= err-type "HTTP_ERROR"))
+                           (and
+                            (= err-type "HTTP_ERROR")
+                            (not= err-code 401)))
                         (do
                           (println err-type "setting to offline")
                           (go (put! @page-init-channel "offline"))
@@ -2106,6 +2124,7 @@
 (defn simulate-error-response
   "used to simulate the ajax error from the javascript error, so the error handlers work properly"
   [message]
+  (println "error-response " message)
   #js [["js" message "browser" "javascript"] 6 500]
   )
 
