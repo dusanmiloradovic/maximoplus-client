@@ -1171,7 +1171,8 @@
    (get-parent-uniqueid control-name)
    (p/then
     (fn [parent-id]
-      (offline/fetch-multi-rows rel-name parent-id start-row num-rows)))
+      ;;assume the list will be stored once, not multiple times, for each parent(complex list must be handled from the frontend
+      (offline/fetch-multi-rows rel-name (if (.startsWith rel-name "list_") -1 parent-id) start-row num-rows)))
    (p/then
     (fn [rows]
       (doseq [row rows]
