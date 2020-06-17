@@ -744,9 +744,11 @@
    (state-section-new-field-helper this child))
   Row
   (^override create-field
-   [this col-metadata]
-   (QbeField. col-metadata)
-   )
+   [this column-metadata]
+   (let  [col-metadata  (if (:isALNDomain column-metadata)
+                            (assoc column-metadata :listColumns #js["value" "description"])
+                            column-metadata)]
+     (QbeField. col-metadata)))
   (^override set-row-field-value
    [this field value]
    (state-section-field-state-helper this field :data value))
