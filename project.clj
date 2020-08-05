@@ -1,7 +1,7 @@
 (defproject maximoplus-client "1.0.0-SNAPSHOT"
   :description "core maximoplus client - clojurescript library"
   :dependencies [
-                 [org.clojure/clojurescript  "1.10.339"]
+                 [org.clojure/clojurescript  "1.10.773"]
                  [com.cognitect/transit-cljs "0.8.256"]
                  [weasel "0.7.0"]
                  [cider/piggieback "0.3.6"]
@@ -87,6 +87,29 @@
                    :output-to "public/javascript/react-native-prod/main.js",
                    :output-dir "public/javascript/react-native-prod",
                    :target :nodejs
+                   ;;                   :parallel-build true
+                   :closure-output-charset "US-ASCII"
+		   :foreign-libs [{:file "js-foreign/out/es.js"
+                                   :provides ["rn-eventsource"]}]
+                   :externs ["js-foreign/externs.js"]
+                   :hashbang false
+                   :optimizations :advanced
+                   :closure-warnings {:externs-validation :off
+                                      :non-standard-jsdoc :off}
+                   }}
+
+
+                 ]}}]
+             :rnbundle
+             [{  :cljsbuild
+               {:builds
+                [
+                 {:source-paths ["src" "src-repl"],
+                  :compiler
+                  {:pretty-print false,
+                   :output-to "public/javascript/react-native-prod/main.js",
+                   :output-dir "public/javascript/react-native-prod",
+                   :target :bundle
                    ;;                   :parallel-build true
                    :closure-output-charset "US-ASCII"
 		   :foreign-libs [{:file "js-foreign/out/es.js"

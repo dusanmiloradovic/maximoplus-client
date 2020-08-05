@@ -2267,18 +2267,22 @@
 
 (defn- get-parent-uniqueid
   [containerid]
-  (let [single-mbo? (get-state containerid :singlembo)
+  (let [table-name (aget rel-map containerid)
+        list?  (.startsWith table-name "list_")
+        single-mbo? (get-state containerid :singlembo)
         parent-id (if single-mbo?
                     (when-let [first-nonsingle (get-first-non-single containerid)]
                       (get-state first-nonsingle :parentid))
                     (when containerid
                       (get-first-non-single
                        (get-state containerid :parentid))))]
-    (if parent-id
-      (let [currrow-parent (get-state parent-id :currrow)
-            parent-uniqueid (get-local-data parent-id currrow-parent "_uniqueid")]
-        (p/get-resolved-promise parent-uniqueid))
-      (p/get-resolved-promise nil))))
+    (if list?
+      (p/get-resolved-promise -1)
+      (if parent-id
+        (let [currrow-parent (get-state parent-id :currrow)
+              parent-uniqueid (get-local-data parent-id currrow-parent "_uniqueid")]
+          (p/get-resolved-promise parent-uniqueid))
+        (p/get-resolved-promise nil)))))
 
 
 (defn offline-table-count
