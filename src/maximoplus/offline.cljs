@@ -1045,5 +1045,31 @@
    (map (fn [l]
           {:type :update :name l :updateObject {"_SELECTED" nil "changedValue" nil}})
         list-names)))
+
+;;for the server sqlite database creation, we will get the script for creating the sqlite database on the server
+(defn export-table-structure
+  []
+  (->
+   (dml {:type :select :name "sqlite_master" :sqlwhere "type='table' and ame not like '__W%'"} )
+   (p/then
+    (fn [res]
+      (map :sql res)
+      ))))
+
+(defn get-object-meta-insert
+  []
+  (dml {:type :select :name "objectMeta"}))
+
+(defn generate-server-script
+  []
+  (->
+   (export-table-structure)
+   (p/then
+    (fn [structure]
+      (->
+       (get-object-meta-insert)
+       (p/then
+        (fn [meta-insert]
+          {:structure structure :meta-insert meta-insert})))))))
   
    
