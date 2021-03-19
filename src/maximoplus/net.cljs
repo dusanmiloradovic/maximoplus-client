@@ -4,7 +4,7 @@
    [maximoplus.net.browser :as b :refer [Browser]]
    [maximoplus.net.rn :refer [ReactNative]]
    [cljs.core.async :refer [put! <! >! chan buffer poll!]]
-   [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess! -send-get-with-timeout]]
+   [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess! -send-get-with-timeout -get-offline-db-from-server]]
    [maximoplus.promises :as p]
    )
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
@@ -138,5 +138,9 @@
 (defn get-db-download-url
   []
   (str (serverRoot)  "/server/dbdownload" (param-list {"t" (get-tabsess)})))
+
+(defn get-offline-db-from-server
+  [script-data]
+  (-get-offline-db-from-server @net-type (get-db-download-url) (u/transit-json script-data)))
 
 

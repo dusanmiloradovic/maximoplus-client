@@ -9,7 +9,7 @@
    [maximoplus.arrays :as ar]
    [maximoplus.net.protocols :refer [INet]]
    [clojure.string :refer [blank?]]
-
+   [maximoplus.promises :as p]
    )
   (:import [goog.net XhrIo]))
 
@@ -165,10 +165,16 @@
   [dburl postqry]
   (p/get-promise
    (fn [resolve reject]
-     (send-post dburl postqry
-                (fn [db]))
-     ))
-  )
+     (let [xhr1 (xhr-connection)]
+       (.setWithCredentials xhr1 true)
+       (goog.events/listenOnce xhr1
+                               "complete"
+                               (fn[e]
+                                 (if (= ec/NO_ERROR (. xhr1 (getLastErrorCode)))
+                                   (resolve (.getResponseText xhr1))
+                                   (reject [ (translate-goog-xhr-code (.getLastErrorCode xhr1)) (.getResponseText xhr1)]))
+                                 (.dispose xhr1)))
+       (transmit xhr1 dburl "POST" postqry nil 0)))))
 
 
 (deftype Browser []
@@ -199,4 +205,7 @@
     (reset! tabsess _tabsess))
   (-send-get-with-timeout
     [this url callback error-callback timeout]
-    (send-get-with-timeout url callback error-callback timeout)))
+    (send-get-with-timeout url callback error-callback timeout))
+  (-get-offline-db-from-server
+    [this dburl postqry]
+    (get-offline-db-from-server dburl postqry)))

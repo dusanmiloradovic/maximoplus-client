@@ -21,4 +21,6 @@
     )
   (-get-offilne-db-from-server;;works just for native, browser implementation is for the testing only, it has to return the promise
     [this post-data])
+  (-get-offline-db-from-server
+    [this dburl postqry])
   )

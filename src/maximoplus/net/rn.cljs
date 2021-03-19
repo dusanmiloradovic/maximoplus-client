@@ -3,7 +3,8 @@
    [maximoplus.net.protocols :refer [INet]]
    [maximoplus.utils :as u]
    [maximoplus.net.browser :as b]
-   [rn-eventsource])
+   [maximoplus.promises :as p]
+   ["rn-eventsource" :as rn-eventsource])
   )
 
 ;;(set! *warn-on-infer* true)
@@ -56,4 +57,8 @@
   (-send-get-with-timeout
     [this url callback error-callback timeout]
     (b/send-get-with-timeout url callback error-callback timeout))
+  (-get-offline-db-from-server
+    [this dburl postqry]
+    ;;to avoid any Expo library dependencies here, I will just return the URL, and handle this in the expo template
+    (p/get-resolved-promise #js{:dburl dburl :postqry postqry}))
   )

@@ -4,7 +4,7 @@
    [maximoplus.arrays :as ar]
    [maximoplus.promises :as p]
    [maximoplus.db :as db :refer [ddl dml]]
-   [maximoplus.net :as net :refer [get-tabsess]]
+   [maximoplus.net :as net :refer [get-tabsess get-offline-db-from-server]]
    [cljs.core.async :as a :refer [put! promise-chan <! timeout chan]]
    )
   (:use [clojure.string :only [join replace split blank?]]
@@ -1070,6 +1070,9 @@
        (get-object-meta-insert)
        (p/then
         (fn [meta-insert]
-          {:structure structure :meta-insert meta-insert})))))))
+          {:structure structure :meta-insert meta-insert})))))
+   (p/then
+    (fn [script-obj]
+      (get-offline-db-from-server script-obj)))))
   
    
