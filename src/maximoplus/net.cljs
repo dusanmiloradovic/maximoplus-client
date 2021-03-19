@@ -5,6 +5,7 @@
    [maximoplus.net.rn :refer [ReactNative]]
    [cljs.core.async :refer [put! <! >! chan buffer poll!]]
    [maximoplus.net.protocols :refer [-send-get -send-post -start-server-push-receiving -stop-server-push-receiving -get-tabsess -set-tabsess! -send-get-with-timeout]]
+   [maximoplus.promises :as p]
    )
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   )
@@ -19,6 +20,7 @@
 (defn logout[] (str (serverRoot) "/server/logout"))
 (defn general-login [] (str (serverRoot) "/server/general-login"))
 (defn command [] (str ( serverRoot) "/server/command"))
+(defn server-dbdownload-url [] (str (serverRoot) "/server/dbdownload"))
 (defn sse [] (str (serverRoot) "/server/sse?t=" (get-tabsess)))
 
 (def net-type
@@ -132,3 +134,9 @@
 (defn ^:export setServerRoot
   [url]
   (aset globalFunctions "serverRoot" (fn [_] url)))
+
+(defn get-db-download-url
+  []
+  (str (serverRoot)  "/server/dbdownload" (param-list {"t" (get-tabsess)})))
+
+

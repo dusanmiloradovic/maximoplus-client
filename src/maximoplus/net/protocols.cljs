@@ -19,4 +19,6 @@
   (-send-get-with-timeout
     [this url callback error-callback timeout]
     )
+  (-get-offilne-db-from-server;;works just for native, browser implementation is for the testing only, it has to return the promise
+    [this post-data])
   )

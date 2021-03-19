@@ -9,6 +9,7 @@
    [maximoplus.arrays :as ar]
    [maximoplus.net.protocols :refer [INet]]
    [clojure.string :refer [blank?]]
+
    )
   (:import [goog.net XhrIo]))
 
@@ -158,6 +159,16 @@
                         (fn []
                           (cb (not (.isOnline oh)))))))
 
+
+
+(defn get-offline-db-from-server
+  [dburl postqry]
+  (p/get-promise
+   (fn [resolve reject]
+     (send-post dburl postqry
+                (fn [db]))
+     ))
+  )
 
 
 (deftype Browser []

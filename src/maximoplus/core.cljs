@@ -2515,6 +2515,7 @@
           (map empty-data-tree? ch-tree))
          true)))
 
+(defcmd-post get-server-offline-database [schema])
 
 (defn ^:export setDisplayWaitCursor
   [f]

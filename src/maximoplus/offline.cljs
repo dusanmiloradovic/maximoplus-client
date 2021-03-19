@@ -1060,7 +1060,7 @@
   []
   (dml {:type :select :name "objectMeta"}))
 
-(defn generate-server-script
+(defn ^:export generateServerScript
   []
   (->
    (export-table-structure)
