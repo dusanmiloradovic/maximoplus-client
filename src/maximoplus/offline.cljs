@@ -1050,7 +1050,7 @@
 (defn export-table-structure
   []
   (->
-   (dml {:type :select :name "sqlite_master" :sqlwhere "type='table' and ame not like '__W%'"} )
+   (dml1 {:type :select :name "sqlite_master" :sqlwhere "type='table' and name not like '__W%'"} )
    (p/then
     (fn [res]
       (map :sql res)
@@ -1058,7 +1058,9 @@
 
 (defn get-object-meta-insert
   []
-  (dml {:type :select :name "objectMeta"}))
+  (dml [{:type :select :name "objectMeta"}
+         {:type :select :name "objectQbe"}]))
+
 
 (defn ^:export generateServerScript
   []
