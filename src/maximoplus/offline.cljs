@@ -1050,10 +1050,12 @@
 (defn export-table-structure
   []
   (->
-   (dml1 {:type :select :name "sqlite_master" :sqlwhere "type='table' and name not like '__W%'"} )
+   (dml1 {:type :select :name "sqlite_master" :sqlwhere "type='table' and name not like '__W%'"} true)
    (p/then
     (fn [res]
-      (map :sql res)
+      (println res)
+      (u/debug (clj->js res))
+      (map (fn [r] (aget r "sql")) res)
       ))))
 
 (defn get-object-meta-insert

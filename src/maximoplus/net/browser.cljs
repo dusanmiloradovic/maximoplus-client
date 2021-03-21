@@ -11,7 +11,8 @@
    [clojure.string :refer [blank?]]
    [maximoplus.promises :as p]
    )
-  (:import [goog.net XhrIo]))
+  (:import [goog.net XhrIo]
+           [goog.net.XhrIo ResponseType]))
 
 (def ^:dynamic *timeout* 10000)
 
@@ -167,14 +168,15 @@
    (fn [resolve reject]
      (let [xhr1 (xhr-connection)]
        (.setWithCredentials xhr1 true)
+       (.setResponseType xhr1 ResponseType.ARRAY_BUFFER)
        (goog.events/listenOnce xhr1
                                "complete"
                                (fn[e]
                                  (if (= ec/NO_ERROR (. xhr1 (getLastErrorCode)))
-                                   (resolve (.getResponseText xhr1))
+                                   (resolve (.getResponse xhr1))
                                    (reject [ (translate-goog-xhr-code (.getLastErrorCode xhr1)) (.getResponseText xhr1)]))
                                  (.dispose xhr1)))
-       (transmit xhr1 dburl "POST" postqry nil 0)))))
+       (transmit xhr1 dburl "POST" postqry {"Content-Type" "application/json"} 0)))))
 
 
 (deftype Browser []

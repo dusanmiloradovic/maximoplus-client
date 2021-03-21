@@ -137,7 +137,7 @@
 
 (defn get-db-download-url
   []
-  (str (serverRoot)  "/server/dbdownload" (param-list {"t" (get-tabsess)})))
+  (str (serverRoot)  "/server/get-sqlite-db?" (param-list {"t" (get-tabsess)})))
 
 (defn get-offline-db-from-server
   [script-data]
