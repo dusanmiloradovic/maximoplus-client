@@ -129,13 +129,16 @@
 (declare page-init-called)
 (declare page-init-channel)
 
+(declare setOffline)
+
 (defn process-push-receiving-error
   [err]
   (net/stop-server-push-receiving)
   (println "Push receiving error")
-  (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401])
-
-  )
+  (net/is-server-up? (fn [_]
+                       (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401]))
+                     (fn [err]
+                       (setOffline true))))
 
 
 (declare any-offline-enabled?)

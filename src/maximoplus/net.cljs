@@ -143,4 +143,21 @@
   [script-data]
   (-get-offline-db-from-server @net-type (get-db-download-url) (u/transit-json script-data)))
 
+(defn is-server-up?
+  [cb errb]
+  (u/debug "checking if server is up")
+  (send-get (str (serverRoot) "/server/init")
+            (fn [ok]
+              (u/debug "server is up")
+              (cb))
+            (fn [[_ err-type error-code]]
+              (if (and (= err-type "HTTP_ERROR")
+                       (= 0 error-code))
+                (do
+                  (u/debug "server is down")
+                  (errb))
+                (do
+                  (u/debug "server is up")
+                  (cb))))))
+
 
