@@ -43,8 +43,6 @@
 (def offline-app-status (atom (p/get-deferred)))
 (def is-offline (atom false));;few cases still required
 
-(def server-offline-status (atom (p/get-deferred)));;sometimes network may be online, but the server not available
-
 (def PAGE-INIT-TIMEOUT 2000)
 
 (defn get-server-channel
@@ -72,7 +70,7 @@
      PAGE-INIT-TIMEOUT)
     ch))
 
-(declare set-server-offline-status)
+(declare setOffline)
 
 (defn check-server-back-online
   []
@@ -81,73 +79,45 @@
       []
     (<! (timeout 10000))
     (let [is-online? (<! (get-server-channel))]
-         (println "got the online?" is-online?)
-         (if is-online?
-           (reset! server-offline-status (p/get-resolved-promise false))
-           (do
-             (reset! server-offline-status (p/get-resolved-promise true))
-             (recur))))))
+      (if is-online?
+        (do
+          (setOffline false)
+          (.call (aget globalFunctions "notifyOffline") nil false))
+        (recur)))))
 
-(defn set-server-offline-status
-  [status]
-  (println "setting the server offine status to " status)
-  (if status;;if the server is offline
-    (do
-      (reset! is-offline true)
-      (p/callback @server-offline-status true)
-      (check-server-back-online))
-    (do
-      (p/callback @server-offline-status false)
-      (-> (offline/is-app-offline?)
-          (p/then
-           (fn [offline?]
-             (reset! is-offline offline?)))))))
 
-(defn get-server-offline-status
+(defn is-server-offline?
   []
-  (let [sst @server-offline-status]
-    (->
-     sst
-     (p/then
-      (fn [sst]
-        (println "got the server offline status" sst)
-        sst)))))
+  (p/get-promise
+   (fn [resolve reject]
+     (go
+       (let [online (<! (get-server-channel))]
+         (if-not online
+           (when-not @is-offline
+             (setOffline true)
+             (.call (aget globalFunctions "notifyOffline") nil true)
+             (check-server-back-online)
+             )
+           (when @is-offline
+             (setOffline false)
+             (.call (aget globalFunctions "notifyOffline") nil false)
+             ))
+         (resolve (not online)))))))
 
-(defn is-app-offline?
-  []
-  (->
-   (offline/is-app-offline?)
-   (p/then
-    (fn [offline?]
-      (println "callback is-app-offline?" offline?)
-      (if offline?
-        (reset! is-offline true)
-        (get-server-offline-status))))))
 
 ;;setting the offline status will be done from outside the core library
 
 (declare page-init-called)
 (declare page-init-channel)
 
-(declare setOffline)
 
-(defn verify-online-back
-  []
-  (js/setTimeout (fn [_]
-                   (net/is-server-up?
-                    (fn [_] (setOffline false))
-                    (fn [err] (verify-online-back))))
-                 30000))
+
+
 
 (defn process-push-receiving-error
   [err]
-  (net/stop-server-push-receiving)
-  (println "Push receiving error")
-  (net/is-server-up? (fn [_]
-                       (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401]))
-                     (fn [err]
-                       (setOffline true)
-                       (verify-online-back))))
+  (is-server-offline?)
+  )
 
 
 (declare any-offline-enabled?)
@@ -195,7 +165,7 @@
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
-  (.call (aget globalFunctions "notifyOffline") nil offline)
+ ;; (.call (aget globalFunctions "notifyOffline") nil offline)
   (if  offline
     (do
       (u/debug "Going offline")
@@ -903,14 +873,11 @@
                       tc (vec (clojure.set/union old-cols new-cols))]
                   (swap! registered-columns assoc container-name tc))
                 (when cb-handler (cb-handler ok))
-                (-> (is-app-offline?)
-                    (p/then
-                     (fn [offline?]
-                       (when (and
-                              (not (get-state container :dettached))
-                              (is-offline-enabled container) 
-                              (not offline?))
-                         (offlinePrepareOne (get-id container)))))))
+                (when (and
+                       (not (get-state container :dettached))
+                       (is-offline-enabled container) 
+                       (not @is-offline))
+                  (offlinePrepareOne (get-id container))))
           errbh (fn [err]
                   (println "register-columns error " err)
                   (when errback-handler (errback-handler err)))]
@@ -1624,19 +1591,16 @@
 (declare offline-move-in-progress)
 
 (defn reset-controls [control-names]
-;;  (u/debug "doing the reset-controls for " control-names)
+  ;;  (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
-    (-> (is-app-offline?)
-        (p/then
-         (fn [offline?]
-           (when (and (not (get-state control-name :dettached))
-                      (is-offline-enabled control-name)
-                      (not @offline-move-in-progress) (not offline?)) ;must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
-             (->
-              (get-parent-uniqueid control-name)
-              (p/then (fn ([puid] (deleteOfflineData control-name puid)))))))))
-
+    (when (and (not (get-state control-name :dettached))
+               (is-offline-enabled control-name)
+               (not @offline-move-in-progress)
+               (not @is-offline)) ;must have support for offline reset, because the offlne search, but it should not delete the offline data like the regular reset
+      (->
+       (get-parent-uniqueid control-name)
+       (p/then (fn ([puid] (deleteOfflineData control-name puid))))))
     (dispatch-peers! control-name "reset" {:data "dummy"})))
 
 (defn command-mboset [ev]
@@ -1746,23 +1710,15 @@
 (defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
                                         ;  (u/debug "unutar start event-dispatch")
                                         ; (u/debug "resetovao sam promenljivu start the long poll")
-  (-> (is-app-offline?)
-      (p/then
-       (fn [offline?]
-         (when-not offline?
-           (net/start-server-push-receiving
-            bulk-ev-dispf
-            process-push-receiving-error
-            ))))))
+  (when-not @is-offline
+    (net/start-server-push-receiving
+     bulk-ev-dispf
+     process-push-receiving-error)))
 
 (defn stop-receiving-events
   []
-  (-> (is-app-offline?)
-      (p/then
-       (fn [offline?]
-         (when-not offline?
-           (net/stop-server-push-receiving)
-)))))
+  (when-not @is-offline
+    (net/stop-server-push-receiving)))
 
 (defn- internal-page-destructor
   []
@@ -1783,7 +1739,7 @@
     (reset! page-init-called true))
   
   (stop-receiving-events)
-  (-> (offline/is-app-offline?)
+  (-> (is-server-offline?)
       (p/then
        (fn [offline?]
          (if offline?
@@ -1802,7 +1758,6 @@
                     (net/set-tabsess! (first _ts) )
                     (go (put! @page-init-channel (first _ts)))
                     (start-receiving-events)
-                    (set-server-offline-status false)
                     (resolve (first _ts)))
                   (fn [err]
                     (let [err-type (get err 1)
@@ -1818,10 +1773,9 @@
                         (do
                           (println err-type "setting to offline")
                           (go (put! @page-init-channel "offline"))
-                          (set-server-offline-status true))
+)
                         (do
                           (println err-type "setting to ONLINE")
-                          (set-server-offline-status false)
                           (reset! page-init-called false)
                           (reset! page-init-channel (promise-chan))
                           (swap! logging-in (fn [_] true))
@@ -2220,18 +2174,15 @@
                   (yesnocancelErrorHandler ex-message ex-group ex-key fnproxy))
                 (errf err)))
             (errf err)))]
-    (-> (is-app-offline?)
-        (p/then
-         (fn [offline?]
-           (if offline?
-             (errf (offline-error-response))
-             (do
-               (when-not @page-init-called
-                 (page-init))
-               (p-deferred-on @page-init-channel
-                              (if post?
-                                (net/send-post (net/command) data okf proxy-error)
-                                (net/send-get (str (net/command) "?" data) okf proxy-error))))))))))
+    (if @is-offline
+      (errf (offline-error-response))
+      (do
+        (when-not @page-init-called
+          (page-init))
+        (p-deferred-on @page-init-channel
+                       (if post?
+                         (net/send-post (net/command) data okf proxy-error)
+                         (net/send-get (str (net/command) "?" data) okf proxy-error)))))))
 
                                         ;helper function for macro, to reduce the generated file size
 
@@ -2487,12 +2438,9 @@
                                                (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (cb ok)))
                                                (cb ok)))
                                     (fn [err]
-                                      (-> (is-app-offline?)
-                                          (p/then
-                                           (fn [offline?]
-                                             (if (and (not offline?) finished?)
-                                               (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (errb err)))
-                                               (errb err)))))))
+                                      (if (and (not @is-offline) finished?)
+                                        (p/then (offline/deleteCompletedWFAction rel-name unique-id) (fn [_] (errb err)))
+                                        (errb err))))
                  (errb "No finished offline workflow steps for container"))))
      (p/then-catch (fn [err] (when errb err) err)))))
 

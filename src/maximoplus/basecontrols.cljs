@@ -951,35 +951,32 @@
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
    (println "calling init-data-with-off AppContainer")
-   (-> (c/is-app-offline?)
-       (p/then
-        (fn [offline?]
-          (println "In app container after (c/is-app-offline?)")
-          (when
-              (and
-               (c/is-offline-enabled this)
-               (not (aget this "offlinePosting"))
-               (not offline?);don't try to post offline when offline
-               (not (@c/offline-posted (c/get-id this)))
-               )
-            (aset this "offlinePosting" true)
-            (->
-             (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
-             (p/then
-              (fn [ex?]
-                (when ex?;;TODO error when table doesn't exist
-                  (let [table-name (aget c/rel-map (c/get-id this))]
-                    (->
-                     (c/get-offline-changes this)
-                     (p/then (fn [changes]
-                               (when-not (empty? changes)
-                                 (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
-                     (p/then (fn [res]
-                               (off/debug-table table-name)
-                               (c/offline-post-finished this (first res))
-                               (aset this "offlinePosting" false)
-                               (swap! c/offline-posted assoc (c/get-id this) true)
-                               (off/delete-old-records (aget c/rel-map (c/get-id this)))))))))))))))
+   (when
+       (and
+        (c/is-offline-enabled this)
+        (not (aget this "offlinePosting"))
+        (not @c/is-offline);don't try to post offline when offline
+        (not (@c/offline-posted (c/get-id this)))
+        )
+     (aset this "offlinePosting" true)
+     (->
+      (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
+      (p/then
+       (fn [ex?]
+         (when ex?;;TODO error when table doesn't exist
+           (let [table-name (aget c/rel-map (c/get-id this))]
+             (->
+              (c/get-offline-changes this)
+              (p/then (fn [changes]
+                        (when-not (empty? changes)
+                          (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
+              (p/then (fn [res]
+                        (off/debug-table table-name)
+                        (c/offline-post-finished this (first res))
+                        (aset this "offlinePosting" false)
+                        (swap! c/offline-posted assoc (c/get-id this) true)
+                        (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
+
    (->
     (fetch-data this start numrows nil nil)
     (p/then
@@ -1055,7 +1052,7 @@
    (kk-nocb! this "re-register" c/register-mboset-byrel rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
    ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
-;;   (println "calling re-register and reset " rel " and id " (c/get-id this))
+   ;;   (println "calling re-register and reset " rel " and id " (c/get-id this))
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
@@ -1066,15 +1063,12 @@
           (do
             (clear-control c)
             (init-data c))
-          (-> (c/is-app-offline?)
-              (p/then
-               (fn [offline?]
-                  (when
-                     (and
-                      offline?
-                      (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-              ;;      (u/debug "1rereg " (c/get-id c))
-                    (re-register-and-reset c cb errb)))))))
+          (when
+              (and
+               @c/is-offline
+               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
+            ;;      (u/debug "1rereg " (c/get-id c))
+            (re-register-and-reset c cb errb))))
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
@@ -3473,11 +3467,8 @@
    [this x])
   (^override init-data
    [this]
-   (-> (c/is-app-offline?);;wait for promise to be resolved
-       (p/then (fn [_]
-                 (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
-                        (fn[e]
-                          )))))))
+   (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
+          (fn[e]))))
 
 (def-comp GLContainer [orgid] MboContainer
   (^override fn* []
@@ -3711,20 +3702,17 @@
 (defn ^:export reloadPreloadedList
   [container col-name]
   (let [table-name (get-offline-list-name container col-name)]
-    (-> (c/is-app-offline?)
-        (p/then
-         (fn [offline?]
-           (when-not offline?
-             (->
-              (clearOfflinePreloadedList container col-name)
-              (p/then
-               (fn [_]
-                 (off/getObjectMeta table-name)))
-              (p/then
-               (fn [object-meta]
-                 (let [;;return-column (-> object-meta (aget table-name) (aget "returnColumn"))
-                       list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
-                   (listToOffline container col-name list-columns nil true)))))))))))
+    (when-not @c/is-offline
+      (->
+       (clearOfflinePreloadedList container col-name)
+       (p/then
+        (fn [_]
+          (off/getObjectMeta table-name)))
+       (p/then
+        (fn [object-meta]
+          (let [;;return-column (-> object-meta (aget table-name) (aget "returnColumn"))
+                list-columns (u/read-json (-> object-meta (aget table-name) (aget "listColumns")))]
+            (listToOffline container col-name list-columns nil true))))))))
 
 "(defn ^:export reloadPreloadedLists
   []
@@ -3756,41 +3744,38 @@
         list-table-name (str "list_" (.toLowerCase table-name) "_" (.toLowerCase column))]
     (mm/p-deferred 
      container
-     (-> (c/is-app-offline?)
-         (p/then
-          (fn [offline?]
-            (when-not
-                offline?
-              (->
-               (off/preloaded? list-table-name)
-               (p/then
-                (fn [preloaded?]
-                  (when (or (not preloaded?) force?)
-                    (let [lc (ListContainer. container column false)]
-                      (c/set-offline-enabled lc true)
-                      (..
-                       (c/register-columns lc list-columns nil nil)
-                       (then
-                        (fn [_]
-                          (off/delete-old-records list-table-name)))
-                       (then
-                        (fn [_]
-                          (get-row-count lc nil nil)))
-                       (then
-                        (fn [e]
-                          (let [cnt (get e 0)]
-                            (fetch-data lc 0 cnt nil nil))))
-                       (then
-                        (fn [_]
-                          (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
-                       (then
-                        (fn [e]
-                          (.dispose lc)
-                          (off/mark-as-preloaded list-table-name)
-                          (off/mark-as-preloaded (str list-table-name "_flags"))))
-                       (then
-                        (fn [_]
-                          (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns)))))))))))))))))
+     (when-not
+         @c/is-offline
+       (->
+        (off/preloaded? list-table-name)
+        (p/then
+         (fn [preloaded?]
+           (when (or (not preloaded?) force?)
+             (let [lc (ListContainer. container column false)]
+               (c/set-offline-enabled lc true)
+               (..
+                (c/register-columns lc list-columns nil nil)
+                (then
+                 (fn [_]
+                   (off/delete-old-records list-table-name)))
+                (then
+                 (fn [_]
+                   (get-row-count lc nil nil)))
+                (then
+                 (fn [e]
+                   (let [cnt (get e 0)]
+                     (fetch-data lc 0 cnt nil nil))))
+                (then
+                 (fn [_]
+                   (c/get-qbe (c/get-id lc) nil nil)));to force writing the offline qbe record for the list
+                (then
+                 (fn [e]
+                   (.dispose lc)
+                   (off/mark-as-preloaded list-table-name)
+                   (off/mark-as-preloaded (str list-table-name "_flags"))))
+                (then
+                 (fn [_]
+                   (off/updateObjectMeta list-table-name "listColumns" (u/create-json list-columns))))))))))))))
 
 (defn get-unique-ids-container-prom
   [container]

@@ -600,10 +600,7 @@
 
 (defn handle-error-message [msg] (js/alert msg))
 
-(defn is-app-offline?
-  []
-  (.call (aget globalFunctions "isAppOffline") nil)
-  );;This returns just the "network offline" from the app. We can decide that
+
 
 (def ^:export globalFunctions
   #js {"handleNoWFData" (fn [] (handleErrorMessage "No offline workflow data loaded for the record"))
