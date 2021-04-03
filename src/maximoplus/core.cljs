@@ -131,6 +131,14 @@
 
 (declare setOffline)
 
+(defn verify-online-back
+  []
+  (js/setTimeout (fn [_]
+                   (net/is-server-up?
+                    (fn [_] (setOffline false))
+                    (fn [err] (verify-online-back))))
+                 30000))
+
 (defn process-push-receiving-error
   [err]
   (net/stop-server-push-receiving)
@@ -138,7 +146,8 @@
   (net/is-server-up? (fn [_]
                        (.call (aget globalFunctions "global_login_function") nil [6 "Not Logged In" 401]))
                      (fn [err]
-                       (setOffline true))))
+                       (setOffline true)
+                       (verify-online-back))))
 
 
 (declare any-offline-enabled?)
@@ -186,6 +195,7 @@
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
+  (.call (aget globalFunctions "notifyOffline") nil offline)
   (if  offline
     (do
       (u/debug "Going offline")
@@ -1214,6 +1224,21 @@
 
 
 (defcmd fetch-multi-rows [control-name start-row num-rows]
+  (fn [evt]
+
+    					;    (u/debug "fetching multi-rows for :" control-name)
+					;   (u/debug "fetch-multi-rows:" evt)
+                                        ;    (u/debug-exception evt)
+    (when-not (= "norow" (first evt))
+      (doseq [rd-evt  (first evt)]
+        (fetched-row-callback control-name rd-evt)
+        )
+;;      (println "dispatching fetch-finished for " control-name)
+      (dispatch-peers! control-name "fetch-finished" {}))
+    (fn [err])))
+
+(defcmd fetch-multi-rows-no-reset
+  [control-name start-row num-rows]
   (fn [evt]
 
     					;    (u/debug "fetching multi-rows for :" control-name)
@@ -2357,6 +2382,8 @@
 
 (offline-alt fetch-multi-rows-with-offline fetch-multi-rows fetch-multi-rows-offline [control-name start-row num-rows])
 
+(offline-alt fetch-multi-rows-with-offline-no-reset fetch-multi-rows-no-reset fetch-multi-rows-offline [control-name start-row num-rows])
+
 (offline-alt move-to-with-offline move-to offline-move-to [control-name rownum])
 
 (defn get-ids-for-parent [control-name parent-id & raw?]
@@ -2498,6 +2525,7 @@
       "globalOfflinePostError" display-offline-post-error
       "forceLongPoll" false
       "startedOffline" (fn [] (p/get-resolved-promise false))
+      "notifyOffline" (fn [flag] (u/debug "Offline " flag))
       }
   );one level of indirection required so the functions can be overriden when they are compiled with the advanced compilation
 
@@ -2551,3 +2579,7 @@
 (defn ^:export setErrorMessageHandler
   [f]
   (setGlobalFunction "handleErrorMessage" f))
+
+(defn ^:export setOfflineNotifier
+  [f]
+  (setGlobalFunction "notifyOffline" f))
