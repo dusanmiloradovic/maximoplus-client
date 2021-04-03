@@ -346,7 +346,7 @@
   (throw (js/Error. "Not implemented")))
 
 (defn fetch-reset-rels [cont cb errb]
-  (u/debug "calling fetch reset-rels for " (c/get-id cont))
+;;  (u/debug "calling fetch reset-rels for " (c/get-id cont))
   (doseq [relco (get-rel-containers cont)]
     (when (c/is-main-peer (c/get-id relco))
       (re-register-and-reset relco cb errb))))
@@ -773,7 +773,7 @@
    [this start numrows cb errb]
    ;;fetching queue is the performance optimization
    ;;many times we can't control how the data in controls is initialized, and the controls just repeadetly call the fetch-data , thus hurting the performance. there will be the queue for fetch, and once is done, the fetch for the same number of rows can be done, otherwise is discarded. This is safe to do because for one container server operations are serialized, and it is not possible to move to other record before the fetch has been finished.
-   (u/debug "containe fetch data " (c/get-id this) " " start " " numrows)
+;;   (u/debug "containe fetch data " (c/get-id this) " " start " " numrows)
    (assert (and start numrows) "Fetching must have the starting row and the number of rows specified")
    (when (= -1 (c/get-state this :currrow));;fix for offline
      (c/toggle-state this :currrow start))
@@ -896,10 +896,10 @@
                                                 (fn [cnt] (c/get-state cnt :initialized?) )
                                                 (get-rel-containers this)))
                                   (not= currow prev-row)))
-                              (u/debug "mbocont " (c/get-id this) " got set-control-index " currow)
+;;                              (u/debug "mbocont " (c/get-id this) " got set-control-index " currow)
                               (doseq [_cnt  (get-rel-containers this) ]
                                 ;;                                (println "re-register-and-reset " (c/get-id this) (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
-                                (u/debug "3rereg " (c/get-id _cnt))
+  ;;                              (u/debug "3rereg " (c/get-id _cnt))
                                 (c/toggle-state _cnt :initialized? true)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
@@ -1073,7 +1073,7 @@
                      (and
                       offline?
                       (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-                    (u/debug "1rereg " (c/get-id c))
+              ;;      (u/debug "1rereg " (c/get-id c))
                     (re-register-and-reset c cb errb)))))))
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
@@ -1145,7 +1145,7 @@
    (let [idcont (c/get-id mbocont)
          _unid (aget this "contuniqueid")
          dfrd (promise-chan)]
-     (u/debug "singlembocontainer re-register-and-reset " (c/get-id this))
+;;     (u/debug "singlembocontainer re-register-and-reset " (c/get-id this))
      (c/toggle-state this :deferred dfrd)
      (p-deferred-on
       dfrd
@@ -1157,7 +1157,7 @@
                         (when (and
                                @c/is-offline
                                (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-                          (u/debug "2rereg " (c/get-id c))
+;;                          (u/debug "2rereg " (c/get-id c))
                           (re-register-and-reset c cb errb)))))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
@@ -2658,10 +2658,10 @@
                     nrs (js/parseInt (get-numrows this))
                     _numrows (js/parseInt numrows)]
                 (c/toggle-state this :norows (+ nrs _numrows))
-                (u/debug "calling fetch-more on grid for container " (c/get-id container))
+;;                (u/debug "calling fetch-more on grid for container " (c/get-id container))
                 (kk! (c/get-container this) "fetch" c/fetch-multi-rows-with-offline-no-reset (+ fmr nrs) _numrows
-                     (fn [ok] (u/debug ok))
-                     (fn [err] (.log js/console err)))))
+                     nil
+                     nil)))
   (row-selected-action
    [this row-control]
    (when-let [mr (get-maximo-row row-control)]

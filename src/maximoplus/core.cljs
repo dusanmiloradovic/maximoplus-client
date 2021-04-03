@@ -1624,7 +1624,7 @@
 (declare offline-move-in-progress)
 
 (defn reset-controls [control-names]
-  (u/debug "doing the reset-controls for " control-names)
+;;  (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
     (-> (is-app-offline?)
