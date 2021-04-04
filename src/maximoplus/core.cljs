@@ -1744,7 +1744,7 @@
        (fn [offline?]
          (if offline?
            (do
-             (reset! is-offine true)
+             (reset! is-offline true)
              (reset! page-opened true)
              (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
@@ -1773,7 +1773,7 @@
                             (not= err-code 401)))
                         (do
                           (u/debug "setting to offline")
-                          (reset! is-offine true)
+                          (reset! is-offline true)
                           (go (put! @page-init-channel "offline"))
 )
                         (do
@@ -2411,7 +2411,6 @@
                         (u/debug "Yo?")
                         (p-deferred-on @page-init-channel
                                        (u/debug "page init channel filled , dog"))
-                        (p-deferred-on)
                         (->
                          (cont-late-register c)
                          (p/then (fn [_]
