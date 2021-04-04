@@ -488,14 +488,14 @@
    [this]);by default nothing
   (send-command
    [this command command-f command-cb command-errb]
-   (println "received command " command)
+;;   (u/debug "received command " command " for " (c/get-id this))
    (let [cch (aget this "command-channel")
          da1 (c/get-state this :deferred)
          da2 (if (or (= command "init") (not da1));;wait for deferred (usually the constructor), unless in constructor 
                @c/page-init-channel
                da1)]
      (p-deferred-on da2
-                    (println " for command " command " got will send to command channel")
+  ;;                  (u/debug " for command " command " and " (c/get-id this) " got will send to command channel")
                     (go
                       (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
@@ -603,8 +603,10 @@
    (c/get-state this :offlineenabled))
   (cont-late-register
    [this]
-   (kk! this "init" c/register-mainset mboname
+   (u/debug "cont-late-register mbo cont")
+   (kk! this "register" c/register-mainset mboname
         (fn [ok]
+          (u/debug "mbo cont late register finished")
           (go (put! (c/get-state this :deferred) ok)))
         nil))
   (get-offline-objects-tree
@@ -918,11 +920,14 @@
        (c/set-states this {:deferred deferred :appcont true})
        (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
-            (fn [ok] (go (put! deferred ok)))
+            (fn [ok]
+              (u/debug "got a response on init (constructor appcontainer)")
+              (go (put! deferred ok)))
             nil))))
   Offline
   (cont-late-register
    [this]
+   (u/debug "calling appcontainer late register")
    (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))
   (cont-late-register-init
    [this]
@@ -950,7 +955,7 @@
    (c/use-stored-query (c/get-id this) queryName))
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
-   (println "calling init-data-with-off AppContainer")
+   (u/debug "calling init-data-with-off AppContainer")
    (when
        (and
         (c/is-offline-enabled this)
@@ -959,6 +964,7 @@
         (not (@c/offline-posted (c/get-id this)))
         )
      (aset this "offlinePosting" true)
+     (u/debug "doing the offline posting")
      (->
       (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
       (p/then
@@ -969,6 +975,8 @@
               (c/get-offline-changes this)
               (p/then (fn [changes]
                         (when-not (empty? changes)
+                          (u/debug "posting:")
+                          (.log js/console (clj->js changes))
                           (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
               (p/then (fn [res]
                         (off/debug-table table-name)

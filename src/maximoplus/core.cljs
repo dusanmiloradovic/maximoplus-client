@@ -1744,6 +1744,7 @@
        (fn [offline?]
          (if offline?
            (do
+             (reset! is-offine true)
              (reset! page-opened true)
              (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
@@ -1771,13 +1772,15 @@
                             (= err-type "HTTP_ERROR")
                             (not= err-code 401)))
                         (do
-                          (println err-type "setting to offline")
+                          (u/debug "setting to offline")
+                          (reset! is-offine true)
                           (go (put! @page-init-channel "offline"))
 )
                         (do
-                          (println err-type "setting to ONLINE")
+                          (u/debug err-type "setting to ONLINE, resetting page init channel")
                           (reset! page-init-called false)
-                          (reset! page-init-channel (promise-chan))
+                          (go (put! @page-init-channel "previous"))
+                         (reset! page-init-channel (promise-chan))
                           (swap! logging-in (fn [_] true))
                           (.call (aget globalFunctions "global_login_function") nil err)))
                       (resolve err)))
@@ -1785,10 +1788,12 @@
               (p/then
                (fn [_]
                  (let [app-cont (get-app-containers)]
-                   (when (and (not @is-offline) page-already-opened)
+                   (when (and () page-already-opened)
+                     (u/debug "calling late register from page init")
                      (late-register app-cont)))))
               (p/then
                (fn []
+                 (u/debug "now i should post the offline")
                  (doseq [c (get-app-containers)]
                    (when (and (not @is-offline) (is-offline-enabled c))
                      (post-offl-changes c
@@ -2397,18 +2402,27 @@
 
 (defn late-register 
   [containers & is-rel?] ;;relcontainers, just register don't reset
+  (u/debug "strange..." (empty? containers))
   (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
     (p/prom-all (doall
                  (map (fn [c]
+                        (u/debug "Yo?")
+                        (p-deferred-on @page-init-channel
+                                       (u/debug "page init channel filled , dog"))
+                        (p-deferred-on)
                         (->
                          (cont-late-register c)
-                         (p/then (fn [_](kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
+                         (p/then (fn [_]
+                                   (u/debug "late-reg columns")
+                                   (kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
                          (p/then (fn []
+                                   (u/debug "late-reg rel containers")
                                    (when-let [ch-rels (.getRelContainers c)]
                                      (late-register ch-rels true))))
                          (p/then (fn [_]
+                                   (u/debug "late reg last step")
                                    (clear-data-cache (get-id c))
                                    (if-not (first is-rel?)
                                      (cont-late-register-init c)
