@@ -8,7 +8,7 @@
             [clojure.walk :as walk :refer [prewalk]]
             [maximoplus.core :as c :refer [Receivable Component Offline]]
             [cljs.core.async :as a :refer [put! <! >! chan buffer poll! promise-chan]])
-  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on p-deferred-on-ife custom-this kc! kk-branch! c!]]
+  (:require-macros [maximoplus.macros :as mm :refer [def-comp googbase kk! kk-nocb! kk-branch-nocb! p-deferred p-deferred-on p-deferred-on-ife custom-this kc! kk-branch! c! p!]]
                    [cljs.core.async.macros :refer [go go-loop]])
   )
 
@@ -603,12 +603,8 @@
    (c/get-state this :offlineenabled))
   (cont-late-register
    [this]
-   (u/debug "cont-late-register mbo cont")
-   (kk! this "register" c/register-mainset mboname
-        (fn [ok]
-          (u/debug "mbo cont late register finished")
-          (go (put! (c/get-state this :deferred) ok)))
-        nil))
+   (u/debug "cont-late-register " (c/get-id this))
+   (p! this "late-register" c/register-mainset mboname))
   (get-offline-objects-tree
    [this]
    (let [ret
@@ -917,7 +913,7 @@
        this
      (googbase this mboname)
      (let [deferred (promise-chan)]
-       (c/set-states this {:deferred deferred :appcont true})
+       (c/set-states this {:deferred deferred :appcont true :appname appname})
        (c/add-app-container-to-registry this)
        (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
             (fn [ok]
@@ -925,10 +921,13 @@
               (go (put! deferred ok)))
             nil))))
   Offline
-  (cont-late-register
+  (^override cont-late-register
    [this]
-   (u/debug "calling appcontainer late register")
-   (kk-nocb! this "currapp" c/set-current-app-with-offline  (.toUpperCase appname)))
+   (->
+    (p! this "late-register" c/register-mainset mboname)
+    (p/then
+     (fn [_]
+       (p! this "currapp"  c/set-current-app-with-offline  (.toUpperCase appname))))))
   (cont-late-register-init
    [this]
    (let [_qbe (c/get-state this :qbe)
@@ -1037,9 +1036,8 @@
   Offline
   (^override cont-late-register
    [this]
-;   (println "rel container late register " rel " and " (c/get-id mbocont))
-   (mm/kk-branch-nocb! mbocont this "register" 
-                       c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
+   (p! this "register" 
+       c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
   (is-offline-enabled
    [this]
    (let [parent-id (c/get-state this :parentid)
@@ -1175,7 +1173,7 @@
   Offline
   (^override cont-late-register
    [this]
-   (mm/kk-branch-nocb! mbocont this "register"
+   (p! this "register"
                        c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer

@@ -11,7 +11,7 @@
    [cljs.core.async :as a :refer [put! chan promise-chan <! timeout close!]]
    )
   (:require-macros 
-   [maximoplus.macros :as mm :refer [p-deferred-on p-deferred defcmd defcmd-with-prepare defcmd-post offline-alt-noobj offline-alt kk! kk-nocb!]]
+   [maximoplus.macros :as mm :refer [p-deferred-on p-deferred defcmd defcmd-with-prepare defcmd-post offline-alt-noobj offline-alt kk! kk-nocb! p!]]
    [cljs.core.async.macros :refer [go go-loop]]))
 
 (declare yesnocancelproxy)
@@ -2399,41 +2399,52 @@
                  (when (get-state k :appcont) v))
                @container-registry)))
 
+(defn one-cont-late-register
+  [cont]
+  (u/debug "cont-late-register " (get-id cont))
+  (let [deferred (promise-chan)
+        registered-columns (@registered-columns (get-id cont))]
+    (set-states cont {:deferred deferred})
+    (->
+     (cont-late-register cont)
+     (p/then
+      (fn [_]
+        (p! cont "registercol" add-control-columns registered-columns)))
+     (p/then
+      (fn [_]
+        (go (put! deferred "finished"))
+        (p/get-resolved-promise "registered")))
+     (p/then
+      (fn [_]
+        (clear-data-cache (get-id cont))
+        (if (get-state cont :parentid);;that is if its rel or dependent container
+          (p/get-resolved-promise "rel-container")
+          (cont-late-register-init cont)))))))
 
 (defn late-register 
-  [containers & is-rel?] ;;relcontainers, just register don't reset
+  [containers] ;;relcontainers, just register don't reset
   (u/debug "strange..." (empty? containers))
   (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
-    (p/prom-all (doall
-                 (map (fn [c]
-                        (u/debug "Yo?")
-                        (p-deferred-on @page-init-channel
-                                       (u/debug "page init channel filled , dog"))
-                        (->
-                         (cont-late-register c)
-                         (p/then (fn [_]
-                                   (u/debug "late-reg columns")
-                                   (kk-nocb! c "registercol" add-control-columns (@registered-columns (get-id c)))))
-                         (p/then (fn []
-                                   (u/debug "late-reg rel containers")
-                                   (when-let [ch-rels (.getRelContainers c)]
-                                     (late-register ch-rels true))))
-                         (p/then (fn [_]
-                                   (u/debug "late reg last step")
-                                   (clear-data-cache (get-id c))
-                                   (if-not (first is-rel?)
-                                     (cont-late-register-init c)
-                                     (p/get-resolved-promise "rel"))))))
-                      containers)))))
+    (p/prom-all
+     (doall
+      (map (fn [c]
+             (->
+              (one-cont-late-register c)
+              (p/then
+               (fn [_]
+                 (when-let [ch-rels (.getRelContainers c)]
+                   (late-register ch-rels))))))
+           containers)))))
 
 
-(defn register-controls-post-login
-  "this has to be tested and thought about more. Currently all login methods in demos either open the login page and destroy the current page, or destroy it manually. This one will agai call everything. The question is what happens with the data that was changed offline in this case"
-  []
-  (-> get-main-containers late-register)
-  )
+;;(defn register-controls-post-login
+;;cont has to be tested and thought about more. Currently all login methods in demos either open the login page and destroy the current page, or destroy it manually. This one will agai call everything. The question is what happens with the data that was changed offline in this case"
+;;  []
+;;  (-> get-main-containers late-register)
+;;;;
+;;  )
 
 
                                         ;replay the offline workflow if the steps are finished for all the finished offline workflows. For the currently active record it doesn't have to be finished, we can continue
