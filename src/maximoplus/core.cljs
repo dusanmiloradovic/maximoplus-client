@@ -1759,7 +1759,21 @@
                     (net/set-tabsess! (first _ts) )
                     (go (put! @page-init-channel (first _ts)))
                     (start-receiving-events)
-                    (resolve (first _ts)))
+                    (resolve (first _ts))
+                    (when @is-offline
+                      ;;it was offline, and now its offline, and it must be after login(otherwisere
+                      ;;this would be error with 401)
+                      (reset! is-offline false)
+                      (let [app-containers (get-app-containers)]
+                        (->
+                         (late-register app-containers)
+                         (p/then
+                          (fn [_]
+                            (doseq [c app-containers]
+                              (when (and (not @is-offline) (is-offline-enabled c))
+                                (post-offl-changes c
+                                                   (fn [ok] (println "offline posting finished"))
+                                                   (fn [err] (println err)))))))))))
                   (fn [err]
                     (let [err-type (get err 1)
                           err-code (get err 2)]
@@ -1775,30 +1789,16 @@
                           (u/debug "setting to offline")
                           (reset! is-offline true)
                           (go (put! @page-init-channel "offline"))
-)
+                          )
                         (do
                           (u/debug err-type "setting to ONLINE, resetting page init channel")
                           (reset! page-init-called false)
                           (go (put! @page-init-channel "previous"))
-                         (reset! page-init-channel (promise-chan))
+                          (reset! page-init-channel (promise-chan))
                           (swap! logging-in (fn [_] true))
                           (.call (aget globalFunctions "global_login_function") nil err)))
                       (resolve err)))
                   PAGE-INIT-TIMEOUT)))
-              (p/then
-               (fn [_]
-                 (let [app-cont (get-app-containers)]
-                   (when (and () page-already-opened)
-                     (u/debug "calling late register from page init")
-                     (late-register app-cont)))))
-              (p/then
-               (fn []
-                 (u/debug "now i should post the offline")
-                 (doseq [c (get-app-containers)]
-                   (when (and (not @is-offline) (is-offline-enabled c))
-                     (post-offl-changes c
-                                        (fn [ok] (println "offline posting finished"))
-                                        (fn [err] (println err)))))))
               (p/then-catch
                (fn [err]
                  (reset! page-init-called false)
