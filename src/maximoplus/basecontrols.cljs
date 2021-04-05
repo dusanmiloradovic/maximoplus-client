@@ -604,7 +604,7 @@
   (cont-late-register
    [this]
    (u/debug "cont-late-register " (c/get-id this))
-   (p! this "late-register" c/register-mainset mboname))
+   (p! this "late-register" c/register-mainset  mboname))
   (get-offline-objects-tree
    [this]
    (let [ret
@@ -923,24 +923,52 @@
   Offline
   (^override cont-late-register
    [this]
-   (->
-    (p! this "late-register" c/register-mainset mboname)
-    (p/then
-     (fn [_]
-       (p! this "currapp"  c/set-current-app-with-offline  (.toUpperCase appname))))))
+   ;;desperate measures(macro not working, resolve to cb hell
+;;   (u/debug "calling late register for " mboname)
+   (p/get-promise
+    (fn [resolve reject]
+      (c/register-main-mboset (c/get-id this) mboname
+                              (fn [ok]
+                                (c/set-current-app-with-offline (c/get-id this) (.toUpperCase appname)
+                                                                (fn [ok]
+                                                                  (resolve ok))
+                                                                (fn [err]
+                                                                    (reject err))))
+                              (fn [err]
+                                (reject err))))))
   (cont-late-register-init
    [this]
    (let [_qbe (c/get-state this :qbe)
-         qbe (when _qbe
-               (partition 2 _qbe))
-         orderby (c/get-state this :orderby)]
-     (when qbe
-       (doseq  [[k v] qbe]
-         (kk-nocb! this "qbe" c/set-qbe-with-offline k v)))
-     (when orderby
-       (kk-nocb! this "orderby" c/set-order-by orderby))
-     (kk-nocb! this "reset" c/reset )
-     ))
+         qbe (if _qbe
+               (partition 2 _qbe)
+               [])
+         orderby (c/get-state this :orderby)
+         children (get-children this)]
+     (u/debug "children")
+     (u/debug (clj->js (map c/get-id children)))
+     (u/debug (clj->js (map (fn [c]
+                              [(c/get-id c) (c/get-state c :iscontainer)]
+                              )
+                            children)))
+     (->
+      (p/prom-all
+       (doall
+        (map (fn [[k v]]
+               (p! this "qbe"c/set-qbe-with-offline k v))
+             qbe)))
+      (p/then
+       (fn [_]
+         (when orderby
+           (p! this "orderby" c/set-order-by orderby))))
+      (p/then
+       (fn [_]
+         (p! this "reset" c/reset)))
+      (p/then
+       (fn [_]
+         (doseq [c  (get-children this)]
+           (when-not (c/get-state c :iscontainer)
+             (init-data c)
+             )))))))
   Container
   (^override cont-desc
    [this]
@@ -1037,7 +1065,7 @@
   (^override cont-late-register
    [this]
    (p! this "register" 
-       c/register-mboset-byrel-with-offline rel (c/get-id mbocont)))
+       c/register-mboset-byrel-with-offline  rel (c/get-id mbocont)))
   (is-offline-enabled
    [this]
    (let [parent-id (c/get-state this :parentid)
@@ -1174,7 +1202,7 @@
   (^override cont-late-register
    [this]
    (p! this "register"
-                       c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid)))
+                       c/register-mboset-with-one-mbo-with-offline  (c/get-id mbocont) contuniqueid)))
 
 (def-comp UniqueMboAppContainer [mboname appname uniqueId] MboContainer
   (^override fn* []

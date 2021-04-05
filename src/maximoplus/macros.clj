@@ -239,7 +239,7 @@
         (err-handler# err#)))))
 
 (defmacro p! [container command cont-f & args]
-  `(let [fh# (maximoplus.baasecontrols.get-finish-call-handler ~container)]
+  `(let [fh# (maximoplus.basecontrols.get-finish-call-handler ~container)]
      ((maximoplus.basecontrols.get-prepare-call-handler ~container) ~command)
      (maximoplus.promises.get-promise
       (fn [resolve# reject#]

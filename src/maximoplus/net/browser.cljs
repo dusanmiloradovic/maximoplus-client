@@ -108,7 +108,7 @@
     (cf xhr1 _url)))
 
 (defn send-get [url callback error-callback]
- ; (u/debug "calling send-get for  " url " at " (.getTime (js/Date.)))
+ ;; (u/debug "calling send-get for  " url " at " (.getTime (js/Date.)))
   (try 
     (send-meth (fn [xhr1 url] (transmit xhr1 url "GET" nil nil 0)) url callback error-callback)
     (catch js/Error e (u/debug "Error in AJAX call:" e))))

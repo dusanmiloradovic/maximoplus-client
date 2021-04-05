@@ -158,6 +158,7 @@
     (f)))
 
 (def offline-posted (atom {}))
+(def was-offline (atom false))
 
 ;;this should be cleared when the device go offline. Once it is online, it should post the changes maximum once per table if it was not already posted.
 ;;MAYBE I need this just for the application containers (because the change is calculated recursively)
@@ -171,6 +172,7 @@
       (u/debug "Going offline")
       (net/stop-server-push-receiving)
       (swap! is-offline (fn [_] true))
+      (reset! was-offline true)
       (reset! offline-posted {}))
     (if (= "123" (net/get-tabsess))
       (do;;if it was started when offine
@@ -1731,6 +1733,7 @@
 
 
 
+
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
@@ -1745,6 +1748,7 @@
          (if offline?
            (do
              (reset! is-offline true)
+             (reset! was-offline true)
              (reset! page-opened true)
              (go (put! @page-init-channel "offline")))
            (let [page-already-opened @page-opened]
@@ -1760,17 +1764,24 @@
                     (go (put! @page-init-channel (first _ts)))
                     (start-receiving-events)
                     (resolve (first _ts))
-                    (when @is-offline
+                    (u/debug "got ok from server init call")
+                    (when @was-offline
                       ;;it was offline, and now its offline, and it must be after login(otherwisere
                       ;;this would be error with 401)
+
+                      (u/debug "WAS offline")
                       (reset! is-offline false)
+                      (reset! was-offline false)
                       (let [app-containers (get-app-containers)]
+                        (u/debug "calling late register for " (clj->js (map get-id app-containers)))
                         (->
                          (late-register app-containers)
                          (p/then
                           (fn [_]
+                            (u/debug "finished late register")
                             (doseq [c app-containers]
                               (when (and (not @is-offline) (is-offline-enabled c))
+                                (u/debug "posting change for " (get-id c))
                                 (post-offl-changes c
                                                    (fn [ok] (println "offline posting finished"))
                                                    (fn [err] (println err)))))))))))
@@ -1788,6 +1799,7 @@
                         (do
                           (u/debug "setting to offline")
                           (reset! is-offline true)
+                          (reset! was-offline true)
                           (go (put! @page-init-channel "offline"))
                           )
                         (do
