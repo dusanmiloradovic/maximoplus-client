@@ -346,7 +346,6 @@
   (throw (js/Error. "Not implemented")))
 
 (defn fetch-reset-rels [cont cb errb]
-;;  (u/debug "calling fetch reset-rels for " (c/get-id cont))
   (doseq [relco (get-rel-containers cont)]
     (when (c/is-main-peer (c/get-id relco))
       (re-register-and-reset relco cb errb))))
@@ -385,7 +384,6 @@
 (defn- get-prepare-call-handler
   [control]
   ;;the purpose of this is to indicate to user that the operation is starting, default is the wait cursor for the whole page, but it can be overriden on the control level
-  ;; (u/debug "get prepare call handler za " (.getId control))
   (let [_cbh (get-first-in-hierarchy control "prepareCall")
         cbh (if _cbh _cbh (aget c/globalFunctions "globalPrepareCallHandler")) ]
     (fn [command]
@@ -395,7 +393,6 @@
 (defn- get-finish-call-handler
   [control]
   ;;ideja je da se pre nego sto se pozove kontrola postavi kurzor da ce korisnik da cekica. Medjutim to moze da se promeni na nivou kontrole, tako da ako se stvarno dugo ceka moze da se prikaze nesto fensi
-  ;;  (u/debug "get finish call handler za " (.getId control))
   (fn [command]
     (c/remove-prepare-action control command)
     ( (if-let [cbh (get-first-in-hierarchy control "finishCall")]
@@ -493,14 +490,12 @@
    [this]);by default nothing
   (send-command
    [this command command-f command-cb command-errb]
-;;   (u/debug "received command " command " for " (c/get-id this))
    (let [cch (aget this "command-channel")
          da1 (c/get-state this :deferred)
          da2 (if (or (= command "init") (not da1));;wait for deferred (usually the constructor), unless in constructor 
                @c/page-init-channel
                da1)]
      (p-deferred-on da2
-  ;;                  (u/debug " for command " command " and " (c/get-id this) " got will send to command channel")
                     (go
                       (put! cch [command command-f command-cb command-errb])))))
   (start-receiving
@@ -585,7 +580,6 @@
    [this]
    (kk! this "init" c/register-mainset mboname
         (fn [ok]
-          (println "registered main set ")
           (go (put! (c/get-state this :deferred) ok)))
         nil))
   (remove-deferred
@@ -614,7 +608,6 @@
    (c/get-state this :offlineenabled))
   (cont-late-register
    [this]
-   (u/debug "cont-late-register " (c/get-id this))
    (p! this "late-register" c/register-mainset  mboname))
   (get-offline-objects-tree
    [this]
@@ -683,7 +676,7 @@
               
               )))
    (u/debug "OFFLINE POST FINISHED")
-   (println res)
+;;   (println res)
    ;;(println (u/transit-read res))
    )
   Container
@@ -872,7 +865,6 @@
                 (fn [e]
                   (when-let [qbe (-> (get e 0)  u/vec-to-map)]
                     (c/toggle-state this :qbe (get e 0))
-;;                    (println "got the qbe:" qbe)
                     (aset this "qbe" qbe)
                     (cb qbe)))
                 errb
@@ -905,10 +897,7 @@
                                                 (fn [cnt] (c/get-state cnt :initialized?) )
                                                 (get-rel-containers this)))
                                   (not= currow prev-row)))
-;;                              (u/debug "mbocont " (c/get-id this) " got set-control-index " currow)
                               (doseq [_cnt  (get-rel-containers this) ]
-                                ;;                                (println "re-register-and-reset " (c/get-id this) (c/get-id _cnt) " for prev-row=" prev-row " and currow=" currow)
-  ;;                              (u/debug "3rereg " (c/get-id _cnt))
                                 (c/toggle-state _cnt :initialized? true)
                                 (re-register-and-reset _cnt nil nil)))))
     "reset" (fn [_]
@@ -960,12 +949,6 @@
                [])
          orderby (c/get-state this :orderby)
          children (get-children this)]
-     (u/debug "children")
-     (u/debug (clj->js (map c/get-id children)))
-     (u/debug (clj->js (map (fn [c]
-                              [(c/get-id c) (c/get-state c :iscontainer)]
-                              )
-                            children)))
      (->
       (p/prom-all
        (doall
@@ -997,7 +980,6 @@
    (c/use-stored-query (c/get-id this) queryName))
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
-   (u/debug "calling init-data-with-off AppContainer")
    (when
        (and
         (c/is-offline-enabled this)
@@ -1006,7 +988,6 @@
         (not (@c/offline-posted (c/get-id this)))
         )
      (aset this "offlinePosting" true)
-     (u/debug "doing the offline posting")
      (->
       (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
       (p/then
@@ -1017,7 +998,6 @@
               (c/get-offline-changes this)
               (p/then (fn [changes]
                         (when-not (empty? changes)
-                          (u/debug "posting:")
                           (.log js/console (clj->js changes))
                           (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
               (p/then (fn [res]
@@ -1105,8 +1085,6 @@
    ;;simlified version used for offline offloading
    (kk-nocb! this "re-register" c/register-mboset-byrel rel (c/get-id mbocont)))
   (^override re-register-and-reset [this cb errb]
-   ;;   (u/debug "calling re-registration of  relcontainer " (c/get-id this))
-   ;;   (println "calling re-register and reset " rel " and id " (c/get-id this))
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
@@ -1121,7 +1099,6 @@
               (and
                @c/is-offline
                (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-            ;;      (u/debug "1rereg " (c/get-id c))
             (re-register-and-reset c cb errb))))
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
@@ -1197,7 +1174,6 @@
    (let [idcont (c/get-id mbocont)
          _unid (aget this "contuniqueid")
          dfrd (promise-chan)]
-;;     (u/debug "singlembocontainer re-register-and-reset " (c/get-id this))
      (c/toggle-state this :deferred dfrd)
      (p-deferred-on
       dfrd
@@ -1209,7 +1185,6 @@
                         (when (and
                                @c/is-offline
                                (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-;;                          (u/debug "2rereg " (c/get-id c))
                           (re-register-and-reset c cb errb)))))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
@@ -1634,7 +1609,6 @@
                    (c/mboset-count-with-offline
                     (.getId sm-cont)
                     (fn[e]
-                                        ;         (u/debug "Dobio sam count:" e)
                       (if (= 1 (first e))
                         (dispose sm-cont)
                         (show-smartfill-list  column sm-cont)))))))
@@ -1656,7 +1630,6 @@
                                         ;don't know why in original 1.0 code this is here, if I don't find out I will delete it
    )
   (^override errback-handler  [this error-text error-code error-group error-key]
-                                        ;(u/debug "pozvan je errback handler od textfielda za komandu " command " i error " error)
    (replace-from-local this)
    (set-field-focus (get-parent this) this)
    ((get-errback-handler nil) [[error-code error-text error-group error-key] nil nil])) ;;force global error handler
@@ -1969,7 +1942,6 @@
      vs))
   (on-set-readonly
    [this flag]
-                                        ;                   (u/debug "seting the row readonly:" mxrow flag)
    (set-enabled this (not flag))
    (when-not flag
      (set-flags-from-local this)))
@@ -1979,7 +1951,6 @@
      (set-row-field-value this fld "")))
   (on-set-max-value
    [this column value]
-;;   (println "***************Section on-set-max-value, container = " (c/get-id container) column value)
    (doseq [fld (get-children this)]
      (when (= (get-column fld) (.toUpperCase column))
        (set-row-field-value this fld value))))
@@ -2164,7 +2135,6 @@
      ))
   (init-data
    [this]
-;;   (println "Init data secit" (c/get-id container))
    (mm/p-deferred
     this
     (let [currow (c/get-currow container)
@@ -2185,7 +2155,6 @@
          kond  (and
                 (not= row sec-curr-row)
                 (not= -1 (js/parseInt row)))]
-;;     (println sec-curr-row ",,," row  (= row sec-curr-row) "--" (= -1 (js/parseInt row)) "!!!!!!" kond)
      (when kond
        (c/toggle-state this :sec-curr-row row)
        (if-let [fc (aget container "fetching")]
@@ -2390,7 +2359,6 @@
      fld))
   Qbe
   (init-qbe-values [this]
-                   (println "init qbe values")
                    (get-qbe container  
                             (fn [qbe]
                               (set-row-values this qbe))
@@ -2773,7 +2741,6 @@
                     nrs (js/parseInt (get-numrows this))
                     _numrows (js/parseInt numrows)]
                 (c/toggle-state this :norows (+ nrs _numrows))
-;;                (u/debug "calling fetch-more on grid for container " (c/get-id container))
                 (kk! (c/get-container this) "fetch" c/fetch-multi-rows-with-offline-no-reset (+ fmr nrs) _numrows
                      nil
                      nil)))
@@ -2783,7 +2750,6 @@
      (let [currow (c/get-currow container)
            selectableF (c/get-state this :selectableF)]
                                         ;the following gives the more responsive grid to the user (if the move to is slow, user may feel the whole maximo as slow)
-       ;;       (println "Row selected action current container row " currow " and row to move = " mr)
        (doseq [r (get-data-rows this)]
          (unhighlight-grid-row this r))
        (highlight-grid-row this row-control)
@@ -3039,11 +3005,8 @@
           err-handler (get-errback-handler this)]
       (init-data-with-off container 0 (get-numrows this)
                           (fn [ok]
-                            (u/debug "!OK calling the init data on grid")
                             (when cb-handler (cb-handler ok)))
                           (fn [err]
-                            (u/debug "calling err init dta on grid")
-                            (u/debug err)
                             (when err-handler (err-handler err)))))))
   Picker
   (pick-row;this will be called just for the pickers
@@ -3108,15 +3071,13 @@
                      (set-row-value parentC column qbe)) nil)))))
             nil)
            (do
-             (println "setting qbe from list")
              (c/set-value  (c/get-id listContainer) "_SELECTED" new-sel
                            (fn[_] (c/set-qbe-from-list (c/get-id container) (c/get-id listContainer) column 
                                                        (fn[_]
                                                          (c/get-qbe (c/get-id container) (fn [ok])
-                                                                    (fn [err] (println err))) ;;force state qbe update
+                                                                    (fn [err] (println))) ;;force state qbe update
                                                          (init-qbe-values parentC)
                                                          (set-focus field)))))
-             ;;(c/dispatch-upd  (c/get-id listContainer) (c/get-currow listContainer) "_SELECTED" new-sel)
              )))))))
 
 (mm/def-comp AbstractListDialog [container listContainer field dialogcols] VisualComponent
@@ -3241,8 +3202,7 @@
                       container
                       column
                       lv
-                      (fn[_] 
-                        (u/debug "picker list ok"))
+                      (fn[_])
                       (fn [err] ((get-errback-handler this)  err))))
                    (u/debug "picker list is null not sure why")))))
             picker-list (build-picker-list this column listcon pickerkeycol pickercol norows rfn)]

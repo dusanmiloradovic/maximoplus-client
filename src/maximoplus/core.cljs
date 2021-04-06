@@ -55,7 +55,7 @@
          (>! ch true)
          (close! ch)))
      (fn [[_ err-type err-code]]
-       (println "callback in go loop " err-type)
+;;       (println "callback in go loop " err-type)
        (go
          (>! ch
              (if  (or
@@ -74,7 +74,7 @@
 
 (defn check-server-back-online
   []
-  (println "enter check-server-back-onlne")
+;;  (println "enter check-server-back-onlne")
   (go-loop
       []
     (<! (timeout 10000))
@@ -192,7 +192,10 @@
           (when (is-offline-enabled c)
             (post-offl-changes c
                                (fn [ok] (println "offline posting finished"))
-                               (fn [err] (println err)))))))
+                               (fn [err]
+                                 (u/debug offline posting returned an error)
+                                 ;;(println err)
+                                 ))))))
       ))
 
 ;;(defn listen-offline
@@ -516,8 +519,6 @@
              #(let [red-uri (first %)
                     refer (.-referrer js/document)]
                 (swap! logging-in (fn [_] false))
-                (u/debug ( str "all including the redirection uri" %))
-                (u/debug (str "just the redirection uri" red-uri))
                 (set! (.-location js/window) (if (and refer (-> refer empty? not)) refer (redirect-after-login))))
              (fn[e] (swap! logging-in (fn [_] false))(u/debug e) (js/alert "Invalid username or password"))))
 
@@ -542,8 +543,6 @@
                      #(let [red-uri (first %)
                             refer (.-referrer js/document)]
                         (swap! logging-in (fn [_] false))
-                        (u/debug ( str "all including the redirection uri" %))
-                        (u/debug (str "just the redirection uri" red-uri))
                         (set! (.-location js/window) (if refer refer "/")))
                      (fn[e] (swap! logging-in (fn [_] false))(u/debug e) (js/alert "Invalid username or password"))))
 
@@ -595,7 +594,6 @@
 
 (defn ^:export moveToOffline
   [rel-name uniqueId parentId dta]
-;;  (println "move to offline " rel-name " and " uniqueId " and " parentId " and " dta)
   (offline/moveToOffline rel-name (assoc dta "uniqueid" uniqueId "parentid"
                                          (if (.startsWith rel-name "list_") -1  parentId)) ))
 
@@ -632,7 +630,6 @@
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
       (toggle-state control-name :mainmboset true)
                                         ;the purpose of this flag is to register the controls when going from offline to online, if the controls were not really registered before, just offline , or if it was registered online, and then session expired when offline. Library will send the register commands automatically starting with the main set and then going recursivelly for all the rel containers
@@ -651,7 +648,6 @@
 
 (defn ^:export register-mainset
   [control-name main-object cb errb]
-  (println "!!!! registering main mboset")
   (register-main-mboset-with-offline control-name main-object cb errb))
 
 (defcmd register-maximo-menu;;not realy used anymore
@@ -704,8 +700,6 @@
               (cb cmeta))))))))
    (p/then-catch
     (fn [err]
-      (println "error in adding control columns")
-      (println err)
       (let [formatted-err [[:js (aget err "message") nil nil] 0 0]]
         (if errb
           (errb formatted-err)
@@ -889,7 +883,6 @@
                        (not @is-offline))
                   (offlinePrepareOne (get-id container))))
           errbh (fn [err]
-                  (println "register-columns error " err)
                   (when errback-handler (errback-handler err)))]
       (kk! container "registercol" add-control-columns-with-offline columns-all cbh errbh))))
       
@@ -925,7 +918,6 @@
       )
     );kada je sve ok treba da apdjetujem local storage, jer se za slucaj ld to ne desava
   (fn [err] 
-                                        ;    (u/debug "set-value error")
     (let [currow (get-currow control-name)]
       (dispatch-upd control-name  currow attribute (get-local-data control-name  currow attribute))
       )))
@@ -957,23 +949,18 @@
 (defcmd save [control-name])
 
 (defcmd forward [control-name] (fn [evt]
-                                    (u/debug (str "forward  got ok with the result" evt))
-                                    (toggle-state control-name :firstrow false)
-                                    (toggle-state control-name :lastrow (not= "ok" (first evt)))))
+                                 (toggle-state control-name :firstrow false)
+                                 (toggle-state control-name :lastrow (not= "ok" (first evt)))))
 
 (defcmd backward [control-name] (fn [evt]
                                      (do
-                                       (u/debug (str "backward  got ok with the result" evt))
                                        (toggle-state control-name :lastrow false)
                                        (toggle-state control-name :firstrow (not= "ok" (first evt))))))
 
 (defcmd add-at-end [control-name]
   (fn [evt]
     (let [rd-evt  (first evt)]
-					;     (u/debug  "add at end  got ok")
-      ;;      (dispatch-peers! control-name "add-at-end" (js-obj  "row" (aget rd-evt 0) "data" (nth rd-evt 1)))
       (dispatch-peers! control-name "add-at-end" {:row (first rd-evt) :data (second rd-evt)})
-					;      (u/debug "add at end " {"row" (first rd-evt) "data" (second rd-evt)})
       rd-evt
       ))
   )
@@ -983,7 +970,6 @@
   (fn [evt]
     (let [rd-evt  (first evt)] 
       (dispatch-peers! control-name "add-at-index" {:row (first rd-evt) :data (second rd-evt)})
-                                        ;     (u/debug "add at index " {"row" (first rd-evt) "data" (second rd-evt)})
       )))
 
 (defn offline-add-at-index [control-name ind cb errb]
@@ -999,7 +985,6 @@
 (declare put-pending-flags!)
 
 (defn update-flags-with-fetched [control-name [row flags]]
-                                        ;  (u/debug "Update flags with fetched za row " row "flags " (js->clj flags) )
   (put-object-flags! control-name (js/parseInt row) flags))
 
 (def object-data (atom {}))
@@ -1062,7 +1047,6 @@
 
 (defn move-data-and-flags-from-pending [control-name mbo-id]
   (when-let [row (get-row-from-id control-name  mbo-id)]
-                                        ;      (u/debug "Sadrzaj pendinga:" (get-indexes-null (js->clj (@pending-flags control-name))) (when (@pending-flags control-name)  (.-length (@pending-flags control-name))))
     (let [{p-data :data p-flags :flags} 
           (get (@pending-data control-name) mbo-id)]
       (put-object-data! control-name row p-data)
@@ -1140,7 +1124,6 @@
       (dispatch-peers! control-name "fetched-row" {:row rownum :data dta :flags flg })
       (when-let [d (get-curr-uniqueid-promise control-name rownum)]
         (p/callback d (get dta "_uniqueid")))
-;;      (println "fetched row callback " (.contDesc control-name) " offline enabled? " (is-offline-enabled control-name) " parent id " (get-state control-name :parentid))
       (when (and
              (not offline?)
              (is-offline-enabled control-name))
@@ -1148,11 +1131,9 @@
         (let [rel-name (aget rel-map control-name)
               o-dta (assoc dta "rownum" _rownum)
               o-flags (assoc flg "rownum" _rownum)]
-          ;;        (u/debug "should move to offline for rel-name " rel-name)
           (p/then
            (get-parent-uniqueid control-name)
            (fn [parent-uniqueid]
-             ;;             (u/debug "**moving to offline " rel-name " for parent uniqueid " parent-uniqueid)
              (moveToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-dta)
              (moveFlagsToOffline rel-name (get dta "_uniqueid") parent-uniqueid o-flags))))))))
 
@@ -1192,8 +1173,6 @@
                                            lists))))
    (p/then-catch
     (fn [err]
-      (println "error in fetching multi rows")
-      (println err)
       (let [formatted-err [[:js (aget err "message") nil nil] 0 0]]
         (if errb
           (errb formatted-err)
@@ -1202,30 +1181,18 @@
 
 (defcmd fetch-multi-rows [control-name start-row num-rows]
   (fn [evt]
-
-    					;    (u/debug "fetching multi-rows for :" control-name)
-					;   (u/debug "fetch-multi-rows:" evt)
-                                        ;    (u/debug-exception evt)
     (when-not (= "norow" (first evt))
       (doseq [rd-evt  (first evt)]
-        (fetched-row-callback control-name rd-evt)
-        )
-;;      (println "dispatching fetch-finished for " control-name)
+        (fetched-row-callback control-name rd-evt))
       (dispatch-peers! control-name "fetch-finished" {}))
     (fn [err])))
 
 (defcmd fetch-multi-rows-no-reset
   [control-name start-row num-rows]
   (fn [evt]
-
-    					;    (u/debug "fetching multi-rows for :" control-name)
-					;   (u/debug "fetch-multi-rows:" evt)
-                                        ;    (u/debug-exception evt)
     (when-not (= "norow" (first evt))
       (doseq [rd-evt  (first evt)]
-        (fetched-row-callback control-name rd-evt)
-        )
-;;      (println "dispatching fetch-finished for " control-name)
+        (fetched-row-callback control-name rd-evt))
       (dispatch-peers! control-name "fetch-finished" {}))
     (fn [err])))
 
@@ -1310,14 +1277,12 @@
           (doseq [x (range  r (+ r nrs))]
             (let [{data :data flags :flags} (get (@object-data control-name) x)
                   dfgs {:row x :data (select-keys data reg-cols) :flags (select-keys flags reg-cols)}]
-;;              (println dfgs)
               (dispatch-peers! mctl "fetched-row" dfgs)))
           (dispatch-peers! control-name "fetch-finished" {})
           (when cb (cb "ok")))
         (fetch-multi-rows-with-offline mctl r nrs cb errb)))))
 
 (defcmd reset [control-name] (fn [x]
-                                        ;                  (u/debug "reset went ok with the result" x)
                                   ))
 
 (declare reset-controls)
@@ -1374,7 +1339,6 @@
                (.toUpperCase column)
                (let [_mda (aget column "metadata")]
                  (get _mda "attributeName")))]
-    ;;    (println "add-col-attr for " (get-id control) " and column=" _cup ":" attribute-name "=" attribute-value)
     (when (= :offlineReturnColumn attribute-name)
       (toggle-state (get-container control)
                     :offlineReturnColumns (assoc
@@ -1425,7 +1389,6 @@
 
 (defn dispatch-upd [control-name  rownum column value]
   (when (is-registered-column? control-name column)
-                                        ;    (u/debug "update-control-data "  {"control-name" control-name, "mboid" cid, "column" column "value" value "rownum" rownum})
     (dispatch-peers! control-name "update-control-data" { :control-name control-name :column column :value value :rownum rownum})))
 
 (defn update-mbovalue-row 
@@ -1454,7 +1417,6 @@
         ctrls (nth x 1)
         mboid (nth x 2)
         flinf (nth x 3)]
-                                        ;    (u/debug "update-control-attribute-flags funky:" command ctrls mboid flinf)
     (doseq [c ctrls]
       (when-let [rownum (get-row-from-id c mboid)]
         (when (and (= command "setflag") (flag-read-only? (nth flinf 0)))
@@ -1492,34 +1454,8 @@
     (when-let [fields (get od rownum)]
       (doseq [column (keys fields)]
         (let [colval (get fields column)]
-                                        ;       (u/debug (str "disp col=" column ", val=" colval))
           (dispatch-upd control-name  rownum column colval))))))
 
-
-                                        ;(defn add-pending-message [control-name mboid event-name message]
-                                        ;  (put-coll-data pending-messages control-name mboid [event-name message])
-                                        ;  )
-
-                                        ;(defn dispatch-pending-message [control-name mboid]
-                                        ;  (let [mess-ar (@pending-messages control-name)
-                                        ;        msgs (aget mess-ar mboid)
-                                        ;        rownum (get-row-from-id control-name mboid)
-                                        ;        ]
-                                        ;    (when rownum
-                                        ;      (doseq [[event-name event] msgs]
-                                        ;                                        ;        (u/debug "dipatch pending mesasge" control-name " " event-name "-->" event)
-                                        ;                                        ;sada cu ovde da "izgubim na lepoti", ali mora da apdejtujem stanje flegova u object-flagsold
-                                        ;        (when (= event-name  "update-fieldflag")
-                                        ;          (update-flags-with-fetched control-name
-                                        ;                                     [rownum {(get event "field") (get event "flag") }])
-                                        ;          )
-                                        ;        (when (= event-name "update-mboflag")
-                                        ;          (update-data-with-fetched control-name [rownum {"readonly" (aget event "flag")}])
-                                        ;          )
-                                        ;        (aset event "rownum" rownum)
-                                        ;        (dispatch-peers! control-name event-name event)
-                                        ;        )
-                                        ;      (swap! pending-messages #(dissoc % key)))))
 
 (defn- change-the-id-map! [control-name mboid rownum]
   (swap! object-data (fn [c]
@@ -1568,14 +1504,11 @@
                 mess (if uid
                        (if-not (p/has-fired? org)
                          (do
-                           ;;                       (println "resolving the promise for " control-name " with " uid)
                            (p/callback org uid)
                            _mess)
                          (do
-                           ;;                     (println "already fired getting the new promise " control-name)
                            (assoc _mess :uniqueid (p/get-resolved-promise uid))))
                        (do
-                         ;;                 (println "no uid leave it as it is " control-name)
                          _mess))]
             (set-states control mess)
             (change-the-id-map! control-name mboid rownum)
@@ -1601,7 +1534,6 @@
 (declare offline-move-in-progress)
 
 (defn reset-controls [control-names]
-  ;;  (u/debug "doing the reset-controls for " control-names)
   (doseq [control-name control-names]
     (clear-control-data control-name)
     (when (and (not (get-state control-name :dettached))
@@ -1616,9 +1548,7 @@
 (defn command-mboset [ev]
   (let [command (nth ev 0)
         control-names (nth ev 1)]
-                                        ;    (u/debug "commandmboset" control-names command "??")
     (when (= "resetThis" command) 
-                                        ;(or (= "removeAllFromSet" command)(= "resetThis" command))
       (reset-controls control-names))))
 
 (defn command-mbo [ev]
@@ -1633,7 +1563,6 @@
                                nil
                                )]
           (do
-                                        ;              (u/debug "dispatch _selected za cid" cid " i rownum " rownum " i value " select-val)
             (put-object-data-attrval! control-name rownum  "_SELECTED" select-val)
             (dispatch-upd control-name   rownum "_SELECTED" select-val))
           (case command
@@ -1645,11 +1574,9 @@
             "undelete" (do 
                          (dispatch-peers! control-name "delete" 
                                           {:control-name control-name :mboid cid :value false :rownum rownum})
-                         (put-object-data-attrval! control-name rownum "deleted" false))
-            (u/debug ":command" command control-names cid)))))))
+                         (put-object-data-attrval! control-name rownum "deleted" false))))))))
 
 (defn default-ev-process [event-name event-data]
-                                        ;  (u/debug (->> event-data (cons event-name) vec str))
   )
 
 (defn on-add-mbo [ev]
@@ -1673,7 +1600,6 @@
 (defn ev-dispf-from-str[se]
   (let [event-name (nth se 0)
         event-data (subvec se 1)]
-                                        ;    (u/debug "ev-dispfevent-name ",data:" (js->clj event-data))
     (cond
       (= event-name "logout") (js/setTimeout (fn [_] (page-init)) 300)
       (= event-name "updatembovalue") (update-mbovalue event-data)
@@ -1689,13 +1615,6 @@
   (ev-dispf-from-str e)
   )
 
-;;(defn bulk-ev-dispf [bulk-event];optimizacija performansi
-;;  (doseq [e bulk-event]
-;;    (js/setTimeout
-;;     (fn[_]
-;;       (try  (ev-dispf-from-str e) (catch js/Error e (u/debug e)))) 0)))
-
-;;trying to get rid of all the asynchrony. If there will be performance hit, consider the alternatives (workers). Async processing where sync is possible leads to stack overflow in node
 
 (defn bulk-ev-dispf [bulk-event];optimizacija performansi
   (doseq [e bulk-event]
@@ -1718,8 +1637,6 @@
 
 
 (defn start-receiving-events[];treba da napravim jos dva metoda, jedan za obican poll, a drugi za web sockete. korisnik ce moci da konfigurise koji mu odgovara.
-                                        ;  (u/debug "unutar start event-dispatch")
-                                        ; (u/debug "resetovao sam promenljivu start the long poll")
   (when-not @is-offline
     (net/start-server-push-receiving
      bulk-ev-dispf
@@ -1788,37 +1705,30 @@
                     
                     (start-receiving-events)
                     (resolve (first _ts))
-                    (u/debug "got ok from server init call")
                     (let [app-containers (get-app-containers)]
                       (if @was-offline
                         ;;it was offline, and now its offline, and it must be after login(otherwisere
                         ;;this would be error with 401)
                         (do
                           (reset! logging-in  false)
-                          (u/debug "WAS offline")
                           (reset! is-offline false)
                           (reset! was-offline false)
-                          (u/debug "calling late register for " (clj->js (map get-id app-containers)))
                           (->
                            (late-register app-containers)
                            (p/then
                             (fn [_]
-                              (u/debug "finished late register")
                               (doseq [c app-containers]
                                 (when (and (not @is-offline) (is-offline-enabled c))
-                                  (u/debug "posting change for " (get-id c))
                                   (post-offl-changes c
                                                      (fn [ok] (println "offline posting finished"))
-                                                     (fn [err] (println err)))))))))
+                                                     (fn [err] (println "error when posting offline")))))))))
                         (do
-                          (u/debug "wasn't offline " @was-logging-in)
                           (when @was-logging-in
                             (doseq [cont app-containers]
                               (unregister-deferred cont)
                               (re-register-deferred cont)
                               (doseq [c (.getChildren cont)]
                                 (when-not (get-state c :iscontainer)
-                                  (u/debug "after the loging in resetting the " (get-id c))
                                   (.onReset c))))
                             (reset! was-logging-in  false))))))
                   (fn [err]
@@ -1833,14 +1743,12 @@
                             (= err-type "HTTP_ERROR")
                             (not= err-code 401)))
                         (do
-                          (u/debug "setting to offline")
                           (reset! is-offline true)
                           (reset! was-offline true)
                           (go (put! @page-init-channel "offline")
                               (put! @logged-in-chan true))
                           )
                         (do
-                          (u/debug err-type "setting to ONLINE, resetting page init channel")
                           (reset! page-init-called false)
                           (go (put! @page-init-channel "previous"))
                           (reset! page-init-channel (promise-chan))
@@ -1870,7 +1778,6 @@
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;      (u/debug (str "registering of  mboset with one mbo got ok"))
       (add-peer-control nil control-name))))
 
 (defn offline-register-mboset-with-one-mbo [control-name parent-control uniqueid cb errb]
@@ -1891,7 +1798,6 @@
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;     (u/debug (str "registering of  mboset with one mbo got ok"))
       (add-peer-control nil control-name)
       ))
   )
@@ -2053,7 +1959,6 @@
 
 (defcmd unregister-control [control-name]
   (fn [evt]
-                                        ;    (u/debug "unregistering went ok with the result " evt)
     (swap! object-data #(dissoc % control-name))))
 
 (defn offline-unregister-control 
@@ -2102,7 +2007,6 @@
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
       )))
 
@@ -2114,7 +2018,6 @@
     (let [resp (first evt)
           already-reg (first resp)
           ]
-                                        ;      (u/debug (str "registering of main mboset got ok"))
       (add-peer-control nil control-name)
       )))
 
@@ -2244,7 +2147,7 @@
 
 (defn- get-new-promise
   [container command f]
-                                        ;  (u/debug "Gettng new promise for container " (get-id container) " and command " command)
+
   (let [promise  (p/get-promise f)]
     (aset promise "container" container)
     (aset promise "command" command)
@@ -2452,7 +2355,6 @@
 
 (defn one-cont-late-register
   [cont]
-  (u/debug "cont-late-register " (get-id cont))
   (let [deferred (promise-chan)
         registered-columns (@registered-columns (get-id cont))]
     (set-states cont {:deferred deferred})
@@ -2474,8 +2376,6 @@
 
 (defn late-register 
   [containers] ;;relcontainers, just register don't reset
-  (u/debug "strange..." (empty? containers))
-  (u/debug "late register for " (clj->js (map get-id containers)))
   (if (empty? containers)
     (p/get-resolved-promise "empty");already registered, from online->offline and then back
     (p/prom-all
@@ -2534,7 +2434,7 @@
 
 (defn display-offline-post-error
   [errors]
-  (println "Offline Post Errors:" errors))
+  (println "Offline Post Errors:"))
 
 (def ^:export globalFunctions
   #js{"globalDisplayWaitCursor" globalDisplayWaitCursor
