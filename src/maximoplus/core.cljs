@@ -193,7 +193,7 @@
             (post-offl-changes c
                                (fn [ok] (println "offline posting finished"))
                                (fn [err]
-                                 (u/debug offline posting returned an error)
+                                 (u/debug "offline posting returned an error")
                                  ;;(println err)
                                  ))))))
       ))
