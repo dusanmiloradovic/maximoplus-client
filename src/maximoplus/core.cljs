@@ -135,6 +135,8 @@
   (get-col-attrs [component])
   (remove-state [component key])
   (get-currow [component]) ;;temporarily move to this protocol, the whole container protocol should be moved to core
+  (set-deferred [component])
+  (remove-deferred [component])
   )
 
 (defprotocol Offline

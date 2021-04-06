@@ -459,6 +459,11 @@
   (debug-state
    [this]
    (println "for id=" (c/get-id this) ", state keys=" (keys @(aget this "state"))))
+  (set-deferred
+   [this])
+  (remove-deferred
+   [this]
+   )
   Foundation
   (add-meta [this column metaKey metaValue]
             (c/add-col-attr this column metaKey metaValue))
@@ -569,18 +574,24 @@
                           ;;                        :deferred  (kk-nocb! this "init" c/register-mainset mboname)}
                           :deferred deferred ;;I will not use the promises internally anymore for the control of processing. Function will just return the promises to the user. kk! macros will send to the "command-channel". This will be the first call to the command channel, so I can safely listen for the completion
                           })
-           (kk! this "init" c/register-mainset mboname
-                (fn [ok]
-                  (println "registered main set ")
-                  (go (put! deferred ok)))
-                nil)
-           )))
+           (c/set-deferred this))))
   Component
   (get-currow [this]
               (c/get-state this :currrow))
   (get-container
    [this]
    this)
+  (^override set-deferred
+   [this]
+   (kk! this "init" c/register-mainset mboname
+        (fn [ok]
+          (println "registered main set ")
+          (go (put! (c/get-state this :deferred) ok)))
+        nil))
+  (remove-deferred
+   [this]
+   (c/set-states this
+                 {:deferred (promise-chan)}))
   Foundation
   (^override get-prefix [this]
    mboname)
@@ -915,11 +926,16 @@
      (let [deferred (promise-chan)]
        (c/set-states this {:deferred deferred :appcont true :appname appname})
        (c/add-app-container-to-registry this)
-       (kk! this "init" c/set-current-app-with-offline  (.toUpperCase appname)
-            (fn [ok]
-              (u/debug "got a response on init (constructor appcontainer)")
-              (go (put! deferred ok)))
-            nil))))
+       (c/set-deferred this)
+   )))
+  Component
+  (^override set-deferred
+   [this]
+   (->
+    (c/cont-late-register this)
+    (p/then
+     (fn [ok]
+       (go (put! (c/get-state this :deferred) ok))))))
   Offline
   (^override cont-late-register
    [this]
@@ -1055,11 +1071,16 @@
                       :initialized? false
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (mm/kk-branch! mbocont this "init" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
-                      (fn [ok] (go (put! deferred ok))) nil)
+       (c/set-deferred this)
        (aset this "appname" (aget mbocont "appname"))
        (add-child mbocont this)
        (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this)))))
+  Component
+  (^override set-deferred
+   [this]
+   (mm/kk-branch! mbocont this "init" c/register-mboset-byrel-with-offline rel (c/get-id mbocont)
+                  (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil)
+   )
   Offline
   (^override cont-late-register
    [this]
@@ -1147,11 +1168,10 @@
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
-                   (fn [ok]
-                     (go (put! deferred ok))) nil))
+    )
      (aset this "appname" (aget mbocont "appname"))
      (add-child mbocont this)
+     (c/set-deferred this)
      (c/toggle-state mbocont :rel-containers (conj (c/get-state mbocont :rel-containers) this))))
   Component
   (^override get-currow
@@ -1160,6 +1180,11 @@
      ;;for offline read the current row from the parent container
      (c/get-state this :currrow)
      (c/get-currow (get-parent this))))
+  (^override set-deferred
+   [this]
+   (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
+               (fn [ok]
+                 (go (put! (c/get-state this :deferred) ok))) nil))
   Container
   (^override cont-desc
    [this]
@@ -1211,8 +1236,14 @@
        (googbase this mboname)
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueApp" c/set-unique-app (.toUpperCase appname) (.toString uniqueId) ))
        (c/toggle-state this :deferred deferred)
-       (kk! this "init" c/set-unique-app (.toUpperCase appname) (.toString uniqueId)
-            (fn [ok] (go (put! deferred ok))) nil))))
+       (c/set-deferred this)
+   )))
+  Component
+  (^override set-deferred
+   [this]
+   (kk! this "init" c/set-unique-app (.toUpperCase appname) (.toString uniqueId)
+        (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil)
+   )
   Container
   (get-unique-id [this]
                  uniqueId)
@@ -1236,9 +1267,13 @@
      (let [deferred (promise-chan)]
        ;;                 (c/toggle-state this :deferred (kk-nocb! this "setUniqueId" c/set-unique-id  (.toString uniqueid) ))
        (c/toggle-state this :deferred deferred)
-       (kk! this "init" c/set-unique-id  (.toString uniqueid)
-            (fn [ok]
-              (go (put! deferred ok))) nil))))
+       (c/set-deferred this))))
+  Component
+  (^override set-deferred
+   [this]
+   (kk! this "init" c/set-unique-id  (.toString uniqueid)
+        (fn [ok]
+          (go (put! (c/get-state this :deferred) ok))) nil))
   Container
   (get-unique-id [this]
                  uniqueid)
@@ -1260,10 +1295,7 @@
        this
      (.call BaseComponent this);super-super konstruktor)
      (c/add-container-to-registry this)
-     (let [deferred (promise-chan)
-           f (if (= "MBOSET" (.toUpperCase type))
-               c/register-mboset-command
-               c/register-mbo-command)]
+     (let [deferred (promise-chan)]
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
@@ -1274,10 +1306,18 @@
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch!
-        mbocont this "init" f (c/get-id mbocont) command argControl
-        (fn [ok] (go (put! deferred ok))))
-       (add-child mbocont this)))))
+       (c/set-deferred this)
+       (add-child mbocont this))))
+  Component
+  (^override set-deferred
+   [this]
+   (let [f (if (= "MBOSET" (.toUpperCase type))
+               c/register-mboset-command
+               c/register-mbo-command)]
+     (kk-branch!
+      mbocont this "init" f (c/get-id mbocont) command argControl
+      (fn [ok] (go (put! (c/get-state this :deferred) ok))))))
+  )
 
 (mm/def-comp QueryMboContainer [appContainer] MboContainer
   (^override fn* []
@@ -1297,8 +1337,13 @@
                                         ;                                       :deferred (kk-branch-nocb! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname")))
                       :deferred deferred
                       })
+       (c/set-deferred this)
+   )))
+  Component
+  (^override set-deferred
+   [this]
        (kk-branch! appContainer this "init" c/register-query-mboset  (.toUpperCase (aget appContainer "appname"))
-                   (fn [ok] (go (put! deferred ok))) nil)))))
+                   (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil)))
 
 (mm/def-comp BookmarkMboContainer [appContainer] MboContainer
   (^override fn* []
@@ -1318,8 +1363,14 @@
                       ;;                                       :deferred  (kk-branch-nocb! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname")))
                       :deferred deferred
                       })
-       (kk-branch! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname"))
-                   (fn [ok] (go (put! deferred ok))) nil)))))
+       (c/set-deferred this)
+)))
+  Component
+  (^override set-deferred
+   [this]
+   (kk-branch! appContainer this "init" c/register-bookmark-mboset  (.toUpperCase (aget appContainer "appname"))
+               (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil))
+  )
 
 (mm/def-comp InboxMboContainer [] MboContainer
   (^override fn* []
@@ -1339,8 +1390,12 @@
                       ;;                                       :deferred  (kk-nocb!  this "init" c/register-inbox)
                       :deferred deferred
                       })
+       (c/set-deferred this))))
+  Component
+  (^override set-deferred
+   [this]
        (kk!  this "init" c/register-inbox
-             (fn [ok] (go (put! deferred ok))) nil)))))
+             (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil)))
 
 (mm/def-comp PersonMboContainer [] MboContainer;will have just one record with the logged in person
   (^override fn* []
@@ -1359,8 +1414,13 @@
                       :rel-containers []
                       :deferred deferred
                       })
-       (kk!  this "init" c/register-person-mboset
-             (fn [ok] (go (put! deferred ok))) nil)))))
+       (c/set-deferred this)
+       )))
+  Component
+  (^override set-deferred
+   [this]
+   (kk!  this "init" c/register-person-mboset
+         (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil)))
 
 (def-comp ComponentAdapter [container columns norows] BaseComponent
   (fn* []
@@ -1377,9 +1437,17 @@
                                  :receiver true
                                  :next-fetch-row (if norows (js/parseInt norows) 1)
                                  })
-             (c/register-columns container vcols
-                                 (fn [ok] (cb-handler ok) (go (put! deferred ok)))
-                                 (fn [err] (err-handler err)))))))
+             (c/set-deferred this)))))
+  Component
+  (^override set-deferred
+   [this]
+   (let [cb-handler (get-callback-handler this)
+           err-handler (get-errback-handler this)
+           vcols (seq columns)]
+     (c/register-columns container vcols
+                         (fn [ok] (cb-handler ok) (go (put! (c/get-state this :deferred) ok)))
+                         (fn [err] (err-handler err)))))
+  (get-container [this] container)
   ControlData
   (init-data
    [this]
@@ -1395,8 +1463,6 @@
   (clear-control [this])
   (on-set-max-value [this column value])
   (on-set-readonly [this flag])
-  Component
-  (get-container [this] container)
   Foundation
   (dispose [this]
            (c/deregister-columns  (c/get-id container)  columns))
@@ -1508,9 +1574,14 @@
                       :deferred deferred
                       }
                      )
-       (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column qbe
-                   (fn [ok] (go (put! deferred ok))) nil))
+       (c/set-deferred this)
+)
      (add-child mbocont this)))
+  Component
+  (^override set-deferred
+   [this]
+   (kk-branch! mbocont this "init" c/register-list-with-offline (c/get-id mbocont) column qbe
+               (fn [ok] (go (put! (c/get-state this :deferred) ok))) nil))
   Offline
   (is-offline-enabled
    [this]
@@ -1522,13 +1593,12 @@
 
 (mm/def-comp CommandContainer [mbocont command args] MboContainer
   (^override   fn* []
-   (this-as
+   (this-as 
        this
      (.call BaseComponent this);super-super konstruktor
      (c/add-container-to-registry this)
      (c/add-peer-control nil (c/get-id this))
-     (let [fap (apply partial  command (.getId this) (js->clj args))
-           deferred (promise-chan)]
+     (let [deferred (promise-chan)]
        (c/set-states this
                      {:currrow -1
                       :uniqueid (p/get-deferred)
@@ -1538,12 +1608,18 @@
                       :rel-containers []
                       :deferred  deferred}
                      )
-       (mm/kk-branch-noargs! mbocont this "init" fap
-                             (fn [e]
-                               (pre-process-command-callback this e)
-                               (go (put! deferred e)))
-                             (fn [err] ((get-errback-handler this) err) )))
+       (c/set-deferred this))
      (add-child mbocont this)))
+  Component
+  (^override set-deferred
+   [this]
+   (let [fap (apply partial  command (.getId this) (js->clj args))]
+     (mm/kk-branch-noargs! mbocont this "init" fap
+                           (fn [e]
+                             (pre-process-command-callback this e)
+                             (go (put! (c/get-state this :deferred) e)))
+                           (fn [err] ((get-errback-handler this) err) )))
+   )
   CommandProcess
   (pre-process-command-callback [this e]
                                 (c/process-register-list-callback-event (c/get-id this) e)
@@ -1822,22 +1898,26 @@
        (this-as
            this
          (googbase this)
-         (let [cb-handler (get-callback-handler this)
-               err-handler (get-errback-handler this)
-               vcols (seq columns)
-               deferred (promise-chan)]
+         (let [deferred (promise-chan)]
            (c/set-states this
                          {:isconatiner false
                           :receiver true
                           :columns columns
                           :deferred deferred})
-           (c/register-columns container  vcols
-                               (fn [ok]
-                                 (cb-handler)
-                                 (go (put! deferred ok)))
-                               err-handler)
+           (c/set-deferred this)
            (add-child container this))))
   Component
+  (^override set-deferred
+   [this]
+   (let [cb-handler (get-callback-handler this)
+         err-handler (get-errback-handler this)
+         vcols (seq columns)]
+     (c/register-columns container  vcols
+                         (fn [ok]
+                           (cb-handler)
+                           (go (put! (c/get-state this :deferred) ok)))
+                         err-handler)
+     (add-child container this)))
   (get-container
    [this]
    container)
@@ -2382,10 +2462,8 @@
        (this-as
            this
          (googbase this)         
-         (let [cb-handler (get-callback-handler this)
-               err-handler (get-errback-handler this)
-               vcols (seq columns)
-               deferred (promise-chan)]
+         (let [deferred (promise-chan)
+               vcols (seq columns)]
            (c/set-states this
                          {:iscontainer false
                           :receiver true
@@ -2398,12 +2476,22 @@
                           :fetch-flags false ;;Perf optmization for React - for the lists don't fetch flags. If in the futeure we need to now this, I will provide the method
                           :columns vcols
                           })
+           (c/set-deferred this)
+           (add-child container this))))
+  Component
+  (^override set-deferred
+   [this]
+    (let [cb-handler (get-callback-handler this)
+               err-handler (get-errback-handler this)
+               vcols (seq columns)]
            (c/register-columns container  vcols
                                (fn [ok]
                                  (cb-handler ok)
-                                 (go (put! deferred ok)))
-                               err-handler)
-           (add-child container this))))
+                                 (go (put! (c/get-state this :deferred) ok)))
+                               err-handler)))
+  (get-col-attrs [this]
+                 (c/get-state this :colAttrs))
+  (get-container [this] container)
   Foundation
   (add-virtual-column
    [this pos column metadata]
@@ -2846,10 +2934,7 @@
                    (remove-child this dr)))
                (when-not (aget container "fetching")
                  (mm/c! this "fetch" fetch-data  container row (- first-maxrow row))))))))))
-  Component
-  (get-col-attrs [this]
-                 (c/get-state this :colAttrs))
-  (get-container [this] container)
+
   Receivable
   (get-receive-functions
    [this]
@@ -3522,16 +3607,20 @@
                       :rel-containers []
                       :deferred d}
                      )
-       (c/register-gl-format
-        (c/get-id this) orgid
-        (fn [e]
-          (c/set-states this
-                        {:glformat (first e)
-                         :segments (atom (vec (replicate (count (first e)) "")))};;empty vector of segments
-                        )
-          (c/set-segment (c/get-id this) @(c/get-state this :segments)  0 orgid
-                         (fn [ee] (go (put! d ee)))))
-        (fn [e] (go (put! d e))))))) 
+       (c/set-deferred this))))
+  Component
+  (^override set-deferred
+   [this]
+   (c/register-gl-format
+    (c/get-id this) orgid
+    (fn [e]
+      (c/set-states this
+                    {:glformat (first e)
+                     :segments (atom (vec (replicate (count (first e)) "")))};;empty vector of segments
+                    )
+      (c/set-segment (c/get-id this) @(c/get-state this :segments)  0 orgid
+                     (fn [ee] (go (put! (c/get-state this :deferred) ee)))))
+    (fn [e] (go (put! (c/get-state this :deferred) e)))))
   GL
   (get-gl-value [this]
                 (let [segments @(c/get-state this :segments)
@@ -3927,10 +4016,15 @@
                       :rel-containers []
                       :deferred deferred
                       :parentid (c/get-id mbocont)})
-       (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
-                   (fn [ok]
-                     (go (put! deferred ok))) nil))
+       )
+     (c/set-deferred this)
      (aset this "appname" (aget mbocont "appname"))))
+  Component
+  (^override set-deferred
+   [this]
+   (kk-branch! mbocont this "init" c/register-mboset-with-one-mbo-with-offline (c/get-id mbocont) contuniqueid
+               (fn [ok]
+                 (go (put! (c/get-state this :deferred) ok))) nil))
   Container
   (^override cont-desc
    [this]
@@ -3941,8 +4035,7 @@
   Offline
   (^override is-offline-enabled
    [this]
-   false)
-)
+   false))
 
 (defn offl-helper
   [original-container orig-rel-containers cloned-container  index rows]
