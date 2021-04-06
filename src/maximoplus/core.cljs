@@ -865,6 +865,12 @@
 (defn is-virtual? [column-name]
   (= (.toUpperCase column-name) "_SELECTED")
   )
+;;BIG change. After the login, if the user was online, but logged out, the constructor of the
+;;visual components wasn't called, so the message channel is never initialized
+;;we will include promise channel that will be called when the user is logged in or is offline.
+;;when the login dialog comes, the reset of the promise chan
+
+(def logged-in-chan (atom (promise-chan)))
 
 (defn register-columns [container columns-all cb-handler errback-handler]
   (let [columns (filter (comp not is-virtual?) columns-all)
@@ -1733,6 +1739,7 @@
 
 
 
+(def was-logging-in (atom false))
 
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
@@ -1750,7 +1757,8 @@
              (reset! is-offline true)
              (reset! was-offline true)
              (reset! page-opened true)
-             (go (put! @page-init-channel "offline")))
+             (go (put! @page-init-channel "offline")
+                 (put! @logged-in-chan true)))
            (let [page-already-opened @page-opened]
              (reset! page-opened true)
              (->
@@ -1759,32 +1767,44 @@
                  (net/send-get-with-timeout
                   (net/init)
                   (fn [_ts] 
-                    (reset! logging-in  false)
+
                     (net/set-tabsess! (first _ts) )
-                    (go (put! @page-init-channel (first _ts)))
+                    (go (put! @page-init-channel (first _ts))
+                        (put! @logged-in-chan true))
+                    
                     (start-receiving-events)
                     (resolve (first _ts))
                     (u/debug "got ok from server init call")
-                    (when @was-offline
-                      ;;it was offline, and now its offline, and it must be after login(otherwisere
-                      ;;this would be error with 401)
-
-                      (u/debug "WAS offline")
-                      (reset! is-offline false)
-                      (reset! was-offline false)
-                      (let [app-containers (get-app-containers)]
-                        (u/debug "calling late register for " (clj->js (map get-id app-containers)))
-                        (->
-                         (late-register app-containers)
-                         (p/then
-                          (fn [_]
-                            (u/debug "finished late register")
-                            (doseq [c app-containers]
-                              (when (and (not @is-offline) (is-offline-enabled c))
-                                (u/debug "posting change for " (get-id c))
-                                (post-offl-changes c
-                                                   (fn [ok] (println "offline posting finished"))
-                                                   (fn [err] (println err)))))))))))
+                    (let [app-containers (get-app-containers)]
+                      (if @was-offline
+                        ;;it was offline, and now its offline, and it must be after login(otherwisere
+                        ;;this would be error with 401)
+                        (do
+                          (reset! logging-in  false)
+                          (u/debug "WAS offline")
+                          (reset! is-offline false)
+                          (reset! was-offline false)
+                          (u/debug "calling late register for " (clj->js (map get-id app-containers)))
+                          (->
+                           (late-register app-containers)
+                           (p/then
+                            (fn [_]
+                              (u/debug "finished late register")
+                              (doseq [c app-containers]
+                                (when (and (not @is-offline) (is-offline-enabled c))
+                                  (u/debug "posting change for " (get-id c))
+                                  (post-offl-changes c
+                                                     (fn [ok] (println "offline posting finished"))
+                                                     (fn [err] (println err)))))))))
+                        (do
+                          (u/debug "wasn't offline " @was-logging-in)
+                          (when @was-logging-in
+                            (doseq [cont app-containers]
+                              (doseq [c (.getChildren cont)]
+                                (when-not (get-state c :iscontainer)
+                                  (u/debug "after the loging in resetting the " (get-id c))
+                                  (.onReset c))))
+                            (reset! was-logging-in  false))))))
                   (fn [err]
                     (let [err-type (get err 1)
                           err-code (get err 2)]
@@ -1800,7 +1820,8 @@
                           (u/debug "setting to offline")
                           (reset! is-offline true)
                           (reset! was-offline true)
-                          (go (put! @page-init-channel "offline"))
+                          (go (put! @page-init-channel "offline")
+                              (put! @logged-in-chan true))
                           )
                         (do
                           (u/debug err-type "setting to ONLINE, resetting page init channel")
@@ -1808,13 +1829,15 @@
                           (go (put! @page-init-channel "previous"))
                           (reset! page-init-channel (promise-chan))
                           (swap! logging-in (fn [_] true))
+                          (reset! was-logging-in true)
                           (.call (aget globalFunctions "global_login_function") nil err)))
                       (resolve err)))
                   PAGE-INIT-TIMEOUT)))
               (p/then-catch
                (fn [err]
                  (reset! page-init-called false)
-                 (reset! page-init-channel (promise-chan)))))))))))
+                 (reset! page-init-channel (promise-chan))
+                 (reset! logged-in-chan (promise-chan)))))))))))
 
 
 (defn get-control-metadata

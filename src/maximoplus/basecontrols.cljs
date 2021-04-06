@@ -967,8 +967,7 @@
        (fn [_]
          (doseq [c  (get-children this)]
            (when-not (c/get-state c :iscontainer)
-             (init-data c)
-             )))))))
+             (on-reset c))))))))
   Container
   (^override cont-desc
    [this]
@@ -2948,14 +2947,18 @@
                (init-data-from-nd this start-row)))
   (init-data
    [this]
+   (u/debug "calling init data on grid")
    (p-deferred
     this
     (let [cb-handler (get-callback-handler this)
           err-handler (get-errback-handler this)]
       (init-data-with-off container 0 (get-numrows this)
                           (fn [ok]
+                            (u/debug "!OK calling the init data on grid")
                             (when cb-handler (cb-handler ok)))
                           (fn [err]
+                            (u/debug "calling err init dta on grid")
+                            (u/debug err)
                             (when err-handler (err-handler err)))))))
   Picker
   (pick-row;this will be called just for the pickers
