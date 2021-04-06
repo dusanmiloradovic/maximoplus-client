@@ -1739,7 +1739,19 @@
 
 (declare get-main-containers)
 
+(defn unregister-deferred
+  [cont]
+  (let [ch (.getChildren cont)]
+    (remove-deferred cont)
+    (doseq [c ch]
+      (unregister-deferred c))))
 
+(defn re-register-deferred
+  [cont]
+    (let [ch (.getChildren cont)]
+    (set-deferred cont)
+    (doseq [c ch]
+      (re-register-deferred c))))
 
 (def was-logging-in (atom false))
 
@@ -1802,6 +1814,8 @@
                           (u/debug "wasn't offline " @was-logging-in)
                           (when @was-logging-in
                             (doseq [cont app-containers]
+                              (unregister-deferred cont)
+                              (re-register-deferred cont)
                               (doseq [c (.getChildren cont)]
                                 (when-not (get-state c :iscontainer)
                                   (u/debug "after the loging in resetting the " (get-id c))
