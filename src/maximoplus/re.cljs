@@ -907,7 +907,21 @@
     this
     (fn [state] #js{"maxrows" #js[]}) ))
   (on-set-max-value
-   [this column value])
+   [this column value]
+   (set-wrapped-state
+    this
+    (fn [state]
+      (let [_rows-state (aget state "maxrows")
+            currow (aget state "currow")
+            rows-state (if _rows-state _rows-state #js[])
+            rs (-> rows-state
+                   (u/first-in-arr
+                    #(= currow (aget % "mxrow"))))]
+        (when rs
+          (let [rowdata (aget rs "data")]
+            (aset rowdata column value)
+            (aset rs "data" rowdata)))
+        #js{"maxrows" rows-state}))))
   MessageProcess
   (on-set-control-index
    [this row]
