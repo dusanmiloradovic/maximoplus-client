@@ -1444,10 +1444,10 @@
   (add-virtual-column [this ind column metadata]
                       (p-deferred this (add-control-column this ind column metadata)))
   (set-max-value [this column value];;makes sense onfly if there is one row
-                 (kk-nocb! this "set-value" c/set-value-with-offline  container column value))
+                 (kk-nocb! container "set-value" c/set-value-with-offline  column value))
   (set-max-row-value [this rownum column value]
-                     (kk-nocb! this "move-to" c/move-to-with-offline rownum)
-                     (kk-nocb! this "set-value" c/set-value-with-offline  container column value))
+                     (kk-nocb! container "move-to" c/move-to-with-offline rownum)
+                     (kk-nocb! container "set-value" c/set-value-with-offline  column value))
   
   MessageProcess
   (on-set-control-index [this row])
