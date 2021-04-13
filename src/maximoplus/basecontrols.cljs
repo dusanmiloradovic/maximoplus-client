@@ -3000,19 +3000,19 @@
                (init-data-from-nd this start-row)))
   (init-data
    [this]
-   (u/debug "calling init data on grid")
+;;   (u/debug "calling init data on grid")
    (p-deferred
     this
     (let [cb-handler (get-callback-handler this)
           err-handler (get-errback-handler this)
           _numrows (get-numrows this)]
-      (u/debug "grid " (c/get-id this) " initializing with " _numrows " wors")
+  ;;    (u/debug "grid " (c/get-id this) " initializing with " _numrows " wors")
       (init-data-with-off container 0 _numrows
                           (fn [ok]
-                            (u/debug "init grid called ok")
+    ;;                        (u/debug "init grid called ok")
                             (when cb-handler (cb-handler ok)))
                           (fn [err]
-                            (u/debug "init grid called error")
+      ;;                      (u/debug "init grid called error")
                             (when err-handler (err-handler err)))))))
   Picker
   (pick-row;this will be called just for the pickers
