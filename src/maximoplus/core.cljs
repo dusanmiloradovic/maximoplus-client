@@ -1675,6 +1675,8 @@
 (defn ^:export page-init
   "what is common for every page to init. First thing it does is to initialize the server side components, which will check whether the user has already been logged in or not"
   []
+  (reset! object-data {})
+  (reset! pending-data {})
   (when-not @page-init-called
     (internal-page-destructor)
     (reset! page-init-called true))

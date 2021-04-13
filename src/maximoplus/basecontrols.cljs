@@ -3004,11 +3004,15 @@
    (p-deferred
     this
     (let [cb-handler (get-callback-handler this)
-          err-handler (get-errback-handler this)]
-      (init-data-with-off container 0 (get-numrows this)
+          err-handler (get-errback-handler this)
+          _numrows (get-numrows this)]
+      (u/debug "grid " (c/get-id this) " initializing with " _numrows " wors")
+      (init-data-with-off container 0 _numrows
                           (fn [ok]
+                            (u/debug "init grid called ok")
                             (when cb-handler (cb-handler ok)))
                           (fn [err]
+                            (u/debug "init grid called error")
                             (when err-handler (err-handler err)))))))
   Picker
   (pick-row;this will be called just for the pickers
