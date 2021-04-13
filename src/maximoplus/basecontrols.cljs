@@ -578,10 +578,11 @@
    this)
   (^override set-deferred
    [this]
-   (kk! this "init" c/register-mainset mboname
-        (fn [ok]
-          (go (put! (c/get-state this :deferred) ok)))
-        nil))
+   (p-deferred-on @c/page-init-channel
+                  (c/register-mainset (c/get-id this) mboname
+                                      (fn [ok]
+                                        (go (put! (c/get-state this :deferred) ok)))
+                                      nil)))
   (remove-deferred
    [this]
    (c/set-states this
@@ -932,15 +933,16 @@
 ;;   (u/debug "calling late register for " mboname)
    (p/get-promise
     (fn [resolve reject]
-      (c/register-main-mboset (c/get-id this) mboname
-                              (fn [ok]
-                                (c/set-current-app-with-offline (c/get-id this) (.toUpperCase appname)
-                                                                (fn [ok]
-                                                                  (resolve ok))
-                                                                (fn [err]
-                                                                    (reject err))))
-                              (fn [err]
-                                (reject err))))))
+      (p-deferred-on @c/page-init-channel
+                     (c/register-mainset (c/get-id this) mboname
+                                         (fn [ok]
+                                           (c/set-current-app-with-offline (c/get-id this) (.toUpperCase appname)
+                                                                           (fn [ok]
+                                                                             (resolve ok))
+                                                                           (fn [err]
+                                                                             (reject err))))
+                                         (fn [err]
+                                           (reject err)))))))
   (cont-late-register-init
    [this]
    (let [_qbe (c/get-state this :qbe)
