@@ -3551,8 +3551,7 @@
    [this x])
   (^override init-data
    [this]
-   (mm/c! this "getQbe" c/get-qbe-with-offline (c/get-id container)
-          (fn[e]))))
+   (kk-nocb! container "getQbe" c/get-qbe-with-offline)))
 
 (def-comp GLContainer [orgid] MboContainer
   (^override fn* []
