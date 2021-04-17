@@ -646,15 +646,16 @@
                 (->
                  (kk-nocb! this "postOfflineChanges" c/post-offline-changes changes)
                  (p/then (fn [res]
-                           (let [dispF (aget c/globalFunctions "globalOfflinePostError")]
-                             (dispF;;this may return promise(so the user can interact
-                              (clj->js
-                               (map (fn [[id message]]
-                                      {:id id
-                                       :message message
-                                       :data (:data (get-local-data-by-uniqueid this id))})
-                                    (first res)))))
-                           ))
+                           (let [dispF (aget c/globalFunctions "globalOfflinePostError")
+                                 message (clj->js
+                                          (map (fn [[id message]]
+                                                 {:id id
+                                                  :message message
+                                                  :data (:data (get-local-data-by-uniqueid this id))})
+                                               (first res)))]
+                             (u/debug "globalOfflinePostError?")
+                             (.log js/console message)
+                             (dispF message))))
                  (p/then (fn [_]
                            ;;TODO reconsider is auto save the best option. Another option is to give the user the choise to save or rollback
                            (kk-nocb! this "saveOfflineChanges" c/save-offline-changes)))
@@ -982,33 +983,6 @@
    (c/use-stored-query (c/get-id this) queryName))
   (^override init-data-with-off ;when the login happens after the controls have been registerd from offline, the changes get wiped out by the reset. This will post the data change after the data is set
    [this start numrows cb errb]
-   (when
-       (and
-        (c/is-offline-enabled this)
-        (not (aget this "offlinePosting"))
-        (not @c/is-offline);don't try to post offline when offline
-        (not (@c/offline-posted (c/get-id this)))
-        )
-     (aset this "offlinePosting" true)
-     (->
-      (off/exist-table? (aget c/rel-map (c/get-id this)) :raw)
-      (p/then
-       (fn [ex?]
-         (when ex?;;TODO error when table doesn't exist
-           (let [table-name (aget c/rel-map (c/get-id this))]
-             (->
-              (c/get-offline-changes this)
-              (p/then (fn [changes]
-                        (when-not (empty? changes)
-                          (.log js/console (clj->js changes))
-                          (kk! this "postOfflineChanges" c/post-offline-changes changes  cb errb))))
-              (p/then (fn [res]
-                        (off/debug-table table-name)
-                        (c/offline-post-finished this (first res))
-                        (aset this "offlinePosting" false)
-                        (swap! c/offline-posted assoc (c/get-id this) true)
-                        (off/delete-old-records (aget c/rel-map (c/get-id this))))))))))))
-
    (->
     (fetch-data this start numrows nil nil)
     (p/then

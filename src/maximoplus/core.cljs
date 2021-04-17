@@ -161,6 +161,7 @@
 
 (def offline-posted (atom {}))
 (def was-offline (atom false))
+(def logged-in-chan (atom (promise-chan)))
 
 ;;this should be cleared when the device go offline. Once it is online, it should post the changes maximum once per table if it was not already posted.
 ;;MAYBE I need this just for the application containers (because the change is calculated recursively)
@@ -190,12 +191,15 @@
         ;;expired, it will go to the login function, and page-init will post the changes
         (doseq [c (get-app-containers)]
           (when (is-offline-enabled c)
-            (post-offl-changes c
-                               (fn [ok] (println "offline posting finished"))
-                               (fn [err]
-                                 (u/debug "offline posting returned an error")
-                                 ;;(println err)
-                                 ))))))
+            (go
+              (when
+                  (<! @logged-in-chan)
+                (post-offl-changes c
+                                   (fn [ok] (println "offline posting finished"))
+                                   (fn [err]
+                                     (u/debug "offline posting returned an error")
+                                     ;;(println err)
+                                     ))))))))
       ))
 
 ;;(defn listen-offline
@@ -866,7 +870,7 @@
 ;;we will include promise channel that will be called when the user is logged in or is offline.
 ;;when the login dialog comes, the reset of the promise chan
 
-(def logged-in-chan (atom (promise-chan)))
+
 
 (defn register-columns [container columns-all cb-handler errback-handler]
   (let [columns (filter (comp not is-virtual?) columns-all)
