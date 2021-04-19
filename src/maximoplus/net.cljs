@@ -161,3 +161,13 @@
                   (cb))))))
 
 
+;;meaning both online and logged in
+(defn is-logged-in?
+  []
+  (p/get-promise
+   (fn [resolve reject]
+     (send-get (str (serverRoot) "/server/init")
+               (fn [ok]
+                 (resolve true))
+               (fn [err]
+                 (resolve false))))))

@@ -169,7 +169,7 @@
 (defn ^:export setOffline 
   "This should be done automatically when the real physical offline happens."
   [offline]
- ;; (.call (aget globalFunctions "notifyOffline") nil offline)
+  ;; (.call (aget globalFunctions "notifyOffline") nil offline)
   (if  offline
     (do
       (u/debug "Going offline")
@@ -189,18 +189,20 @@
         (swap! is-offline (fn [_] false))
         ;;if the offline period was brief, this will post the changes, otherwise if the session had
         ;;expired, it will go to the login function, and page-init will post the changes
-        (doseq [c (get-app-containers)]
-          (when (is-offline-enabled c)
-            (go
-              (when
-                  (<! @logged-in-chan)
-                (post-offl-changes c
-                                   (fn [ok] (println "offline posting finished"))
-                                   (fn [err]
-                                     (u/debug "offline posting returned an error")
-                                     ;;(println err)
-                                     ))))))))
-      ))
+        ;;to be sure, we have to check is the user logged in after he goes online
+        (->
+         (net/is-logged-in?)
+         (p/then (fn [logged-in?]
+                   (when logged-in?
+                     (u/debug "Already logged in, posting offline changes")
+                     (doseq [c (get-app-containers)]
+                       (when (is-offline-enabled c)
+                         (post-offl-changes c
+                                            (fn [ok] (println "offline posting finished"))
+                                            (fn [err]
+                                              (u/debug "offline posting returned an error")
+                                              ;;(println err)
+                                              ))))))))))))
 
 ;;(defn listen-offline
 ;;  []
