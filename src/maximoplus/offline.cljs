@@ -98,8 +98,39 @@
 
 (declare move-meta-oper)
 
+(def prepared-server-meta-move (atom {}))
+
+(defn prepare-server-meta-move
+  [object-name object-meta]
+  (let [ex-obj-meta (@prepared-server-meta-move object-name)
+        ex-columns (:columns ex-obj-meta)
+        splitted-name (split object-name "_")
+        is-list-cont? (= "list" (splitted-name 0))
+        list-col-name (when is-list-cont? (last splitted-name))
+        parent-name (when
+                        (second splitted-name)
+                      (if is-list-cont?
+                        (join "_" (-> splitted-name butlast rest) )
+                        (join "_" (butlast splitted-name) )))
+        rel-name (when (and
+                        (second splitted-name)
+                        (not is-list-cont?))
+                   (last splitted-name))
+        app-name (:app (second object-meta))
+        columns (map :attributeName (-> object-meta rest rest))
+        obj {:object-name object-name
+             :list-col-name list-col-name
+             :parent-name parent-name
+             :rel-name rel-name
+             :app-name app-name
+             :columns (distinct (concat columns ex-columns))}
+        ]
+    (swap! prepared-server-meta-move assoc object-name obj)
+    (println @prepared-server-meta-move)))
+
 (defn moveMeta
   [object-name object-meta]
+  (prepare-server-meta-move object-name object-meta)
   (let [prom  (p/get-deferred)];;for outside functions that expect promise
     (go (put! incoming-meta [object-name object-meta prom]))
     prom))
@@ -526,7 +557,8 @@
      (p/then (fn [_]
              (moveMeta "COMPLETEWF" cw-meta)))
      (p/then (fn [_]
-             (moveMeta "list_INPUTWF_ACTIONID" actions-meta)))
+               (moveMeta "list_INPUTWF_ACTIONID" actions-meta)))
+     
      (p/then (fn [_]
              (moveMeta "list_COMPLETEWF_ACTIONID" actions-meta))))))
 

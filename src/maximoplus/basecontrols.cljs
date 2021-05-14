@@ -1523,10 +1523,8 @@
                       :rel-containers []
                       :parentid (c/get-id mbocont)
                       :deferred deferred
-                      }
-                     )
-       (c/set-deferred this)
-)
+                      })
+       (c/set-deferred this))
      (add-child mbocont this)))
   Component
   (^override set-deferred
