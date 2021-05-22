@@ -103,6 +103,7 @@
   [object-name object-meta]
   (let [ex-obj-meta (@prepared-server-meta-move object-name)
         ex-columns (:columns ex-obj-meta)
+        ex-app-name (:app-name ex-object-meta)
         splitted-name (split object-name "_")
         is-list-cont? (= "list" (splitted-name 0))
         list-col-name (when is-list-cont? (last splitted-name))
@@ -121,7 +122,7 @@
              :list-col-name list-col-name
              :parent-name parent-name
              :rel-name rel-name
-             :app-name app-name
+             :app-name (if app-name app-name ex-app-name)
              :columns (distinct (concat columns ex-columns))}
         ]
     (swap! prepared-server-meta-move assoc object-name obj)
