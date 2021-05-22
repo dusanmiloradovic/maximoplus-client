@@ -1110,5 +1110,6 @@
 
 
 (defn ^:export generateServerScript
+  []
   (get-offline-db-from-server @prepared-server-meta-move))
    
