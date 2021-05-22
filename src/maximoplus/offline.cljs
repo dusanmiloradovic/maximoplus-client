@@ -56,7 +56,6 @@
 (defn db-ready?
   []
   db-ready)
-
 (defn get-object-meta
   [object-name]
   (db/get-object-meta object-name))
@@ -1093,19 +1092,23 @@
          {:type :select :name "objectQbe"}]))
 
 
+;;(defn ^:export generateServerScriptOld
+;;  []
+;;  (->
+;;   (export-table-structure)
+;;   (p/then
+;;    (fn [structure]
+;;      (->
+;;       (get-object-meta-insert)
+;;       (p/then
+;;        (fn [meta-insert]
+;;          {:structure structure :meta-insert meta-insert})))))
+;;   (p/then
+;;    (fn [script-obj]
+;;      (get-offline-db-from-server script-obj)))))
+;;
+
+
 (defn ^:export generateServerScript
-  []
-  (->
-   (export-table-structure)
-   (p/then
-    (fn [structure]
-      (->
-       (get-object-meta-insert)
-       (p/then
-        (fn [meta-insert]
-          {:structure structure :meta-insert meta-insert})))))
-   (p/then
-    (fn [script-obj]
-      (get-offline-db-from-server script-obj)))))
-  
+  (get-offline-db-from-server @prepared-server-meta-move))
    
