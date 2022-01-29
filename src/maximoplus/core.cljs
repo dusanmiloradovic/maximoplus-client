@@ -829,7 +829,11 @@
 (defcmd smart-fill [fill-list-name mbocontainer-name column-name value]
   (fn[evt] (process-register-list-callback-event fill-list-name evt)))
 
-(defcmd set-value-from-list [mbocontainer-name list-name column-name])
+(defcmd set-value-from-list [mbocontainer-name list-name column-name]
+  (fn [evt]
+    (let [currow (get-currow mbocontainer-name)
+          val (first evt)]
+      (dispatch-upd mbocontainer-name currow column-name val))))
 
 (declare offline-set-value)
 
@@ -913,20 +917,16 @@
 
                                         ;ovo radim zato sto setovanje long description-a ne okida set-value za isti mbo, a ne zelim da radim ovo samo za long description
 (defcmd-with-prepare set-value [control-name attribute value]
-  (let [currow (get-currow control-name)
-        ]
-    (dispatch-upd control-name currow attribute value)
-    )
-  
-  (fn [_] 
-    (let [currow (get-currow control-name)]
+  (let [currow (get-currow control-name)]
+    (dispatch-upd control-name currow attribute value))
+  (fn [evt]
+    (let [val (first evt)
+          currow (get-currow control-name)]
       (put-object-data-attrval! control-name currow attribute value)
-      )
-    );kada je sve ok treba da apdjetujem local storage, jer se za slucaj ld to ne desava
-  (fn [err] 
+      (dispatch-upd control-name currow attribute val)));kada je sve ok treba da apdjetujem local storage, jer se za slucaj ld to ne desava
+  (fn [err]
     (let [currow (get-currow control-name)]
-      (dispatch-upd control-name  currow attribute (get-local-data control-name  currow attribute))
-      )))
+      (dispatch-upd control-name  currow attribute (get-local-data control-name  currow attribute)))))
 
 (defn offline-set-value [control-name rel-name attribute value cb errb]
   (let [currow (get-currow control-name)]
