@@ -856,8 +856,12 @@
                     ))
   (move-to-row
    [this rownum cb errb]
-   (kk! this "move"
-        c/move-to-with-offline  rownum cb errb))
+   (let [mrcb (fn [_]
+                (doseq [_cnt (get-rel-containers this)]
+                  (re-register-and-reset _cnt nil nil))
+                (when cb (cb)))]
+     (kk! this "move"
+          c/move-to-with-offline  rownum cb errb)))
   (get-local-data [this rownum]
                   (let [_rn (if rownum (js/parseInt rownum) (c/get-currow this))]
                     (c/get-local-data-all-attrs (c/get-id this) _rn)))
@@ -1064,6 +1068,7 @@
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
+     (u/debug "calling re-register and reset for " id)
      (p-deferred-on
       dfrd
       (doseq [c  (get-children this)]
@@ -1071,11 +1076,13 @@
           (do
             (clear-control c)
             (init-data c))
-          (when
-              (and
-               @c/is-offline
-               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-            (re-register-and-reset c cb errb))))
+;;          (when
+;;              (and
+;;               @c/is-offline
+;;               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
+;;            (re-register-and-reset c cb errb))
+          (re-register-and-reset c cb errb))
+        )
       (when cb (cb this)))
      (c/re-register-mboset-byrel-with-offline
       id rel (c/get-id mbocont)
@@ -1151,6 +1158,7 @@
          _unid (aget this "contuniqueid")
          dfrd (promise-chan)]
      (c/toggle-state this :deferred dfrd)
+     (u/debug "calling re-register and reset for singlembocont " (c/get-id this))
      (p-deferred-on
       dfrd
       (doseq [c  (get-children this)]
@@ -1158,10 +1166,12 @@
                         (do
                           (clear-control c)
                           (init-data c))
-                        (when (and
-                               @c/is-offline
-                               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
-                          (re-register-and-reset c cb errb)))))
+;;                        (when (and
+;;                               @c/is-offline
+;;                               (some #(= % c) (get-rel-containers this))) ;;check why this is not necessary online
+                        ;;                          (re-register-and-reset c cb errb))
+                        (re-register-and-reset c cb errb)
+                        )))
      (c/re-register-mboset-with-one-mbo-with-offline
       (c/get-id this)
       idcont

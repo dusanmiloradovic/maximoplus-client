@@ -38,3 +38,6 @@ outlib/
 /package-lock.json
 rollup/
 js-foreign/out
+/.clj-kondo/
+/.lsp/
+/yarn.lock
