@@ -2366,22 +2366,28 @@
   [cont]
   (let [deferred (promise-chan)
         registered-columns (@registered-columns (get-id cont))]
+     (u/debug "1.calling conta late register init for " (get-id cont))
     (set-states cont {:deferred deferred})
     (->
      (cont-late-register cont)
      (p/then
       (fn [_]
+        (u/debug "2.calling conta late register init for " (get-id cont))
         (p! cont "registercol" add-control-columns registered-columns)))
      (p/then
       (fn [_]
+        (u/debug "3.calling conta late register init for " (get-id cont))
         (go (put! deferred "finished"))
         (p/get-resolved-promise "registered")))
      (p/then
       (fn [_]
+        (u/debug "calling conta late register init for " (get-id cont))
         (clear-data-cache (get-id cont))
-        (if (get-state cont :parentid);;that is if its rel or dependent container
-          (p/get-resolved-promise "rel-container")
-          (cont-late-register-init cont)))))))
+        (cont-late-register-init cont)
+;;        (if (get-state cont :parentid);;that is if its rel or dependent container
+;;          (p/get-resolved-promise "rel-container")
+;;          (cont-late-register-init cont))
+        )))))
 
 (defn late-register 
   [containers] ;;relcontainers, just register don't reset

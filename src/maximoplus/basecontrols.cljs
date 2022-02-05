@@ -758,6 +758,9 @@
    )
   (set-qbe
    [this column value callback errback]
+   (let [_qbe (c/get-state this :qbe)
+         qbe (if-not _qbe [column value] (merge _qbe column value))]
+     (c/toggle-state this :qbe qbe))
    (kk! this "setQbe" c/set-qbe-with-offline  column value callback errback))
   (set-value
    [this column value callback errback]
@@ -936,7 +939,7 @@
   (^override cont-late-register
    [this]
    ;;desperate measures(macro not working, resolve to cb hell
-;;   (u/debug "calling late register for " mboname)
+   (u/debug "calling late register for " mboname)
    (p/get-promise
     (fn [resolve reject]
       (p-deferred-on @c/page-init-channel
@@ -944,6 +947,7 @@
                                          (fn [ok]
                                            (c/set-current-app-with-offline (c/get-id this) (.toUpperCase appname)
                                                                            (fn [ok]
+                                                                             (c/cont-late-register-init this)
                                                                              (resolve ok))
                                                                            (fn [err]
                                                                              (reject err))))
@@ -952,6 +956,8 @@
   (cont-late-register-init
    [this]
    (let [_qbe (c/get-state this :qbe)
+         _ (println _qbe)
+         _ (u/debug "???")
          qbe (if _qbe
                (partition 2 _qbe)
                [])
