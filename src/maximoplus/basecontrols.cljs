@@ -777,7 +777,7 @@
    [this start numrows cb errb]
    ;;fetching queue is the performance optimization
    ;;many times we can't control how the data in controls is initialized, and the controls just repeadetly call the fetch-data , thus hurting the performance. there will be the queue for fetch, and once is done, the fetch for the same number of rows can be done, otherwise is discarded. This is safe to do because for one container server operations are serialized, and it is not possible to move to other record before the fetch has been finished.
-;;   (u/debug "containe fetch data " (c/get-id this) " " start " " numrows)
+;  (u/debug "containe fetch data " (c/get-id this) " " start " " numrows)
    (assert (and start numrows) "Fetching must have the starting row and the number of rows specified")
    (when (= -1 (c/get-state this :currrow));;fix for offline
      (c/toggle-state this :currrow start))
@@ -898,11 +898,12 @@
                             (when 
                                 (and
                                  (not= -1 (js/parseInt currow))
-                                 (or
-                                  (some false? (map
-                                                (fn [cnt] (c/get-state cnt :initialized?) )
-                                                (get-rel-containers this)))
-                                  (not= currow prev-row)))
+;;                                 (or
+;;                                  (some false? (map
+;;                                                (fn [cnt] (c/get-state cnt :initialized?) )
+;;                                                (get-rel-containers this)))
+;;                                  (not= currow prev-row))
+                                 )
                               (doseq [_cnt  (get-rel-containers this) ]
                                 (c/toggle-state _cnt :initialized? true)
                                 (re-register-and-reset _cnt nil nil)))))
@@ -1068,12 +1069,14 @@
    (let [id (c/get-id this)
          dfrd (promise-chan)];so the reference to it is kept in the closure. If after the first call this is cancelled, the first call will not proceed.
      (c/toggle-state this :deferred dfrd)
-     (u/debug "calling re-register and reset for " id)
+;     (u/debug "calling re-register and reset for " id)
      (p-deferred-on
       dfrd
+   ;;   (u/debug "def?calling re-register and reset for " id)
       (doseq [c  (get-children this)]
         (if-not (c/get-state c :iscontainer)
           (do
+ ;           (u/debug "for the container " id " init data for child" (c/get-id c))
             (clear-control c)
             (init-data c))
 ;;          (when
@@ -1158,7 +1161,7 @@
          _unid (aget this "contuniqueid")
          dfrd (promise-chan)]
      (c/toggle-state this :deferred dfrd)
-     (u/debug "calling re-register and reset for singlembocont " (c/get-id this))
+;     (u/debug "calling re-register and reset for singlembocont " (c/get-id this))
      (p-deferred-on
       dfrd
       (doseq [c  (get-children this)]
@@ -2469,8 +2472,10 @@
    (throw (js/Error. "renderRowBefore not implemented")))
   (on-render
    [this]
-   (when (c/get-state this :selectableF)
-     (init-data this)))
+;   (when (c/get-state this :selectableF)
+                                        ;    (init-data this))
+   (init-data this)
+   )
   (clear-control
    [this]
    (remove-mboset-count this)

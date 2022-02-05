@@ -1276,6 +1276,7 @@
         cb (first callbacks)
         errb (second callbacks)
         ]
+;    (u/debug "fetch with local " control-name " from " row " no rows" no-rows)
     (assert (and row no-rows) "Fetching must have the starting row and the number of rows specified")
     (when-not (= -1 r)
       (if-let [reg-cols (rows-in-local? mctl r nrs)] ;;returns registered cols for performance optimization
