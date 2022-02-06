@@ -668,8 +668,11 @@
 
 (defcmd set-qbe [control-name qbe-attr qbe-expr]
   (fn [evt]
-    (let [qbe (first evt)]
-      (toggle-state control-name :qbe qbe)
+    (let [qbe (-> (get evt 0)  u/vec-to-map)
+          qbe-existing (-> (get-state control-name :qbe) u/vec-to-map)
+          qbe-res (merge qbe-existing qbe)
+          qbe-res-vec (reduce-kv (fn [m k v] (merge m k v)) [] qbe-res)]
+      (toggle-state control-name :qbe qbe-res-vec)
       (when (is-offline-enabled control-name)
         (offline-insert-qbe control-name (first evt))))))
 
@@ -738,9 +741,13 @@
 
 (defcmd get-qbe [control-name]
   (fn [evt]
-    (toggle-state control-name :qbe (first evt))
-    (when (is-offline-enabled control-name)
-      (offline-insert-qbe control-name (first evt)))))
+    (let [qbe (-> (get evt 0)  u/vec-to-map)
+          qbe-existing (-> (get-state control-name :qbe) u/vec-to-map)
+          qbe-res (merge qbe-existing qbe)
+          qbe-res-vec (reduce-kv (fn [m k v] (merge m k v)) [] qbe-res)]
+      (toggle-state control-name :qbe qbe-res-vec)
+      (when (is-offline-enabled control-name)
+        (offline-insert-qbe control-name (first evt))))))
 
 (defcmd get-columns-qbe [control-name columns]
   (fn [evt]

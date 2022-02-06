@@ -452,6 +452,7 @@
   (set-states
    [this kvs]
    (swap! (aget this "state") merge kvs)
+;;   (c/debug-state this)
    )
   (debug-state
    [this]
@@ -873,9 +874,12 @@
                 c/get-qbe-with-offline
                 (fn [e]
                   (when-let [qbe (-> (get e 0)  u/vec-to-map)]
-                    (c/toggle-state this :qbe (get e 0))
-                    (aset this "qbe" qbe)
-                    (cb qbe)))
+                    (let [qbe-existing (-> (c/get-state this :qbe) u/vec-to-map)
+                          qbe-res (merge qbe-existing qbe)
+                          qbe-res-vec (reduce-kv (fn [m k v] (merge m k v)) [] qbe-res)]
+                      (c/toggle-state this :qbe qbe-res-vec)
+                      (aset this "qbe" qbe-res)
+                      (cb qbe-res))))
                 errb
                 ))
   App
@@ -956,8 +960,6 @@
   (cont-late-register-init
    [this]
    (let [_qbe (c/get-state this :qbe)
-         _ (println _qbe)
-         _ (u/debug "???")
          qbe (if _qbe
                (partition 2 _qbe)
                [])
